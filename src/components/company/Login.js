@@ -8,6 +8,7 @@ import { Container, Row, Col, Card } from 'react-bootstrap';
 import * as Yup from 'yup';
 import { Formik } from 'formik';
 import { useCompany } from '../../context/CompanyContext';
+import { jwtDecode } from 'jwt-decode';
 
 const { Content } = Layout;
 const { Title } = Typography;

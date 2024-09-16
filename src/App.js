@@ -8,6 +8,7 @@ import Instructor from './routes/Instructor';
 import Register from './components/company/Register';
 import { useEffect } from 'react';
 import { Modal } from 'antd';
+import { NotificationProvider } from './context/NotificationContext';
 
 function App() {
   const location = useLocation();
@@ -33,14 +34,16 @@ function App() {
   }, [location]);
 
   return (
-    <Routes>
-      <Route path="/" element={<HomePage />} />
-      <Route path="/login" element={<Login />} />
-      <Route path="/admin/*" element={<Admin />} /> 
-      <Route path="/company/*" element={<Company />} />
-      <Route path="/instructor/*" element={<Instructor />} />
-      <Route path="/company/register/*" element={<Register/>}/>
-    </Routes>
+    <NotificationProvider>
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/admin/*" element={<Admin />} /> 
+        <Route path="/company/*" element={<Company />} />
+        <Route path="/instructor/*" element={<Instructor />} />
+        <Route path="/company/register/*" element={<Register/>}/>
+      </Routes>
+    </NotificationProvider>
   );
 }
 

@@ -60,7 +60,6 @@ Chúng tôi rất hoan nghênh mọi đóng góp! Hãy tạo một pull request 
 
 ## 👥 Người đóng góp
 
-<Contributors />
 
 Xem danh sách đầy đủ các người đóng góp tại:
 - [Internship Repository](https://github.com/tahiru0/internship/graphs/contributors)
