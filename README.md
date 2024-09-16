@@ -1,4 +1,4 @@
-# 🚀 Thực tập Doanh nghiệp Số
+# 🚀 Thực tập Doanh nghiệp Số Tech One
 
 ![GitHub stars](https://img.shields.io/github/stars/tahiru0/internship?style=social)
 ![GitHub forks](https://img.shields.io/github/forks/tahiru0/internship?style=social)
@@ -6,7 +6,7 @@
 
 ## 📖 Giới thiệu
 
-Thực tập Doanh nghiệp Số là một nền tảng quản lý thực tập toàn diện, kết nối sinh viên, doanh nghiệp và trường đại học. 🎓💼🏫
+Thực tập Doanh nghiệp Số Tech One là một nền tảng quản lý thực tập toàn diện, kết nối sinh viên, doanh nghiệp và trường đại học. 🎓💼🏫
 
 ## ✨ Tính năng chính
 
@@ -58,10 +58,22 @@ Thực tập Doanh nghiệp Số là một nền tảng quản lý thực tập 
 
 Chúng tôi rất hoan nghênh mọi đóng góp! Hãy tạo một pull request để đóng góp vào dự án.
 
+## 👥 Người đóng góp
+
+<Contributors />
+
+Xem danh sách đầy đủ các người đóng góp tại:
+- [Internship Repository](https://github.com/tahiru0/internship/graphs/contributors)
+- [Server Repository](https://github.com/tahiru0/Server/graphs/contributors)
+
+## 🔗 Dự án liên quan
+
+- [Server Repository](https://github.com/tahiru0/Server) - Backend server cho dự án Thực tập Doanh nghiệp Số Tech One
+
 ## 📞 Liên hệ
 
 Nếu bạn có bất kỳ câu hỏi nào, vui lòng tạo một issue trên GitHub.
 
 ---
 
-⭐️ Từ [tahiru0](https://github.com/tahiru0)
+⭐️ Từ [Tech One](https://github.com/tahiru0/internship)
