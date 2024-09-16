@@ -1,0 +1,74 @@
+/* src/components/Login.css */
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+
+.card {
+  background: #ffffff;
+  border: none;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.card h2,
+.card h5 {
+  color: #000000;
+}
+
+.card .form-label {
+  color: #5a5a5a;
+}
+
+.card .form-control {
+  border: 1px solid #d9d9d9;
+  border-radius: 10px;
+}
+
+.card .form-check-label {
+  color: #5a5a5a;
+  font-size: 14px;
+}
+
+.card .form-control:focus {
+  border-color: #4569df;
+  box-shadow: none;
+}
+
+.card .btn-primary {
+  background-color: #4569df;
+  border-color: #4569df;
+  border-radius: 10px;
+}
+
+.card .btn-primary:hover {
+  background-color: #3556a3;
+  border-color: #3556a3;
+}
+
+.card a {
+  color: #d93f21;
+  font-weight: 300;
+}
+
+.card a:hover {
+  color: #b8301a;
+  text-decoration: underline;
+}
+
+.role-box {
+  border: 2px solid #4569DF; /* Border color */
+  border-radius: 10px; /* Rounded corners */
+  padding: 20px; /* Padding inside the box */
+  text-align: center; /* Center the content */
+  transition: background-color 0.3s; /* Smooth transition for hover effect */
+  height: 150px; /* Fixed height for equal size */
+  width: 100%; /* Full width of the column */
+}
+
+.role-box:hover {
+  background-color: #e7f0ff; /* Light background on hover */
+}
+

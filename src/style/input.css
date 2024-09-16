@@ -1,0 +1,24 @@
+.floating-label {
+    position: relative;
+  }
+  
+  .floating-label .form-control {
+    padding: 1rem 0.75rem; /* Điều chỉnh padding cho input */
+  }
+  
+  .floating-label label {
+    position: absolute;
+    top: 1rem; /* Vị trí nhãn ban đầu */
+    left: 0.75rem;
+    color: #999;
+    transition: 0.2s ease all;
+    pointer-events: none;
+  }
+  
+  .floating-label .active {
+    top: -0.5rem; /* Vị trí nhãn khi active */
+    left: 0.75rem;
+    font-size: 0.75rem; /* Kích thước nhãn khi active */
+    color: #007bff; /* Màu sắc của nhãn khi active */
+  }
+  

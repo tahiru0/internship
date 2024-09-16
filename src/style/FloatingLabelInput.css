@@ -1,0 +1,52 @@
+.floating-label-input {
+    font-size:medium;
+    position: relative;
+    margin-bottom: 1px;
+  }
+  
+  .floating-label-input .input-icon {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 1;
+    pointer-events: none;
+  }
+  
+  .floating-label-input .floating-input {
+    width: 100%;
+    padding: 10px 10px 10px 30px; /* Adjust padding for icon space */
+    box-sizing: border-box;
+    border: 1px solid #b1b1b1;
+    border-radius: 4px;
+    outline: none;
+  }
+  
+  .floating-label-input .floating-input:focus {
+    border-color: #1890ff;
+  }
+  
+  .floating-label-input .floating-label {
+    position: absolute;
+    left: 30px; /* Adjust for icon space */
+    top: 50%;
+    transform: translateY(-50%);
+    transition: 0.2s;
+    pointer-events: none;
+    background: white;
+    padding: 0 5px;
+    color: #b1b1b1; /* Default color */
+  }
+  
+  .floating-label-input .floating-input:focus + .floating-label,
+  .floating-label-input .floating-input:not(:placeholder-shown) + .floating-label {
+    top: -3px;
+    left: 30px; /* Adjust for icon space */
+    font-size: 13px;
+  }
+  
+  .floating-label-input .floating-input:focus + .floating-label {
+    color: #1890ff; /* Color when focused */
+  }
+  
+  

@@ -1,38 +1,102 @@
-.App {
-  text-align: center;
+a{
+  text-decoration: none !important;
+}
+.nav-link1 {
+  font-size: 1.2rem ;
+  font-weight: 500 !important;
+  margin: 0 1rem;
+  transition: all 0.3s ease;
 }
 
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
+.nav-link1.active {
+  color: #0d6efd !important;
+  position: relative;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
+.nav-link1.active::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -10px; /* Điều chỉnh vị trí để chạm đáy */
+  height: 2px; /* Độ dày của border */
+  background-color: #0d6efd;
+}
+
+
+.notification-title {
+  color: #333;
+  font-weight: 500; 
+  margin-bottom: 0.5rem;
+}
+
+.table-responsive {
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.table-responsive th,
+.table-responsive td {
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.custom-card {
+  transition: transform 0.2s, border-color 0.2s; /* Add transition for border color */
+  cursor: pointer;
+  border-radius: 8px; /* Rounded corners */
+  border: 2px solid transparent; /* Initial border */
+}
+
+.custom-card:hover {
+  transform: scale(1.05); /* Scale up on hover */
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* Add shadow on hover */
+  border-color: #1890ff; /* Change border color on hover */
+}
+
+.icon-col {
+  text-align: center; /* Center the icon */
+}
+
+.icon-container {
+  background-color: #1890ff; /* Background color for the icon */
+  border-radius: 8px; /* Rounded corners */
+  width: 60px; /* Set width for square */
+  height: 60px; /* Set height for square */
+  display: flex; /* Use flexbox to center the icon */
+  justify-content: center; /* Center horizontally */
+  align-items: center; /* Center vertically */
+}
+
+.ant-statistic-title{
+  font-size: 15px !important;
+  font-weight: 500;
+}
+
+.backdrop {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 98;
+}
+
+.collapse-button {
+  display: none; /* Mặc định ẩn */
+}
+
+@media (max-width: 768px) {
+  .collapse-button {
+    display: inline-block; /* Hiển thị ở màn hình nhỏ */
   }
-}
-
-.App-header {
-  background-color: #282c34;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
-}
-
-.App-link {
-  color: #61dafb;
-}
-
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
+  .ant-layout-sider-primary {
+    background-color: #fff !important;
   }
-  to {
-    transform: rotate(360deg);
+  .backdrop {
+    display: block;
   }
 }
