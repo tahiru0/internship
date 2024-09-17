@@ -114,12 +114,22 @@ const AdminProjectManagement = () => {
       const response = await axios.get(`http://localhost:5000/api/company/projects?${params.toString()}`, {
         headers: { Authorization: `Bearer ${accessToken}` }
       });
-      if (response.data && Array.isArray(response.data.projects)) {
+      
+      // Kiểm tra xem response.data có phải là một mảng không
+      if (Array.isArray(response.data)) {
+        setProjects(response.data);
+        setPagination({
+          current: page,
+          pageSize: pageSize,
+          total: response.data.length, // Hoặc sử dụng giá trị total từ headers nếu có
+        });
+      } else if (response.data && Array.isArray(response.data.projects)) {
+        // Nếu response.data là một object chứa mảng projects
         setProjects(response.data.projects);
         setPagination({
-          current: response.data.page,
-          pageSize: response.data.limit,
-          total: response.data.total,
+          current: response.data.page || page,
+          pageSize: response.data.limit || pageSize,
+          total: response.data.total || response.data.projects.length,
         });
       } else {
         console.error('Dữ liệu nhận được không hợp lệ:', response.data);
@@ -320,6 +330,7 @@ const AdminProjectManagement = () => {
       filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }) => (
         <div style={{ padding: 8 }}>
           <Input
+            prefix={<SearchOutlined />}
             placeholder="Tìm kiếm tên dự án"
             value={selectedKeys[0]}
             onChange={e => setSelectedKeys(e.target.value ? [e.target.value] : [])}
@@ -424,7 +435,7 @@ const AdminProjectManagement = () => {
               <Menu.Item key="delete">
                 <Popconfirm
                   title="Bạn có chắc chắn muốn xóa dự án này không?"
-                  onConfirm={() => handleDelete(record.id)}
+                  onConfirm={() => handleDelete(record._id)}
                   okText="Có"
                   cancelText="Không"
                 >
@@ -448,7 +459,7 @@ const AdminProjectManagement = () => {
   const renderGrid = () => (
     <Row gutter={[16, 16]}>
       {projects.map((project) => (
-        <Col xs={24} sm={12} md={8} lg={6} key={project.id}>
+        <Col xs={24} sm={12} md={8} lg={6} key={project._id}>
           <Card
             title={
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -459,11 +470,11 @@ const AdminProjectManagement = () => {
                 </Tooltip>
                 {project.pinned ? (
                   <Tooltip title="Bỏ ghim dự án">
-                    <PushpinFilled onClick={() => togglePinProject(project.id)} />
+                    <PushpinFilled onClick={() => togglePinProject(project._id)} />
                   </Tooltip>
                 ) : (
                   <Tooltip title="Ghim dự án">
-                    <PushpinOutlined onClick={() => togglePinProject(project.id)} />
+                    <PushpinOutlined onClick={() => togglePinProject(project._id)} />
                   </Tooltip>
                 )}
               </div>
@@ -472,7 +483,7 @@ const AdminProjectManagement = () => {
               <Dropdown
                 overlay={
                   <Menu>
-                    <Menu.Item key="delete" onClick={() => handleDelete(project.id)}>
+                    <Menu.Item key="delete" onClick={() => handleDelete(project._id)}>
                       <DeleteOutlined /> Xóa
                     </Menu.Item>
                   </Menu>
@@ -491,7 +502,7 @@ const AdminProjectManagement = () => {
             <p>
               <strong>Người hướng dẫn:</strong>{' '}
               {project.mentor && project.mentor.length > 0 && (
-                <Button onClick={() => openMentorDetailModal(project.id, project.mentor[0].id)}>
+                <Button onClick={() => openMentorDetailModal(project._id, project.mentor[0]._id)}>
                   <Avatar src={project.mentor[0].avatar} size="small" style={{ marginRight: 8 }} />
                   {project.mentor[0].name}
                 </Button>
@@ -677,7 +688,7 @@ const AdminProjectManagement = () => {
           onChange={(value) => setNewMentorId(value)}
         >
           {mentors.map(mentor => (
-            <Option key={mentor.id} value={mentor.id}>
+            <Option key={mentor._id} value={mentor._id}>
               <Avatar src={mentor.avatar} size="small" style={{ marginRight: 8 }} />
               {mentor.name}
             </Option>

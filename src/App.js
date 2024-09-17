@@ -5,7 +5,9 @@ import { Routes, Route, useLocation } from 'react-router-dom';
 import Admin from './routes/Admin';
 import Company from './routes/Company';
 import Instructor from './routes/Instructor';
+import School from './routes/School';
 import Register from './components/company/Register';
+import SchoolRegister from './components/school/Register';
 import { useEffect } from 'react';
 import { Modal } from 'antd';
 import { NotificationProvider } from './context/NotificationContext';
@@ -34,16 +36,25 @@ function App() {
   }, [location]);
 
   return (
-    <NotificationProvider>
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/admin/*" element={<Admin />} /> 
-        <Route path="/company/*" element={<Company />} />
-        <Route path="/instructor/*" element={<Instructor />} />
-        <Route path="/company/register/*" element={<Register/>}/>
-      </Routes>
-    </NotificationProvider>
+    <Routes>
+      <Route path="/login" element={<Login />} />
+      <Route path="/company/register/*" element={<Register/>}/>
+      <Route path="/school/register/*" element={<SchoolRegister/>}/>
+      <Route
+        path="/*"
+        element={
+          <NotificationProvider>
+            <Routes>
+              <Route path="/" element={<HomePage />} />
+              <Route path="/admin/*" element={<Admin />} /> 
+              <Route path="/company/*" element={<Company />} />
+              <Route path="/instructor/*" element={<Instructor />} />
+              <Route path="/school/*" element={<School />} />
+            </Routes>
+          </NotificationProvider>
+        }
+      />
+    </Routes>
   );
 }
 

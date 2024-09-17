@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Menu, List, Typography, Button, Badge, Avatar, Space, Empty } from 'antd';
-import { useCompany } from '../context/CompanyContext';
+import { useNotification } from '../context/NotificationContext';
 import { 
     MdCheckCircle, 
     MdFolder, 
@@ -17,15 +17,18 @@ const { Text } = Typography;
 moment.locale('vi');  // Sử dụng tiếng Việt
 
 const NotificationMenu = ({ isMobile, onClose }) => {
+    const [expandedNotification, setExpandedNotification] = useState(null);
     const { 
         notifications, 
         markNotificationAsRead, 
         markAllNotificationsAsRead, 
         unreadCount,
         setUnreadCount
-    } = useCompany();
+    } = useNotification();
 
-    const [expandedNotification, setExpandedNotification] = useState(null);
+    if (!notifications) {
+        return <div>Đang tải thông báo...</div>;
+    }
 
     const handleNotificationClick = async (notification) => {
         if (!notification.isRead) {

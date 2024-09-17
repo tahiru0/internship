@@ -217,7 +217,10 @@ const MentorProjectManagement = () => {
   };
 
   return (
-    <div style={{ display: 'flex', height: 'calc(100vh - 64px)' }}>
+    <div style={{ 
+      display: 'flex', 
+      height: isMobile ? 'calc(100vh - 150px)' : 'calc(100vh - 100px)',
+    }}>
       <div style={{ 
         width: collapsed ? (isMobile ? '0px' : '80px') : (isMobile ? '100%' : '300px'), 
         transition: 'width 0.3s',
@@ -308,16 +311,25 @@ const MentorProjectManagement = () => {
         flex: 1, 
         overflowY: 'auto', 
         padding: '20px',
-        display: (isMobile && !selectedProject && !collapsed) ? 'none' : 'block'
+        display: (isMobile && !selectedProject && !collapsed) ? 'none' : 'block',
+        position: 'relative'  // Thêm position relative
       }}>
         {isMobile && (
-          <Button
-            icon={collapsed ? <MenuUnfoldOutlined /> : <LeftOutlined />}
-            onClick={collapsed ? handleBackToList : () => setCollapsed(true)}
-            style={{ marginBottom: 16 }}
-          >
-            {collapsed ? 'Quay lại danh sách' : 'Đóng danh sách'}
-          </Button>
+          <div style={{
+            position: 'sticky',
+            top: 0,
+            zIndex: 1,
+            backgroundColor: '#fff',
+            padding: '10px 0',
+            borderBottom: '1px solid #f0f0f0'
+          }}>
+            <Button
+              icon={collapsed ? <MenuUnfoldOutlined /> : <LeftOutlined />}
+              onClick={collapsed ? handleBackToList : () => setCollapsed(true)}
+            >
+              {collapsed ? 'Quay lại danh sách' : 'Đóng danh sách'}
+            </Button>
+          </div>
         )}
         <ProjectDetail
           project={selectedProject}

@@ -236,8 +236,8 @@ const NotificationManager = () => {
               <p>Phone: {selectedNotification.user.phone}</p>
             </Descriptions.Item>
             <Descriptions.Item label="Thời gian">
-  {formatDistanceToNow(new Date(selectedNotification.createdAt), { addSuffix: true })}
-</Descriptions.Item>
+              {formatDistanceToNow(new Date(selectedNotification.createdAt), { addSuffix: true })}
+            </Descriptions.Item>
           </Descriptions>
         )}
       </Modal>

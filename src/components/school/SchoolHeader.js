@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useCompany } from '../../context/CompanyContext';
+import { useSchool } from '../../context/SchoolContext';
 import { BellOutlined, LogoutOutlined, SearchOutlined, SettingOutlined, UserOutlined } from '@ant-design/icons';
 import { Badge, Dropdown, Input, Menu, Modal, Typography, Skeleton } from 'antd';
 import NotificationMenu from '../../layout/NotificationMenu';
@@ -9,8 +9,8 @@ import { useNotification } from '../../context/NotificationContext';
 
 const { Text } = Typography;
 
-function CompanyHeader({ handleSidenavColor, handleSidenavType, handleFixedNavbar }) {
-    const { companyData, loading, logout } = useCompany();
+function SchoolHeader({ handleSidenavColor, handleSidenavType, handleFixedNavbar }) {
+    const { schoolData, loading, logout } = useSchool();
     const { unreadCount, fetchUnreadCount } = useNotification();
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [settingsVisible, setSettingsVisible] = useState(false);
@@ -19,13 +19,13 @@ function CompanyHeader({ handleSidenavColor, handleSidenavType, handleFixedNavba
     const [notificationDropdownVisible, setNotificationDropdownVisible] = useState(false);
 
     useEffect(() => {
-        if (companyData) {
+        if (schoolData) {
             fetchUnreadCount();
         }
-    }, [companyData, fetchUnreadCount]);
+    }, [schoolData, fetchUnreadCount]);
 
     useEffect(() => {
-        console.log('Current unreadCount in CompanyHeader:', unreadCount);
+        console.log('Current unreadCount in SchoolHeader:', unreadCount);
     }, [unreadCount]);
 
     useEffect(() => {
@@ -50,11 +50,11 @@ function CompanyHeader({ handleSidenavColor, handleSidenavType, handleFixedNavba
         );
     }
 
-    const userName = companyData?.account?.name || '';
-    const userEmail = companyData?.account?.email || '';
-    const userRole = companyData?.account?.role || '';
-    const companyName = companyData?.company?.name || '';
-    const companyLogo = companyData?.company?.logo || '';
+    const userName = schoolData?.account?.name || '';
+    const userEmail = schoolData?.account?.email || '';
+    const userRole = schoolData?.account?.role?.name || ''; // Thay đổi ở đây
+    const schoolName = schoolData?.school?.name || '';
+    const schoolLogo = schoolData?.school?.logo || '';
 
     const showModal = () => {
         setIsModalVisible(true);
@@ -103,14 +103,14 @@ function CompanyHeader({ handleSidenavColor, handleSidenavType, handleFixedNavba
     const userMenu = (
         <Menu>
             <Menu.Item key="0" disabled>
-                {companyLogo && (
+                {schoolLogo && (
                     <img
-                        src={companyLogo}
-                        alt="Company Logo"
+                        src={schoolLogo}
+                        alt="School Logo"
                         style={{ width: '20px', height: 'auto', borderRadius: '8px', marginRight: '10px' }}
                     />
                 )}
-                <Text strong style={{ fontSize: '16px', marginLeft: '10px' }}>{companyName}</Text>
+                <Text strong style={{ fontSize: '16px', marginLeft: '10px' }}>{schoolName}</Text>
             </Menu.Item>
             <Menu.Divider />
             <Menu.Item key="1" disabled>
@@ -157,12 +157,12 @@ function CompanyHeader({ handleSidenavColor, handleSidenavType, handleFixedNavba
                 </Dropdown>
             </div>
             <Modal
-                title="Search"
+                title="Tìm kiếm"
                 visible={isModalVisible}
                 onOk={handleOk}
                 onCancel={handleCancel}
             >
-                <Input prefix={<SearchOutlined />} placeholder="Search..." />
+                <Input prefix={<SearchOutlined />} placeholder="Tìm kiếm..." />
             </Modal>
             <SettingsDrawer
                 visible={settingsVisible}
@@ -173,6 +173,6 @@ function CompanyHeader({ handleSidenavColor, handleSidenavType, handleFixedNavba
             />
         </div>
     );
-}
+};
 
-export default CompanyHeader;
+export default SchoolHeader;

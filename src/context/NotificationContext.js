@@ -13,10 +13,16 @@ export const NotificationProvider = ({ children }) => {
   const [unreadCount, setUnreadCount] = useState(0);
   const eventSourceRef = React.useRef(null);
   const reconnectTimeoutRef = React.useRef(null);
+  const reconnectAttemptsRef = React.useRef(0);
+  const MAX_RECONNECT_ATTEMPTS = 5;
 
-  const fetchUnreadNotifications = async () => {
+  const fetchUnreadNotifications = useCallback(async () => {
     try {
       const accessToken = Cookies.get('accessToken');
+      if (!accessToken) {
+        console.log('Không có accessToken, bỏ qua việc fetch thông báo');
+        return [];
+      }
       const response = await axios.get('http://localhost:5000/api/notification/unread', {
         headers: { Authorization: `Bearer ${accessToken}` }
       });
@@ -26,17 +32,21 @@ export const NotificationProvider = ({ children }) => {
       console.error('Lỗi khi lấy danh sách thông báo chưa đọc:', error);
       return [];
     }
-  };
+  }, []);
 
   const fetchUnreadCount = useCallback(
     debounce(async () => {
       try {
         const accessToken = Cookies.get('accessToken');
+        if (!accessToken) {
+          console.log('Không có accessToken, bỏ qua việc fetch số lượng thông báo chưa đọc');
+          return 0;
+        }
         const response = await axios.get('http://localhost:5000/api/notification/unread-count', {
           headers: { Authorization: `Bearer ${accessToken}` }
         });
         const count = response.data.unreadCount;
-        console.log('Fetched unread count:', count);
+        console.log('Số lượng thông báo chưa đọc:', count);
         setUnreadCount(count);
         return count;
       } catch (error) {
@@ -49,11 +59,20 @@ export const NotificationProvider = ({ children }) => {
 
   const startNotificationStream = useCallback(() => {
     const accessToken = Cookies.get('accessToken');
+    if (!accessToken) {
+      console.log('Không có accessToken, bỏ qua việc kết nối SSE');
+      return;
+    }
     if (eventSourceRef.current) {
       eventSourceRef.current.close();
     }
     
     const connectEventSource = () => {
+      if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
+        console.log('Đã đạt đến số lần thử kết nối tối đa. Dừng kết nối.');
+        return;
+      }
+
       const eventSource = new EventSourcePolyfill('http://localhost:5000/api/notification/stream', {
         headers: {
           Authorization: `Bearer ${accessToken}`
@@ -63,8 +82,22 @@ export const NotificationProvider = ({ children }) => {
       eventSource.onmessage = (event) => {
         const data = JSON.parse(event.data);
         if (data.notification) {
-          setNotifications(prev => [data.notification, ...prev]);
-          setUnreadCount(prev => prev + 1);
+          setNotifications(prev => {
+            const index = prev.findIndex(notif => notif._id === data.notification._id);
+            if (index !== -1) {
+              const updatedNotifications = [...prev];
+              updatedNotifications[index] = data.notification;
+              return updatedNotifications;
+            } else {
+              return [data.notification, ...prev];
+            }
+          });
+          setUnreadCount(prev => {
+            // Kiểm tra xem thông báo mới có đã đọc chưa
+            const isNewUnread = !data.notification.isRead;
+            // Nếu là thông báo mới chưa đọc, tăng số lượng lên 1
+            return isNewUnread ? prev + 1 : prev;
+          });
         }
       };
 
@@ -75,14 +108,18 @@ export const NotificationProvider = ({ children }) => {
         if (reconnectTimeoutRef.current) {
           clearTimeout(reconnectTimeoutRef.current);
         }
-        reconnectTimeoutRef.current = setTimeout(() => {
-          console.log('Đang thử kết nối lại...');
-          connectEventSource();
-        }, 5000);
+        reconnectAttemptsRef.current += 1;
+        if (reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
+          console.log(`Đang thử kết nối lại... (Lần thử ${reconnectAttemptsRef.current})`);
+          reconnectTimeoutRef.current = setTimeout(connectEventSource, 5000);
+        } else {
+          console.log('Đã đạt đến số lần thử kết nối tối đa. Dừng kết nối.');
+        }
       };
 
       eventSource.onopen = () => {
         console.log('Kết nối SSE thành công');
+        reconnectAttemptsRef.current = 0;
         if (reconnectTimeoutRef.current) {
           clearTimeout(reconnectTimeoutRef.current);
         }
@@ -93,14 +130,6 @@ export const NotificationProvider = ({ children }) => {
 
     connectEventSource();
 
-    const reconnectInterval = setInterval(() => {
-      console.log('Đang kết nối lại theo định kỳ...');
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close();
-      }
-      connectEventSource();
-    }, 30 * 60 * 1000);
-
     return () => {
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
@@ -108,19 +137,15 @@ export const NotificationProvider = ({ children }) => {
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
       }
-      clearInterval(reconnectInterval);
     };
   }, []);
 
   useEffect(() => {
-    const accessToken = Cookies.get('accessToken');
-    if (accessToken) {
-      fetchUnreadNotifications();
-      fetchUnreadCount();
-      const cleanup = startNotificationStream();
-      return cleanup;
-    }
-  }, [startNotificationStream, fetchUnreadCount]);
+    fetchUnreadNotifications();
+    fetchUnreadCount();
+    const cleanup = startNotificationStream();
+    return cleanup;
+  }, [fetchUnreadNotifications, fetchUnreadCount, startNotificationStream]);
 
   const markNotificationAsRead = async (_id) => {
     if (!_id) {
