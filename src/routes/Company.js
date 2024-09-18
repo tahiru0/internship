@@ -1,5 +1,5 @@
-import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Main from '../layout/Main';
 import Dashboard from '../components/company/Dashboard';
 import CompanyProfile from '../components/company/CompanyProfile';
@@ -7,17 +7,14 @@ import Settings from '../components/company/Settings';
 import NotFound from '../common/Notfound';
 import { FaTachometerAlt, FaUsers, FaProjectDiagram, FaUser, FaBuilding } from 'react-icons/fa';
 import { Spin } from 'antd';
-import Login from '../components/company/Login';
 import CompanyHeader from '../components/company/CompanyHeader';
 import ProjectManagement from '../components/company/ProjectManagement';
 import { CompanyProvider, useCompany } from '../context/CompanyContext';
 import Cookies from 'js-cookie';
 import PersonalProfile from '../components/company/PersonalProfile';
-import { useEffect } from 'react';
 import NProgress from 'nprogress';
 import 'nprogress/nprogress.css';
 import AccountManagement from '../components/company/AccountManagement';
-import ForgotPassword from '../components/company/ForgotPassword';
 import CompanyInfo from '../components/company/CompanyInfo';
 
 const getNavItems = (userRole) => {
@@ -49,20 +46,17 @@ function PrivateRoute({ children }) {
         }
     }, [loading]);
 
-    if (loading) {
-        return null; // Không hiển thị gì khi đang tải
+    if (!isAuthenticated()) {
+        return <Navigate to="/company/login" replace />;
     }
 
-    return isAuthenticated() ? children : <Navigate to="/company/login" replace />;
+    return children;
 }
 
 function Company() {
     return (
         <CompanyProvider>
             <Routes>
-                <Route path="/login" element={<Login />} />
-                <Route path="/forgot-password" element={<ForgotPassword />} />
-                <Route path="/forgot-password/step2/:resetToken" element={<ForgotPassword />} />
                 <Route path="/*" element={<PrivateRoute><ProtectedRoutes /></PrivateRoute>} />
             </Routes>
         </CompanyProvider>
@@ -70,7 +64,7 @@ function Company() {
 }
 
 function ProtectedRoutes() {
-    const { companyData, loading, userRole, logout } = useCompany(); // Destructure companyData, loading, userRole, and logout
+    const { companyData, loading, userRole, logout } = useCompany();
 
     useEffect(() => {
         if (loading) {
@@ -80,27 +74,31 @@ function ProtectedRoutes() {
         }
     }, [loading]);
 
-    if (loading) return null; // Không hiển thị gì khi đang tải
-
     const navItems = getNavItems(userRole);
 
     return (
         <Main navItems={navItems} RightComponent={CompanyHeader} logout={logout}>
-            <Routes>
-                <Route path="/" element={<Navigate to="/company/dashboard" replace />} />
-                <Route path="/dashboard" element={<Dashboard />} />
-                {userRole === 'admin' && (
-                    <>
-                        <Route path="/account" element={<AccountManagement />} />
-                        <Route path="/company-info" element={<CompanyInfo />} />
-                    </>
-                )}
-                <Route path="/projects" element={<ProjectManagement />} />
-                <Route path="/profile" element={<CompanyProfile />} />
-                <Route path="/setting" element={<Settings />} />
-                <Route path="/personal" element={<PersonalProfile />} />
-                <Route path="*" element={<NotFound homeLink={"/company/dashboard"} />} />
-            </Routes>
+            {loading ? (
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+                    <Spin size="large" />
+                </div>
+            ) : (
+                <Routes>
+                    <Route path="/" element={<Navigate to="/company/dashboard" replace />} />
+                    <Route path="/dashboard" element={<Dashboard />} />
+                    {userRole === 'admin' && (
+                        <>
+                            <Route path="/account" element={<AccountManagement />} />
+                            <Route path="/company-info" element={<CompanyInfo />} />
+                        </>
+                    )}
+                    <Route path="/projects" element={<ProjectManagement />} />
+                    <Route path="/profile" element={<CompanyProfile />} />
+                    <Route path="/setting" element={<Settings />} />
+                    <Route path="/personal" element={<PersonalProfile />} />
+                    <Route path="*" element={<NotFound homeLink={"/company/dashboard"} />} />
+                </Routes>
+            )}
         </Main>
     );
 }

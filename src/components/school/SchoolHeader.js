@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSchool } from '../../context/SchoolContext';
 import { BellOutlined, LogoutOutlined, SearchOutlined, SettingOutlined, UserOutlined } from '@ant-design/icons';
-import { Badge, Dropdown, Input, Menu, Modal, Typography, Skeleton } from 'antd';
+import { Badge, Dropdown, Input, Menu, Modal, Typography } from 'antd';
 import NotificationMenu from '../../layout/NotificationMenu';
 import SettingsDrawer from '../../layout/SettingsDrawer';
 import { useNavigate } from 'react-router-dom';
@@ -35,20 +35,6 @@ function SchoolHeader({ handleSidenavColor, handleSidenavType, handleFixedNavbar
     }, []);
 
     const isMobile = windowWidth <= 768;
-
-    if (loading) {
-        return (
-            <div style={{ display: 'flex', alignItems: 'center' }}>
-                <Skeleton.Avatar active size="large" style={{ marginRight: '10px' }} />
-                <Skeleton.Input active style={{ width: 30, marginRight: '10px' }} />
-                <div style={{ display: 'flex', marginLeft: 'auto' }}>
-                    <Skeleton.Button active style={{ marginRight: '16px', width: 40, height: 40 }} />
-                    <Skeleton.Button active style={{ marginRight: '16px', width: 40, height: 40 }} />
-                    <Skeleton.Button active style={{ width: 40, height: 40 }} />
-                </div>
-            </div>
-        );
-    }
 
     const userName = schoolData?.account?.name || '';
     const userEmail = schoolData?.account?.email || '';

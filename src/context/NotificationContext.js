@@ -204,6 +204,11 @@ export const NotificationProvider = ({ children }) => {
     }
   };
 
+  const resetNotifications = useCallback(() => {
+    setNotifications([]);
+    setUnreadCount(0);
+  }, []);
+
   const value = {
     notifications,
     unreadCount,
@@ -213,7 +218,8 @@ export const NotificationProvider = ({ children }) => {
     markAllNotificationsAsRead,
     deleteNotification,
     restoreNotification,
-    fetchUnreadCount
+    fetchUnreadCount,
+    resetNotifications
   };
 
   return (

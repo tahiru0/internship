@@ -5,6 +5,7 @@ import * as Yup from 'yup';
 import { Input, Upload, message } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
 import { useNavigate, Link } from 'react-router-dom';
+import Cookies from 'js-cookie';
 
 const Step1 = () => (
     <div>
@@ -214,8 +215,10 @@ const Register = () => {
             })
                 .then((response) => response.json())
                 .then((data) => {
-                    if (data.success) {
+                    if (data.message.includes('Đăng ký thành công')) {
                         message.success('Đăng ký thành công! Vui lòng kiểm tra email để xác nhận tài khoản.');
+                        // Lưu companyId vào localStorage
+                        Cookies.set('selectedCompany', data.companyId, { expires: 7 });
                         setStep(step + 1);
                     } else {
                         message.error(data.message);

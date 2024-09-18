@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useCompany } from '../../context/CompanyContext';
 import { BellOutlined, LogoutOutlined, SearchOutlined, SettingOutlined, UserOutlined } from '@ant-design/icons';
-import { Badge, Dropdown, Input, Menu, Modal, Typography, Skeleton } from 'antd';
+import { Badge, Dropdown, Input, Menu, Modal, Typography } from 'antd';
 import NotificationMenu from '../../layout/NotificationMenu';
 import SettingsDrawer from '../../layout/SettingsDrawer';
 import { useNavigate } from 'react-router-dom';
@@ -10,7 +10,7 @@ import { useNotification } from '../../context/NotificationContext';
 const { Text } = Typography;
 
 function CompanyHeader({ handleSidenavColor, handleSidenavType, handleFixedNavbar }) {
-    const { companyData, loading, logout } = useCompany();
+    const { companyData, logout } = useCompany();
     const { unreadCount, fetchUnreadCount } = useNotification();
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [settingsVisible, setSettingsVisible] = useState(false);
@@ -35,20 +35,6 @@ function CompanyHeader({ handleSidenavColor, handleSidenavType, handleFixedNavba
     }, []);
 
     const isMobile = windowWidth <= 768;
-
-    if (loading) {
-        return (
-            <div style={{ display: 'flex', alignItems: 'center' }}>
-                <Skeleton.Avatar active size="large" style={{ marginRight: '10px' }} />
-                <Skeleton.Input active style={{ width: 30, marginRight: '10px' }} />
-                <div style={{ display: 'flex', marginLeft: 'auto' }}>
-                    <Skeleton.Button active style={{ marginRight: '16px', width: 40, height: 40 }} />
-                    <Skeleton.Button active style={{ marginRight: '16px', width: 40, height: 40 }} />
-                    <Skeleton.Button active style={{ width: 40, height: 40 }} />
-                </div>
-            </div>
-        );
-    }
 
     const userName = companyData?.account?.name || '';
     const userEmail = companyData?.account?.email || '';
