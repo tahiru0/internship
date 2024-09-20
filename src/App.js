@@ -15,6 +15,7 @@ import CompanyLogin from './components/company/Login';
 import SchoolLogin from './components/school/Login';
 import { CompanyProvider } from './context/CompanyContext';
 import { SchoolProvider } from './context/SchoolContext';
+import ForgotPassword from './components/company/ForgotPassword'; // Thêm dòng này
 
 function ProtectedRoutes() {
   const location = useLocation();
@@ -89,6 +90,7 @@ function AppContent() {
       />
       <Route path="/company/register/*" element={<Register/>}/>
       <Route path="/school/register/*" element={<SchoolRegister/>}/>
+      <Route path="/company/forgot-password" element={<ForgotPassword />} />
       <Route path="/" element={<HomePage />} />
       <Route path="/admin/*" element={<Admin />} /> 
       <Route path="/*" element={

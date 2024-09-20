@@ -34,7 +34,7 @@ const PersonalProfile = () => {
       });
       if (response.data) {
         await checkAuthStatus();
-        message.success('Cập nhật thông tin thành công');
+        message.success(response.data.message || 'Cập nhật thông tin thành công');
       }
     } catch (error) {
       console.error('Lỗi khi cập nhật thông tin:', error);

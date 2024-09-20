@@ -5,6 +5,23 @@ import axios from 'axios';
 
 const SchoolContext = createContext();
 
+// Tạo một instance axios riêng
+const api = axios.create({
+  baseURL: 'http://localhost:5000/api',
+});
+
+// Thêm interceptor để tự động thêm token vào header
+api.interceptors.request.use(
+  async (config) => {
+    const token = Cookies.get('schoolAccessToken');
+    if (token) {
+      config.headers['Authorization'] = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
 export const useSchool = () => {
     return useContext(SchoolContext);
 };
@@ -33,7 +50,7 @@ export const SchoolProvider = ({ children }) => {
             return null;
         }
         try {
-            const response = await axios.post('http://localhost:5000/api/auth/refresh-token', { refreshToken });
+            const response = await api.post('/auth/refresh-token', { refreshToken });
             const { accessToken, refreshToken: newRefreshToken } = response.data;
             Cookies.set('schoolAccessToken', accessToken, { expires: 1/24 });
             Cookies.set('schoolRefreshToken', newRefreshToken, { expires: 7 });
@@ -49,42 +66,28 @@ export const SchoolProvider = ({ children }) => {
     const checkAuthStatus = useCallback(async () => {
         setLoading(true);
         try {
-            let accessToken = Cookies.get('schoolAccessToken');
-            if (!accessToken) {
-                throw new Error('Không có access token');
-            }
-            
-            try {
-                const response = await axios.get('http://localhost:5000/api/school/me', {
-                    headers: { Authorization: `Bearer ${accessToken}` }
-                });
-                setSchoolData(response.data);
-                setUserRole(response.data.account.role);
-                setRefreshAttempts(0);
-            } catch (error) {
-                if (refreshAttempts < 1) {
-                    console.log('Access token không hợp lệ, đang thử refresh...');
-                    const newTokens = await refreshToken();
-                    if (newTokens) {
-                        const response = await axios.get('http://localhost:5000/api/school/me', {
-                            headers: { Authorization: `Bearer ${newTokens.accessToken}` }
-                        });
-                        setSchoolData(response.data);
-                        setUserRole(response.data.account.role);
-                    } else {
-                        throw new Error('Không thể refresh token');
-                    }
-                } else {
-                    throw new Error('Đã thử refresh token nhưng không thành công');
-                }
-            }
+            const response = await api.get('/school/me');
+            setSchoolData(response.data);
+            setUserRole(response.data.account.role);
+            setRefreshAttempts(0);
         } catch (error) {
-            console.error('Lỗi khi kiểm tra trạng thái xác thực:', error);
-            logout();
+            if (refreshAttempts < 1) {
+                console.log('Access token không hợp lệ, đang thử refresh...');
+                const newTokens = await refreshToken();
+                if (newTokens) {
+                    const response = await api.get('/school/me');
+                    setSchoolData(response.data);
+                    setUserRole(response.data.account.role);
+                } else {
+                    throw new Error('Không thể refresh token');
+                }
+            } else {
+                throw new Error('Đã thử refresh token nhưng không thành công');
+            }
         } finally {
             setLoading(false);
         }
-    }, [logout, refreshAttempts]);
+    }, [refreshAttempts]);
 
     useEffect(() => {
         if (location.pathname !== '/school/forgot-password' && !location.pathname.startsWith('/school/forgot-password')) {
@@ -97,11 +100,7 @@ export const SchoolProvider = ({ children }) => {
     const fetchStudents = async (params) => {
         setLoading(true);
         try {
-            const accessToken = Cookies.get('schoolAccessToken');
-            const response = await axios.get('http://localhost:5000/api/school/students', {
-                headers: { Authorization: `Bearer ${accessToken}` },
-                params
-            });
+            const response = await api.get('/school/students', { params });
             return response.data;
         } catch (error) {
             console.error('Lỗi khi lấy danh sách sinh viên:', error);
@@ -117,7 +116,8 @@ export const SchoolProvider = ({ children }) => {
         userRole,
         logout,
         checkAuthStatus,
-        fetchStudents
+        fetchStudents,
+        api // Xuất api để các component khác có thể sử dụng
     };
     
     return (

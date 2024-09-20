@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Table, Button, Modal, Form, Input, Select, message, Avatar, Typography, Card, Tag, Popconfirm, Switch, Pagination, Row, Col } from 'antd';
 import { EditOutlined, DeleteOutlined, UserAddOutlined, UserOutlined, MailOutlined, LockOutlined, SearchOutlined } from '@ant-design/icons';
 import axios from 'axios';
 import { useCompany } from '../../context/CompanyContext';
 import Cookies from 'js-cookie';
+import { useMediaQuery } from 'react-responsive'; // Import useMediaQuery
 
 const { Title } = Typography;
 const { Option } = Select;
@@ -27,6 +28,21 @@ const AccountManagement = () => {
     order: null,
   });
   const { companyData } = useCompany();
+  const isMobileView = useMediaQuery({ maxWidth: 767 }); // Define isMobileView
+
+  useEffect(() => {
+    const resizeObserverError = console.error;
+    console.error = (...args) => {
+      if (typeof args[0] === 'string' && args[0].includes('ResizeObserver loop completed with undelivered notifications')) {
+        return;
+      }
+      resizeObserverError(...args);
+    };
+
+    return () => {
+      console.error = resizeObserverError;
+    };
+  }, []);
 
   const fetchAccounts = useCallback(async (page = pagination.current, pageSize = pagination.pageSize) => {
     setLoading(true);
@@ -75,7 +91,7 @@ const AccountManagement = () => {
 
   useEffect(() => {
     fetchAccounts();
-  }, [fetchAccounts]);
+  }, [pagination.current, pagination.pageSize, filters]);
 
   const handleTableChange = (pagination, filters, sorter) => {
     setFilters(prevFilters => ({
@@ -85,7 +101,11 @@ const AccountManagement = () => {
       sortBy: sorter.field || null,
       order: sorter.order ? (sorter.order === 'ascend' ? 'asc' : 'desc') : null,
     }));
-    fetchAccounts(pagination.current, pagination.pageSize);
+    setPagination(prevPagination => ({
+      ...prevPagination,
+      current: pagination.current,
+      pageSize: pagination.pageSize,
+    }));
   };
 
   const handleSearch = (value) => {
@@ -264,8 +284,7 @@ const AccountManagement = () => {
   ];
 
   return (
-    <Card>
-      <Title level={2}>Quản lý tài khoản</Title>
+    <Card style={{ height: isMobileView ? 'auto' : 'calc(100vh - 100px)' }}>
       <Row gutter={16} style={{ marginBottom: 16 }}>
         <Col span={12}>
           <Button 
@@ -277,7 +296,7 @@ const AccountManagement = () => {
               setModalVisible(true);
             }}
           >
-            Thêm tài khoản mới
+            {isMobileView ? null : 'Thêm tài khoản mới'}
           </Button>
         </Col>
         <Col span={12} style={{ textAlign: 'right' }}>
@@ -289,15 +308,15 @@ const AccountManagement = () => {
         </Col>
       </Row>
       <Table 
-        columns={columns} 
-        dataSource={accounts} 
-        loading={loading} 
-        rowKey="_id" 
-        pagination={pagination}
-        onChange={handleTableChange}
-        rowClassName={(record) => record.role === 'admin' ? 'admin-row' : ''}
-        scroll={{ x: 'max-content' }}
-      />
+          columns={columns} 
+          dataSource={accounts} 
+          loading={loading} 
+          rowKey="_id" 
+          pagination={pagination}
+          onChange={handleTableChange}
+          rowClassName={(record) => record.role === 'admin' ? 'admin-row' : ''}
+          scroll={{ x: 'max-content', y: isMobileView ? '100%' : 'calc(100vh - 310px)' }}
+        />
       <Modal
         title={editingAccount ? "Sửa tài khoản" : "Thêm tài khoản mới"}
         visible={modalVisible}

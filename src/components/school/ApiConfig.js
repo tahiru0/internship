@@ -1,110 +1,247 @@
 import React, { useState, useEffect } from 'react';
-import { Form, Input, Button, message, Card, Space } from 'antd';
-import axios from 'axios';
-import Cookies from 'js-cookie';
+import { Form, Input, Button, Card, message, Spin, Tabs, Space, Typography, Divider, Alert, Modal, Row, Col } from 'antd';
+import { SaveOutlined, LinkOutlined, InfoCircleOutlined, UserOutlined, EyeOutlined } from '@ant-design/icons';
+import { useSchool } from '../../context/SchoolContext';
+
+const { TabPane } = Tabs;
+const { Title, Paragraph, Text } = Typography;
 
 const ApiConfig = () => {
-  const [form] = Form.useForm();
-  const [loading, setLoading] = useState(false);
-  const [testLoading, setTestLoading] = useState(false);
+    const { api } = useSchool();
+    const [form] = Form.useForm();
+    const [loading, setLoading] = useState(false);
+    const [apiConfig, setApiConfig] = useState(null);
+    const [testStudentId, setTestStudentId] = useState('');
+    const [testResult, setTestResult] = useState(null);
+    const [passwordPreviewVisible, setPasswordPreviewVisible] = useState(false);
+    const [passwordPreview, setPasswordPreview] = useState('');
 
-  useEffect(() => {
-    fetchCurrentConfig();
-  }, []);
+    useEffect(() => {
+        fetchApiConfig();
+    }, []);
 
-  const fetchCurrentConfig = async () => {
-    try {
-      const accessToken = Cookies.get('schoolAccessToken');
-      const response = await axios.get('http://localhost:5000/api/school/api-config', {
-        headers: { Authorization: `Bearer ${accessToken}` }
-      });
-      form.setFieldsValue(response.data);
-    } catch (error) {
-      console.error('Lỗi khi lấy cấu hình hiện tại:', error);
-      message.error('Không thể lấy cấu hình hiện tại');
+    const fetchApiConfig = async () => {
+        setLoading(true);
+        try {
+            const response = await api.get('/school/guest-api-config');
+            const config = response.data;
+            setApiConfig(config);
+            form.setFieldsValue({
+                uri: config.guestApiConfig.uri,
+                fieldMappings: config.guestApiConfig.fieldMappings || {},
+                passwordRule: config.passwordRule
+            });
+        } catch (error) {
+            message.error('Lỗi khi tải cấu hình API');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const checkApiConnection = async () => {
+        setLoading(true);
+        try {
+            const response = await api.post('/school/check-guest-api-connection', {
+                uri: form.getFieldValue('uri'),
+                id: testStudentId
+            });
+            setTestResult(response.data.data);
+            message.success(response.data.message);
+        } catch (error) {
+            setTestResult(null);
+            if (error.response && error.response.status === 400) {
+                message.error('Cấu hình API không hợp lệ hoặc API không hoạt động');
+            } else {
+                message.error('Lỗi khi kiểm tra kết nối API');
+            }
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const onFinish = async (values) => {
+        setLoading(true);
+        try {
+            const configToSave = {
+                guestApiConfig: {
+                    uri: values.uri,
+                    fieldMappings: values.fieldMappings
+                },
+                passwordRule: values.passwordRule
+            };
+            await api.put('/school/guest-api-config', configToSave);
+            message.success('Cập nhật cấu hình API thành công');
+            setApiConfig(configToSave);
+        } catch (error) {
+            message.error('Lỗi khi cập nhật cấu hình API');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const reviewPasswordRule = async () => {
+        try {
+            const values = await form.validateFields(['passwordRule']);
+            const response = await api.post('/school/review-password-rule', {
+                passwordRule: values.passwordRule,
+                dateOfBirth: '1995-01-01' // Ví dụ ngày sinh
+            });
+            setPasswordPreview(response.data.password);
+            setPasswordPreviewVisible(true);
+        } catch (error) {
+            message.error('Lỗi khi kiểm tra quy tắc mật khẩu');
+        }
+    };
+
+    if (loading && !apiConfig) {
+        return <Spin size="large" />;
     }
-  };
 
-  const onFinish = async (values) => {
-    setLoading(true);
-    try {
-      const accessToken = Cookies.get('schoolAccessToken');
-      await axios.post('http://localhost:5000/api/school/configure-guest-api', values, {
-        headers: { Authorization: `Bearer ${accessToken}` }
-      });
-      message.success('Cấu hình API khách và quy tắc mật khẩu thành công');
-    } catch (error) {
-      console.error('Lỗi khi cấu hình API:', error);
-      message.error('Không thể cấu hình API');
-    }
-    setLoading(false);
-  };
-
-  const testApiConfig = async () => {
-    setTestLoading(true);
-    try {
-      const accessToken = Cookies.get('schoolAccessToken');
-      const response = await axios.post('http://localhost:5000/api/school/test-api-config', 
-        { studentId: form.getFieldValue(['apiConfig', 'fieldMappings', 'studentId']) },
-        { headers: { Authorization: `Bearer ${accessToken}` } }
-      );
-      message.success('Kết nối API thành công');
-      console.log('Dữ liệu sinh viên mẫu:', response.data.studentData);
-    } catch (error) {
-      console.error('Lỗi khi kiểm tra API:', error);
-      message.error('Không thể kết nối API');
-    }
-    setTestLoading(false);
-  };
-
-  return (
-    <Card title="Cấu hình API Khách và Quy tắc Mật khẩu">
-      <Form form={form} layout="vertical" onFinish={onFinish}>
-        <Form.Item name={['apiConfig', 'uri']} label="URL API Khách" rules={[{ required: true, message: 'Vui lòng nhập URL API' }]}>
-          <Input placeholder="https://api.example-school.com/students" />
-        </Form.Item>
-        <Form.Item label="Ánh xạ trường dữ liệu">
-          <Input.Group compact>
-            <Form.Item name={['apiConfig', 'fieldMappings', 'name']} noStyle>
-              <Input style={{ width: '50%' }} placeholder="Tên trường (name)" />
-            </Form.Item>
-            <Form.Item name={['apiConfig', 'fieldMappings', 'email']} noStyle>
-              <Input style={{ width: '50%' }} placeholder="Email (email)" />
-            </Form.Item>
-          </Input.Group>
-          <Input.Group compact>
-            <Form.Item name={['apiConfig', 'fieldMappings', 'studentId']} noStyle>
-              <Input style={{ width: '50%' }} placeholder="Mã sinh viên (studentId)" />
-            </Form.Item>
-            <Form.Item name={['apiConfig', 'fieldMappings', 'major']} noStyle>
-              <Input style={{ width: '50%' }} placeholder="Ngành học (major)" />
-            </Form.Item>
-          </Input.Group>
-          <Input.Group compact>
-            <Form.Item name={['apiConfig', 'fieldMappings', 'dateOfBirth']} noStyle>
-              <Input style={{ width: '50%' }} placeholder="Ngày sinh (dateOfBirth)" />
-            </Form.Item>
-            <Form.Item name={['apiConfig', 'fieldMappings', 'defaultPassword']} noStyle>
-              <Input style={{ width: '50%' }} placeholder="Mật khẩu mặc định (defaultPassword)" />
-            </Form.Item>
-          </Input.Group>
-        </Form.Item>
-        <Form.Item name={['passwordRule', 'template']} label="Mẫu mật khẩu" rules={[{ required: true, message: 'Vui lòng nhập mẫu mật khẩu' }]}>
-          <Input placeholder="School${ngaysinh}2023" />
-        </Form.Item>
-        <Form.Item>
-          <Space>
-            <Button type="primary" htmlType="submit" loading={loading}>
-              Lưu cấu hình
-            </Button>
-            <Button onClick={testApiConfig} loading={testLoading}>
-              Kiểm tra kết nối
-            </Button>
-          </Space>
-        </Form.Item>
-      </Form>
-    </Card>
-  );
+    return (
+        <Card>
+            <Tabs defaultActiveKey="1">
+                <TabPane tab={<span><InfoCircleOutlined />Cấu hình API</span>} key="1">
+                    <Title level={3}>Cấu hình API Trường học</Title>
+                    <Paragraph>
+                        Cấu hình kết nối API với hệ thống quản lý sinh viên của trường bạn.
+                    </Paragraph>
+                    <Alert
+                        message="Lưu ý: URI API phải hỗ trợ truy vấn thông tin sinh viên bằng mã số sinh viên."
+                        type="info"
+                        showIcon
+                        style={{ marginBottom: 16 }}
+                    />
+                    <Form
+                        form={form}
+                        layout="vertical"
+                        onFinish={onFinish}
+                        initialValues={apiConfig}
+                    >
+                        <Space direction="vertical" style={{ width: '100%' }}>
+                            <Form.Item
+                                name="uri"
+                                label="URI API"
+                                style={{ marginBottom: 0 }}
+                            >
+                                <Input prefix={<LinkOutlined />} placeholder="https://api.yourschool.edu/v1/students" />
+                            </Form.Item>
+                            <Space>
+                                <Input
+                                    prefix={<UserOutlined />}
+                                    placeholder="Nhập mã số sinh viên để kiểm tra"
+                                    value={testStudentId}
+                                    onChange={(e) => setTestStudentId(e.target.value)}
+                                    style={{ width: 250 }}
+                                />
+                                <Button icon={<LinkOutlined />} onClick={checkApiConnection} loading={loading}>
+                                    Kiểm tra kết nối
+                                </Button>
+                            </Space>
+                            {testResult && (
+                                <Alert
+                                    message="Kết quả kiểm tra"
+                                    description={<pre>{JSON.stringify(testResult, null, 2)}</pre>}
+                                    type="success"
+                                    showIcon
+                                />
+                            )}
+                        </Space>
+                        <Divider orientation="left">Ánh xạ trường</Divider>
+                        <Form.Item noStyle>
+                            <Row gutter={16}>
+                                <Col xs={24} sm={12} md={8}>
+                                    <Form.Item
+                                        name={['fieldMappings', 'studentId']}
+                                        label="ID Sinh viên"
+                                    >
+                                        <Input placeholder="Ví dụ: student_id" />
+                                    </Form.Item>
+                                </Col>
+                                <Col xs={24} sm={12} md={8}>
+                                    <Form.Item
+                                        name={['fieldMappings', 'name']}
+                                        label="Tên"
+                                    >
+                                        <Input placeholder="Ví dụ: name" />
+                                    </Form.Item>
+                                </Col>
+                                <Col xs={24} sm={12} md={8}>
+                                    <Form.Item
+                                        name={['fieldMappings', 'major']}
+                                        label="Chuyên ngành"
+                                    >
+                                        <Input placeholder="Ví dụ: major" />
+                                    </Form.Item>
+                                </Col>
+                                <Col xs={24} sm={12} md={8}>
+                                    <Form.Item
+                                        name={['fieldMappings', 'email']}
+                                        label="Email"
+                                    >
+                                        <Input placeholder="Ví dụ: email" />
+                                    </Form.Item>
+                                </Col>
+                                <Col xs={24} sm={12} md={8}>
+                                    <Form.Item
+                                        name={['fieldMappings', 'dateOfBirth']}
+                                        label="Ngày sinh"
+                                    >
+                                        <Input placeholder="Ví dụ: date_of_birth" />
+                                    </Form.Item>
+                                </Col>
+                            </Row>
+                        </Form.Item>
+                        <Divider orientation="left">Quy tắc mật khẩu</Divider>
+                        <Form.Item
+                            name={['passwordRule', 'template']}
+                            label="Mẫu mật khẩu"
+                        >
+                            <Input.TextArea placeholder="Ví dụ: SV${ngaysinh}" />
+                        </Form.Item>
+                        <Form.Item>
+                            <Space>
+                                <Button type="primary" icon={<SaveOutlined />} htmlType="submit" loading={loading}>
+                                    Lưu cấu hình
+                                </Button>
+                                <Button icon={<EyeOutlined />} onClick={reviewPasswordRule}>
+                                    Xem mẫu mật khẩu
+                                </Button>
+                            </Space>
+                        </Form.Item>
+                    </Form>
+                </TabPane>
+                <TabPane tab={<span><InfoCircleOutlined />Hướng dẫn</span>} key="2">
+                    <Title level={3}>Hướng dẫn sử dụng</Title>
+                    <Paragraph>
+                        <Text strong>1. URI API:</Text> Nhập địa chỉ API của hệ thống quản lý sinh viên của trường bạn.
+                    </Paragraph>
+                    <Paragraph>
+                        <Text strong>2. Ánh xạ trường:</Text> Điền tên trường tương ứng trong API của bạn cho mỗi loại thông tin.
+                    </Paragraph>
+                    <Paragraph>
+                        <Text strong>3. Quy tắc mật khẩu:</Text> Nhập mẫu để tạo mật khẩu cho sinh viên. Sử dụng ${'{ngaysinh}'} để chèn ngày sinh của sinh viên.
+                    </Paragraph>
+                    <Paragraph>
+                        <Text strong>4. Kiểm tra kết nối:</Text> Nhấn nút "Kiểm tra kết nối" để xác nhận cấu hình API hoạt động chính xác.
+                    </Paragraph>
+                </TabPane>
+            </Tabs>
+            <Modal
+                title="Xem trước mật khẩu"
+                visible={passwordPreviewVisible}
+                onOk={() => setPasswordPreviewVisible(false)}
+                onCancel={() => setPasswordPreviewVisible(false)}
+                footer={[
+                    <Button key="close" onClick={() => setPasswordPreviewVisible(false)}>
+                        Đóng
+                    </Button>
+                ]}
+            >
+                <p>Mật khẩu mẫu được tạo theo quy tắc của bạn:</p>
+                <Text strong>{passwordPreview}</Text>
+            </Modal>
+        </Card>
+    );
 };
 
 export default ApiConfig;

@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Table, Button, Input, Space, message, Form, DatePicker, Select, Modal } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
-import axios from 'axios';
-import Cookies from 'js-cookie';
+// import axios from 'axios';
+// import Cookies from 'js-cookie';
 import debounce from 'lodash/debounce';
 import moment from 'moment';
+import { faker } from '@faker-js/faker';
 
 const formatDate = (dateString) => {
     if (!dateString) return '';
@@ -24,19 +25,28 @@ const StudentManagement = () => {
     const [tempStudentData, setTempStudentData] = useState(null);
     const [form] = Form.useForm();
 
+    const generateFakeStudents = (count) => {
+        return Array.from({ length: count }, () => ({
+            _id: faker.string.uuid(),
+            name: faker.person.fullName(),
+            email: faker.internet.email(),
+            studentId: faker.string.numeric(8),
+            dateOfBirth: faker.date.between({ from: '1990-01-01', to: '2005-12-31' }).toISOString(),
+            major: faker.helpers.arrayElement(['cntt', 'ktpm', 'ktmt']),
+        }));
+    };
+
     const fetchStudents = useCallback(async (search = '') => {
         setLoading(true);
-        try {
-            const accessToken = Cookies.get('schoolAccessToken');
-            const response = await axios.get('http://localhost:5000/api/school/students', {
-                headers: { Authorization: `Bearer ${accessToken}` },
-                params: { search }
-            });
-            setStudents(response.data);
-        } catch (error) {
-            console.error('Lỗi khi lấy danh sách sinh viên:', error);
-            message.error('Không thể lấy danh sách sinh viên');
-        }
+        // Giả lập việc tìm kiếm và trì hoãn
+        await new Promise(resolve => setTimeout(resolve, 500));
+        const fakeStudents = generateFakeStudents(20);
+        const filteredStudents = fakeStudents.filter(student => 
+            student.name.toLowerCase().includes(search.toLowerCase()) ||
+            student.email.toLowerCase().includes(search.toLowerCase()) ||
+            student.studentId.includes(search)
+        );
+        setStudents(filteredStudents);
         setLoading(false);
     }, []);
 
@@ -81,64 +91,19 @@ const StudentManagement = () => {
             const index = newData.findIndex((item) => editingKey === item._id);
             if (index > -1) {
                 const item = newData[index];
-                const accessToken = Cookies.get('schoolAccessToken');
                 if (editingKey === 'new') {
-                    try {
-                        const response = await axios.post('http://localhost:5000/api/school/students', {
-                            ...row,
-                            dateOfBirth: row.dateOfBirth.format('YYYY-MM-DD'),
-                        }, {
-                            headers: { Authorization: `Bearer ${accessToken}` }
-                        });
-                        newData[index] = response.data;
-                        setStudents(newData);
-                        setEditingKey('');
-                        setIsCreating(false);
-                        message.success('Thêm sinh viên thành công');
-                    } catch (error) {
-                        if (error.response && error.response.data && error.response.data.message) {
-                            const errorMessage = error.response.data.message;
-                            if (errorMessage.startsWith('email:')) {
-                                form.setFields([
-                                    {
-                                        name: ['email', 'name', 'studentId', 'dateOfBirth', 'major'],
-                                        errors: [errorMessage.split(':')[1]],
-                                    },
-                                ]);
-                            } else {
-                                message.error(errorMessage);
-                            }
-                        } else {
-                            console.error('Lỗi khi cập nhật sinh viên:', error);
-                            message.error('Không thể cập nhật sinh viên');
-                        }
-                        if (error.response && error.response.data && error.response.data.code === 'NO_PASSWORD_RULE') {
-                            setTempStudentData({ ...row, dateOfBirth: row.dateOfBirth.format('YYYY-MM-DD') });
-                            Modal.confirm({
-                                title: 'Chọn cách xử lý',
-                                content: 'Bạn muốn cung cấp mật khẩu cho sinh viên này hay cập nhật quy tắc mật khẩu?',
-                                okText: 'Cung cấp mật khẩu',
-                                cancelText: 'Cập nhật quy tắc',
-                                onOk() {
-                                    setIsPasswordModalVisible(true);
-                                },
-                                onCancel() {
-                                    setIsPasswordRuleModalVisible(true);
-                                },
-                            });
-                        } else {
-                            throw error;
-                        }
-                    }
-                } else {
-                    await axios.put(`http://localhost:5000/api/school/students/${item._id}`, {
-                        ...item,
+                    const newStudent = {
+                        _id: faker.string.uuid(),
                         ...row,
                         dateOfBirth: row.dateOfBirth.format('YYYY-MM-DD'),
-                    }, {
-                        headers: { Authorization: `Bearer ${accessToken}` }
-                    });
-                    newData[index] = { ...item, ...row };
+                    };
+                    newData[index] = newStudent;
+                    setStudents(newData);
+                    setEditingKey('');
+                    setIsCreating(false);
+                    message.success('Thêm sinh viên thành công');
+                } else {
+                    newData[index] = { ...item, ...row, dateOfBirth: row.dateOfBirth.format('YYYY-MM-DD') };
                     setStudents(newData);
                     setEditingKey('');
                     message.success('Cập nhật sinh viên thành công');
@@ -150,20 +115,10 @@ const StudentManagement = () => {
     };
 
     const handleDelete = async () => {
-        try {
-            const accessToken = Cookies.get('schoolAccessToken');
-            await Promise.all(selectedRowKeys.map(key =>
-                axios.delete(`http://localhost:5000/api/school/students/${key}`, {
-                    headers: { Authorization: `Bearer ${accessToken}` }
-                })
-            ));
-            message.success(`Đã xóa ${selectedRowKeys.length} sinh viên`);
-            fetchStudents(searchText);
-            setSelectedRowKeys([]);
-        } catch (error) {
-            console.error('Lỗi khi xóa sinh viên:', error);
-            message.error('Không thể xóa sinh viên');
-        }
+        const newData = students.filter(item => !selectedRowKeys.includes(item._id));
+        setStudents(newData);
+        message.success(`Đã xóa ${selectedRowKeys.length} sinh viên`);
+        setSelectedRowKeys([]);
     };
 
     const handleAdd = () => {
@@ -291,85 +246,7 @@ const StudentManagement = () => {
         );
     };
 
-    const handlePasswordModalOk = async () => {
-        try {
-            const values = await form.validateFields();
-            const accessToken = Cookies.get('schoolAccessToken');
-            const response = await axios.post('http://localhost:5000/api/school/students', {
-                ...tempStudentData,
-                password: values.password,
-            }, {
-                headers: { Authorization: `Bearer ${accessToken}` }
-            });
-            setStudents([response.data, ...students.filter(s => s._id !== 'new')]);
-            setIsPasswordModalVisible(false);
-            setEditingKey('');
-            setIsCreating(false);
-            message.success('Thêm sinh viên thành công');
-        } catch (error) {
-            console.error('Lỗi khi thêm sinh viên:', error);
-            message.error('Không thể thêm sinh viên');
-        }
-    };
-
-    const handlePasswordRuleModalOk = async () => {
-        try {
-            const values = await form.validateFields();
-            const accessToken = Cookies.get('schoolAccessToken');
-            await axios.put('http://localhost:5000/api/school/update-password-rule', {
-                passwordRule: {
-                    template: values.passwordRuleTemplate,
-                }
-            }, {
-                headers: { Authorization: `Bearer ${accessToken}` }
-            });
-            setIsPasswordRuleModalVisible(false);
-            message.success('Cập nhật quy tắc mật khẩu thành công');
-
-            // Tạo sinh viên mới ngay sau khi cập nhật quy tắc mật khẩu
-            const response = await axios.post('http://localhost:5000/api/school/students', tempStudentData, {
-                headers: { Authorization: `Bearer ${accessToken}` }
-            });
-            setStudents([response.data, ...students.filter(s => s._id !== 'new')]);
-            setEditingKey('');
-            setIsCreating(false);
-            message.success('Thêm sinh viên thành công');
-        } catch (error) {
-            console.error('Lỗi khi cập nhật quy tắc mật khẩu hoặc thêm sinh viên:', error);
-            message.error('Không thể cập nhật quy tắc mật khẩu hoặc thêm sinh viên');
-        }
-    };
-
-    const handleModalCancel = () => {
-        setIsPasswordModalVisible(false);
-        setIsPasswordRuleModalVisible(false);
-    };
-
-    const reviewPasswordRule = async () => {
-        try {
-            const accessToken = Cookies.get('schoolAccessToken');
-            const response = await axios.post('http://localhost:5000/api/school/review-password-rule', {
-                passwordRule: {
-                    template: form.getFieldValue('passwordRuleTemplate')
-                },
-                dateOfBirth: tempStudentData.dateOfBirth
-            }, {
-                headers: { Authorization: `Bearer ${accessToken}` }
-            });
-            Modal.info({
-                title: 'Kết quả xem xét quy tắc mật khẩu',
-                content: (
-                    <div>
-                        <p>Mật khẩu mẫu: {response.data.password}</p>
-                    </div>
-                ),
-                onOk() { }
-            });
-        } catch (error) {
-            console.error('Lỗi khi xem xét quy tắc mật khẩu:', error);
-            message.error('Không thể xem xét quy tắc mật khẩu');
-        }
-    };
+    // Comment lại các Modal liên quan đến mật khẩu và quy tắc mật khẩu
 
     return (
         <div>
@@ -417,49 +294,6 @@ const StudentManagement = () => {
                     }}
                 />
             </Form>
-            <Modal
-                title="Cung cấp mật khẩu cho sinh viên"
-                visible={isPasswordModalVisible}
-                onOk={handlePasswordModalOk}
-                onCancel={handleModalCancel}
-            >
-                <Form form={form}>
-                    <Form.Item
-                        name="password"
-                        label="Mật khẩu"
-                        rules={[{ required: true, message: 'Vui lòng nhập mật khẩu' }]}
-                    >
-                        <Input.Password />
-                    </Form.Item>
-                </Form>
-            </Modal>
-
-            <Modal
-                title="Cập nhật quy tắc mật khẩu"
-                visible={isPasswordRuleModalVisible}
-                onOk={handlePasswordRuleModalOk}
-                onCancel={handleModalCancel}
-            >
-                <Form form={form}>
-                    <Form.Item
-                        name="passwordRuleTemplate"
-                        label="Mẫu mật khẩu"
-                        rules={[{ required: true, message: 'Vui lòng nhập mẫu mật khẩu' }]}
-                    >
-                        <Input placeholder="School${ngaysinh}2023" />
-                    </Form.Item>
-                    <div style={{ marginBottom: '16px' }}>
-                        <h4>Hướng dẫn tạo mẫu mật khẩu:</h4>
-                        <ul>
-                            <li>Sử dụng {'$'}{'{ngaysinh}'} để chèn ngày sinh của sinh viên (định dạng DDMMYYYY)</li>
-                            <li>Sử dụng {'$'}{'{nam}'} để chèn năm hiện tại</li>
-                            <li>Sử dụng {'$'}{'{mssv}'} để chèn mã số sinh viên</li>
-                            <li>Ví dụ: School{'$'}{'{ngaysinh}'}{'$'}{'{nam}'} sẽ tạo mật khẩu như School010120052023</li>
-                        </ul>
-                    </div>
-                    <Button onClick={reviewPasswordRule}>Xem xét quy tắc</Button>
-                </Form>
-            </Modal>
         </div>
     );
 };

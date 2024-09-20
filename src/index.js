@@ -11,6 +11,14 @@ import './assets/styles/main.css';
 import "./assets/styles/responsive.css";
 import 'bootstrap/dist/js/bootstrap.bundle.min.js';
 
+// Thêm đoạn mã này để bỏ qua cảnh báo ResizeObserver
+const originalError = console.error;
+console.error = (...args) => {
+  if (/ResizeObserver loop completed with undelivered notifications/.test(args[0])) {
+    return;
+  }
+  originalError.call(console, ...args);
+};
 
 ReactDOM.render(
   <Router>

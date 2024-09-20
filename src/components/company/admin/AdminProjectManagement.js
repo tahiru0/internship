@@ -1,7 +1,7 @@
 import { Table, Button, Modal, message, Avatar, Typography, Card, Tag, Popconfirm, Switch, Pagination, Tooltip, Progress, Dropdown, Menu, Row, Col, Empty, Input, Select, DatePicker, InputNumber, Descriptions, Spin } from 'antd';
 import { EditOutlined, DeleteOutlined, UserAddOutlined, AppstoreOutlined, TableOutlined, PushpinOutlined, PushpinFilled, SearchOutlined, MoreOutlined } from '@ant-design/icons';
 import axios from 'axios';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Cookies from 'js-cookie';
 import useForm from '../../../common/useForm';
 
@@ -37,6 +37,7 @@ const AdminProjectManagement = () => {
   const [oldMentorId, setOldMentorId] = useState(null);
   const [filteredInfo, setFilteredInfo] = useState({});
   const [sortedInfo, setSortedInfo] = useState({});
+  const containerRef = useRef(null);
 
   const formFields = [
     { name: 'title', label: 'Tên dự án', type: 'text', rules: [{ required: true, message: 'Vui lòng nhập tên dự án' }], colSpan: 24 },
@@ -546,8 +547,27 @@ const AdminProjectManagement = () => {
     setSelectedMember(null);
   };
 
+  useEffect(() => {
+    const resizeObserver = new ResizeObserver(entries => {
+      for (let entry of entries) {
+        // Xử lý thay đổi kích thước ở đây
+        // console.log('Kích thước mới:', entry.contentRect);
+      }
+    });
+
+    if (containerRef.current) {
+      resizeObserver.observe(containerRef.current);
+    }
+
+    return () => {
+      if (containerRef.current) {
+        resizeObserver.unobserve(containerRef.current);
+      }
+    };
+  }, []);
+
   return (
-    <div>
+    <div ref={containerRef}>
       <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Input
           prefix={<SearchOutlined />}
