@@ -23,16 +23,16 @@ const ApiConfig = () => {
     const fetchApiConfig = async () => {
         setLoading(true);
         try {
-            const response = await api.get('/school/guest-api-config');
+            const response = await api.get('/school/student-api-config');
             const config = response.data;
             setApiConfig(config);
             form.setFieldsValue({
-                uri: config.guestApiConfig.uri,
-                fieldMappings: config.guestApiConfig.fieldMappings || {},
-                passwordRule: config.passwordRule
+                uri: config.studentApiConfig.uri,
+                fieldMappings: config.studentApiConfig.fieldMappings || {},
+                passwordRule: config.studentApiConfig.passwordRule
             });
         } catch (error) {
-            message.error('Lỗi khi tải cấu hình API');
+            handleApiError(error, 'Lỗi khi tải cấu hình API');
         } finally {
             setLoading(false);
         }
@@ -41,16 +41,17 @@ const ApiConfig = () => {
     const checkApiConnection = async () => {
         setLoading(true);
         try {
-            const response = await api.post('/school/check-guest-api-connection', {
-                uri: form.getFieldValue('uri'),
+            const uri = form.getFieldValue('uri');
+            const response = await api.post('/school/check-student-api-connection', {
+                uri,
                 id: testStudentId
             });
             setTestResult(response.data.data);
             message.success(response.data.message);
         } catch (error) {
             setTestResult(null);
-            if (error.response && error.response.status === 400) {
-                message.error('Cấu hình API không hợp lệ hoặc API không hoạt động');
+            if (error.response && error.response.data && error.response.data.message) {
+                message.error(error.response.data.message);
             } else {
                 message.error('Lỗi khi kiểm tra kết nối API');
             }
@@ -63,17 +64,21 @@ const ApiConfig = () => {
         setLoading(true);
         try {
             const configToSave = {
-                guestApiConfig: {
+                studentApiConfig: {
                     uri: values.uri,
-                    fieldMappings: values.fieldMappings
-                },
-                passwordRule: values.passwordRule
+                    fieldMappings: values.fieldMappings,
+                    passwordRule: values.passwordRule
+                }
             };
-            await api.put('/school/guest-api-config', configToSave);
-            message.success('Cập nhật cấu hình API thành công');
+            const response = await api.put('/school/student-api-config', configToSave);
+            message.success(response.data.message || 'Cập nhật cấu hình API thành công');
             setApiConfig(configToSave);
         } catch (error) {
-            message.error('Lỗi khi cập nhật cấu hình API');
+            if (error.response && error.response.data && error.response.data.message) {
+                message.error(error.response.data.message);
+            } else {
+                message.error('Lỗi khi cập nhật cấu hình API');
+            }
         } finally {
             setLoading(false);
         }
@@ -89,7 +94,15 @@ const ApiConfig = () => {
             setPasswordPreview(response.data.password);
             setPasswordPreviewVisible(true);
         } catch (error) {
-            message.error('Lỗi khi kiểm tra quy tắc mật khẩu');
+            handleApiError(error, 'Lỗi khi kiểm tra quy tắc mật khẩu');
+        }
+    };
+
+    const handleApiError = (error, defaultMessage) => {
+        if (error.response && error.response.data && error.response.data.message) {
+            message.error(error.response.data.message);
+        } else {
+            message.error(defaultMessage);
         }
     };
 
@@ -101,12 +114,12 @@ const ApiConfig = () => {
         <Card>
             <Tabs defaultActiveKey="1">
                 <TabPane tab={<span><InfoCircleOutlined />Cấu hình API</span>} key="1">
-                    <Title level={3}>Cấu hình API Trường học</Title>
+                    <Title level={3}>Cấu hình API Sinh viên</Title>
                     <Paragraph>
                         Cấu hình kết nối API với hệ thống quản lý sinh viên của trường bạn.
                     </Paragraph>
                     <Alert
-                        message="Lưu ý: URI API phải hỗ trợ truy vấn thông tin sinh viên bằng mã số sinh viên."
+                        message="Lưu ý: API phải hỗ trợ truy vấn thông tin sinh viên bằng mã số sinh viên."
                         type="info"
                         showIcon
                         style={{ marginBottom: 16 }}
@@ -115,16 +128,16 @@ const ApiConfig = () => {
                         form={form}
                         layout="vertical"
                         onFinish={onFinish}
-                        initialValues={apiConfig}
+                        initialValues={apiConfig?.studentApiConfig}
                     >
+                        <Form.Item
+                            name="uri"
+                            label="URI API"
+                            rules={[{ required: true, message: 'Vui lòng nhập URI API' }]}
+                        >
+                            <Input prefix={<LinkOutlined />} placeholder="https://api.yourschool.edu/v1/students" />
+                        </Form.Item>
                         <Space direction="vertical" style={{ width: '100%' }}>
-                            <Form.Item
-                                name="uri"
-                                label="URI API"
-                                style={{ marginBottom: 0 }}
-                            >
-                                <Input prefix={<LinkOutlined />} placeholder="https://api.yourschool.edu/v1/students" />
-                            </Form.Item>
                             <Space>
                                 <Input
                                     prefix={<UserOutlined />}
@@ -213,7 +226,7 @@ const ApiConfig = () => {
                 <TabPane tab={<span><InfoCircleOutlined />Hướng dẫn</span>} key="2">
                     <Title level={3}>Hướng dẫn sử dụng</Title>
                     <Paragraph>
-                        <Text strong>1. URI API:</Text> Nhập địa chỉ API của hệ thống quản lý sinh viên của trường bạn.
+                        <Text strong>1. URI API:</Text> Nhập địa chỉ API của hệ thống quản lý sinh viên của trường.
                     </Paragraph>
                     <Paragraph>
                         <Text strong>2. Ánh xạ trường:</Text> Điền tên trường tương ứng trong API của bạn cho mỗi loại thông tin.

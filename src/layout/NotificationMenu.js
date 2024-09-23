@@ -11,6 +11,7 @@ import {
 } from 'react-icons/md';
 import moment from 'moment';
 import 'moment/locale/vi';  // Import tiếng Việt cho moment
+import ReactMarkdown from 'react-markdown';
 
 const { Text } = Typography;
 
@@ -64,6 +65,14 @@ const NotificationMenu = ({ isMobile, onClose }) => {
 
     const getRelativeTime = (date) => {
         return moment(date).fromNow();
+    };
+
+    const renderContent = (content, isExpanded) => {
+        return isExpanded ? (
+            <ReactMarkdown>{content}</ReactMarkdown>
+        ) : (
+            <ReactMarkdown>{truncateContent(content)}</ReactMarkdown>
+        );
     };
 
     const menuStyle = {
@@ -133,7 +142,7 @@ const NotificationMenu = ({ isMobile, onClose }) => {
                                 }
                                 description={
                                     <div>
-                                        {isExpanded ? item.content : truncateContent(item.content)}
+                                        {renderContent(item.content, isExpanded)}
                                         {!isExpanded && item.content.length > 50 && (
                                             <Text type="link" style={{ marginLeft: 8 }}>Xem thêm</Text>
                                         )}

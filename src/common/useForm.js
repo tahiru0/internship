@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Form, Input, Button, DatePicker, Upload, Checkbox, InputNumber, Modal, Row, Col, Select, Radio, Switch, Slider, Rate, TimePicker } from 'antd';
-import { UploadOutlined } from '@ant-design/icons';
+import { UploadOutlined, PlusOutlined, MinusCircleOutlined } from '@ant-design/icons';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import styled from 'styled-components';
@@ -98,7 +98,7 @@ const useForm = ({ fields, onSubmit, initialValues }) => {
   };
 
   const renderField = (field) => {
-    const { name, label, type, options, maxCount = 1, dependsOn, ...rest } = field;
+    const { name, label, type, options, maxCount = 1, dependsOn, inputFields, extra, ...rest } = field;
 
     if (dependsOn && !form.getFieldValue(dependsOn)) {
       return null;
@@ -110,7 +110,12 @@ const useForm = ({ fields, onSubmit, initialValues }) => {
       case 'text':
         return <Input style={commonStyle} {...rest} />;
       case 'textarea':
-        return <TextArea style={commonStyle} {...rest} />;
+        return (
+          <>
+            <TextArea style={commonStyle} {...rest} />
+            {extra && <div style={{ marginTop: 8 }}>{extra}</div>}
+          </>
+        );
       case 'number':
         return <InputNumber style={commonStyle} {...rest} />;
       case 'password':
@@ -126,7 +131,7 @@ const useForm = ({ fields, onSubmit, initialValues }) => {
       case 'time':
         return <TimePicker style={commonStyle} {...rest} />;
       case 'select':
-        return <Select style={commonStyle} options={options} {...rest} />;
+        return <Select style={commonStyle} options={options} {...rest} mode={rest.mode} />;
       case 'multiSelect':
         return <Select style={commonStyle} mode="multiple" options={options} {...rest} />;
       case 'checkbox':
@@ -189,7 +194,40 @@ const useForm = ({ fields, onSubmit, initialValues }) => {
       case 'link':
         return <LinkInput style={commonStyle} {...rest} />;
       case 'tags':
-        return <Select mode="tags" style={commonStyle} {...rest} />;
+        return <Select mode="tags" style={commonStyle} options={options} {...rest} />;
+      case 'dynamicInput':
+        return (
+          <Form.List name={name}>
+            {(fields, { add, remove }) => (
+              <>
+                {fields.map((field, index) => (
+                  <Row key={field.key} gutter={16} align="middle">
+                    {inputFields.map((inputField, inputIndex) => (
+                      <Col key={inputIndex} span={24 / inputFields.length}>
+                        <Form.Item
+                          {...field}
+                          name={[field.name, inputField.name]}
+                          fieldKey={[field.fieldKey, inputField.name]}
+                          rules={inputField.rules}
+                        >
+                          {renderField({ ...inputField, name: [field.name, inputField.name] })}
+                        </Form.Item>
+                      </Col>
+                    ))}
+                    <Col span={24 / inputFields.length}>
+                      <MinusCircleOutlined onClick={() => remove(field.name)} />
+                    </Col>
+                  </Row>
+                ))}
+                <Form.Item>
+                  <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>
+                    Thêm tài liệu
+                  </Button>
+                </Form.Item>
+              </>
+            )}
+          </Form.List>
+        );
       default:
         return <Input style={commonStyle} {...rest} />;
     }

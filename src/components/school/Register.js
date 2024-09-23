@@ -1,257 +1,251 @@
 import React, { useState } from 'react';
-import { Container, Row, Col, Button, Card, ProgressBar } from 'react-bootstrap';
+import { Container, Row, Col, Button, Form as BootstrapForm } from 'react-bootstrap';
 import { Formik, Form, Field, ErrorMessage } from 'formik';
 import * as Yup from 'yup';
-import { Input, Upload, message } from 'antd';
-import { UploadOutlined } from '@ant-design/icons';
-import { useNavigate, Link } from 'react-router-dom';
-
-const Step1 = () => (
-    <div>
-        <h5 className="text-center mb-4">Nhập tên trường học</h5>
-        <Field style={{ width: '100%', height: '50px', fontSize: '16px' }} name="name" placeholder="Tên trường học" as={Input} />
-        <ErrorMessage name="name" component="div" style={{ color: 'red' }} />
-        <div className="mt-3">
-        Đã có tài khoản?<Link to="/school/login"> Đăng nhập</Link>
-        </div>
-    </div>
-);
-
-const Step2 = ({ values }) => (
-    <div>
-        <h5 className="text-center mb-4">Nhập địa chỉ cho trường {values.name}</h5>
-        <Field style={{ width: '100%', height: '50px', fontSize: '16px' }} name="address" placeholder="Địa chỉ trường học" as={Input} />
-        <ErrorMessage name="address" component="div" style={{ color: 'red' }} />
-    </div>
-);
-
-const Step3 = () => (
-    <div>
-        <h5 className="text-center mb-4">Tên của bạn là gì</h5>
-        <Field style={{ width: '100%', height: '50px', fontSize: '16px' }} name="accountName" placeholder="Tên của bạn" as={Input} />
-        <ErrorMessage name="accountName" component="div" style={{ color: 'red' }} />
-    </div>
-);
-
-const Step4 = ({ setFieldValue }) => {
-    const [emailExists, setEmailExists] = useState(false);
-  
-    const checkEmail = async (email) => {
-      try {
-        const response = await fetch('http://localhost:5000/api/school/check-email', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ email }),
-        });
-        const data = await response.json();
-        setEmailExists(data.exists);
-        setFieldValue('emailExists', data.exists);
-      } catch (error) {
-        console.error('Lỗi khi kiểm tra email:', error);
-      }
-    };
-  
-    return (
-      <div>
-        <h5 className="text-center mb-4">Nhập thông tin đăng nhập</h5>
-        <Field
-          style={{ width: '100%', height: '50px', fontSize: '16px' }}
-          name="email"
-          placeholder="Email"
-          as={Input}
-          onBlur={(e) => checkEmail(e.target.value)}
-        />
-        <ErrorMessage name="email" component="div" style={{ color: 'red' }} />
-        <Field
-          style={{ width: '100%', height: '50px', fontSize: '16px' }}
-          name="password"
-          type="password"
-          placeholder="Mật khẩu"
-          as={Input.Password}
-          className="mt-3"
-        />
-        <ErrorMessage name="password" component="div" style={{ color: 'red' }} />
-      </div>
-    );
-  };
-
-const Step5 = ({ setFieldValue }) => (
-    <div>
-        <h5 className="text-center mb-4">Tải lên logo trường học</h5>
-        <Upload
-            name="logo"
-            listType="picture"
-            maxCount={1}
-            beforeUpload={(file) => {
-                setFieldValue('logo', file);
-                return false;
-            }}
-        >
-            <Button icon={<UploadOutlined />}>Chọn logo</Button>
-        </Upload>
-    </div>
-);
-
-const Step6 = ({ values, setFieldValue, handleSubmit }) => (
-    <div>
-        <h5 className="text-center mb-4">Xác nhận thông tin đăng ký</h5>
-        <div className="mb-3">
-            <Field
-                type="checkbox"
-                name="agreeTerms"
-                id="agreeTerms"
-                checked={values.agreeTerms}
-                onChange={() => setFieldValue('agreeTerms', !values.agreeTerms)}
-            />
-            <label htmlFor="agreeTerms" className="mx-2">
-                Tôi đồng ý với <a href="/terms">Điều khoản dịch vụ</a>
-            </label>
-            <ErrorMessage name="agreeTerms" component="div" style={{ color: 'red' }} />
-        </div>
-        <div className="mb-3">
-            <Field
-                type="checkbox"
-                name="confirmInfo"
-                id="confirmInfo"
-                checked={values.confirmInfo}
-                onChange={() => setFieldValue('confirmInfo', !values.confirmInfo)}
-            />
-            <label htmlFor="confirmInfo" className="mx-2">
-                Tôi cam đoan rằng tất cả thông tin đã cung cấp là chính xác
-            </label>
-            <ErrorMessage name="confirmInfo" component="div" style={{ color: 'red' }} />
-        </div>
-    </div>
-);
-
-const steps = [Step1, Step2, Step3, Step4, Step5, Step6];
-
-const validationSchemas = [
-    Yup.object({
-        name: Yup.string().required('Tên trường học là bắt buộc'),
-    }),
-    Yup.object({
-        address: Yup.string().required('Địa chỉ là bắt buộc'),
-    }),
-    Yup.object({
-        accountName: Yup.string().required('Tên tài khoản là bắt buộc'),
-    }),
-    Yup.object({
-        email: Yup.string()
-          .required('Email là bắt buộc')
-          .email('Email không hợp lệ')
-          .test('email-not-taken', 'Email này đã được sử dụng', function (value) {
-            return !this.parent.emailExists;
-          }),
-        password: Yup.string().required('Mật khẩu là bắt buộc'),
-    }),
-    Yup.object({
-        logo: Yup.mixed().required('Logo là bắt buộc'),
-    }),
-    Yup.object({
-        agreeTerms: Yup.boolean().oneOf([true], 'Bạn phải đồng ý với Điều khoản dịch vụ'),
-        confirmInfo: Yup.boolean().oneOf([true], 'Bạn phải cam đoan rằng thông tin là chính xác'),
-    }),
-];
+import { message } from 'antd';
+import { useNavigate } from 'react-router-dom';
+import Cookies from 'js-cookie';
+import confetti from 'canvas-confetti';
+import { FaCheckCircle, FaHome, FaEnvelope } from 'react-icons/fa';
 
 const Register = () => {
-    const [step, setStep] = useState(0);
     const navigate = useNavigate();
+    const [previewImage, setPreviewImage] = useState(null);
+    const [registrationSuccess, setRegistrationSuccess] = useState(false);
+    const [userEmail, setUserEmail] = useState('');
 
-    const handleSubmit = async (values, { setSubmitting }) => {
-        if (step < steps.length - 1) {
-            setStep(step + 1);
-        } else {
-            const formData = new FormData();
-            formData.append('name', values.name);
-            formData.append('address', values.address);
-            formData.append('accountName', values.accountName);
-            formData.append('email', values.email);
-            formData.append('password', values.password);
-            if (values.logo) {
-                formData.append('logo', values.logo);
-            }
-
-            try {
-                const response = await fetch('http://localhost:5000/api/school/register', {
-                    method: 'POST',
-                    body: formData,
-                });
-                const data = await response.json();
-                if (response.ok) {
-                    message.success(data.message);
-                    navigate('/school/login');
-                } else {
-                    message.error(data.message);
-                }
-            } catch (error) {
-                message.error('Đã xảy ra lỗi khi đăng ký!');
-                console.error(error);
+    const handleSubmit = async (values, { setSubmitting, setFieldError }) => {
+        const formData = new FormData();
+        for (const key in values) {
+            if (key === 'logo') {
+                formData.append(key, values[key]);
+            } else {
+                formData.append(key, JSON.stringify(values[key]));
             }
         }
+
+        try {
+            const response = await fetch('http://localhost:5000/api/school/register', {
+                method: 'POST',
+                body: formData,
+            });
+            const data = await response.json();
+
+            if (response.ok) {
+                Cookies.set('selectedSchool', data.school._id, { expires: 7 });
+                setRegistrationSuccess(true);
+                setUserEmail(values.email);
+                confetti({
+                    particleCount: 100,
+                    spread: 70,
+                    origin: { y: 0.6 }
+                });
+            } else {
+                message.error(data.message);
+            }
+        } catch (error) {
+            message.error('Đã xảy ra lỗi!');
+            console.error(error);
+        }
+
         setSubmitting(false);
     };
 
+    const handleImageChange = (event, setFieldValue) => {
+        const file = event.currentTarget.files[0];
+        if (file) {
+            setFieldValue("logo", file);
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setPreviewImage(reader.result);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const getEmailProvider = (email) => {
+        const domain = email.split('@')[1];
+        if (domain.includes('gmail')) return 'https://mail.google.com';
+        if (domain.includes('yahoo')) return 'https://mail.yahoo.com';
+        if (domain.includes('outlook') || domain.includes('hotmail')) return 'https://outlook.live.com';
+        return 'https://mail.google.com'; // Mặc định là Gmail
+    };
+
+    if (registrationSuccess) {
+        return (
+            <Container fluid className="d-flex justify-content-center align-items-center min-vh-100" style={{ background: 'linear-gradient(135deg, #E6F3FF 0%, #B5D8FF 100%)' }}>
+                <Row className="justify-content-center w-100">
+                    <Col md={8} lg={6} className="bg-white p-5 rounded shadow text-center">
+                        <FaCheckCircle className="text-success mb-4" style={{ fontSize: '100px' }} />
+                        <h2 className="mb-4" style={{ color: '#060270', fontWeight: 'bold' }}>Chúc mừng! Đăng ký thành công!</h2>
+                        <p className="mb-4" style={{ fontSize: '18px', color: '#555' }}>Chúng tôi đã gửi email xác nhận đến địa chỉ email của bạn. Vui lòng kiểm tra và xác nhận tài khoản để bắt đầu sử dụng dịch vụ.</p>
+                        <div className="d-flex justify-content-center gap-3">
+                            <Button variant="primary" size="lg" onClick={() => navigate('/')} className="px-4 py-2">
+                                <FaHome className="me-2" /> Quay về trang chủ
+                            </Button>
+                            <Button 
+                                variant="outline-primary" 
+                                size="lg" 
+                                onClick={() => window.open(getEmailProvider(userEmail), '_blank')} 
+                                className="px-4 py-2"
+                            >
+                                <FaEnvelope className="me-2" /> Kiểm tra email
+                            </Button>
+                        </div>
+                    </Col>
+                </Row>
+            </Container>
+        );
+    }
+
     return (
-        <Container fluid className="d-flex justify-content-center align-items-center min-vh-100" style={{ background: '#F0F2F5' }}>
-            <Row className="justify-content-center w-100 min-vh-100">
-                <Col md={7} className="py-4">
+        <Container fluid className="d-flex justify-content-center align-items-center min-vh-100" style={{ background: 'linear-gradient(135deg, #E6F3FF 0%, #B5D8FF 100%)' }}>
+            <Row className="justify-content-center w-100">
+                <Col md={8} lg={6} className="bg-white p-4 p-md-5 rounded shadow">
                     <div className="d-flex justify-content-start mb-4" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>
                         <img src="/logo.png" height="50" alt="Logo" />
-                        <h2 className="ml-2" style={{ color: '#060270' }}>Internship</h2>
+                        <h2 className="ms-2" style={{ color: '#060270' }}>Internship</h2>
                     </div>
-                    <div className="p-4" style={{ maxWidth: '600px', margin: '0 auto' }}>
-                        <h2 className="text-center mb-4" style={{ fontWeight: 600 }}>ĐĂNG KÝ TRƯỜNG HỌC</h2>
-                        <ProgressBar now={(step / (steps.length - 1)) * 100} className="mb-4" animated />
+                    <h2 className="text-center mb-4" style={{ fontWeight: 600, color: '#060270' }}>ĐĂNG KÝ TÀI KHOẢN CHO TRƯỜNG ĐẠI HỌC</h2>
 
-                        <Formik
-                            initialValues={{
-                                name: '',
-                                address: '',
-                                accountName: '',
-                                email: '',
-                                password: '',
-                                logo: null,
-                                agreeTerms: false,
-                                confirmInfo: false,
-                                emailExists: false,
-                            }}
-                            validationSchema={validationSchemas[step]}
-                            onSubmit={handleSubmit}
-                        >
-                            {({ isSubmitting, values, setFieldValue }) => (
-                                <Form>
-                                    {React.createElement(steps[step], { values, setFieldValue })}
-                                    <div className="d-flex justify-content-between mt-4">
-                                        {step > 0 && (
-                                            <Button onClick={() => setStep(step - 1)} disabled={isSubmitting} variant="secondary">
-                                                Quay lại
-                                            </Button>
-                                        )}
-                                        <Button type="submit" disabled={isSubmitting} variant="primary">
-                                            {step < steps.length - 1 ? 'Tiếp theo' : 'Đăng ký'}
-                                        </Button>
-                                    </div>
-                                </Form>
-                            )}
-                        </Formik>
-                    </div>
-                </Col>
-                <Col md={5} className="p-0">
-                    <Card className="h-100 d-none d-md-block" style={{ position: 'relative' }}>
-                        <div
-                            style={{
-                                backgroundImage: 'url(/assets/school-banner.png)',
-                                backgroundSize: 'contain',
-                                backgroundPosition: 'center',
-                                backgroundRepeat: 'no-repeat',
-                                height: '100%',
-                                width: '100%',
-                            }}
-                        />
-                    </Card>
+                    <Formik
+                        initialValues={{
+                            schoolName: '',
+                            address: '',
+                            website: '',
+                            establishedDate: '',
+                            accountName: '',
+                            email: '',
+                            password: '',
+                            confirmPassword: '',
+                            logo: null,
+                            agreeTerms: false,
+                            confirmInfo: false,
+                        }}
+                        validationSchema={Yup.object({
+                            schoolName: Yup.string().required('Tên trường đại học là bắt buộc'),
+                            address: Yup.string().required('Địa chỉ là bắt buộc'),
+                            website: Yup.string().url('URL không hợp lệ').required('Website là bắt buộc'),
+                            establishedDate: Yup.date().required('Ngày thành lập là bắt buộc'),
+                            accountName: Yup.string().required('Tên người đại diện là bắt buộc'),
+                            email: Yup.string()
+                                .required('Email là bắt buộc')
+                                .email('Email không hợp lệ'),
+                            password: Yup.string().required('Mật khẩu là bắt buộc'),
+                            confirmPassword: Yup.string()
+                                .oneOf([Yup.ref('password'), null], 'Mật khẩu không khớp')
+                                .required('Xác nhận mật khẩu là bắt buộc'),
+                            logo: Yup.mixed().required('Logo là bắt buộc'),
+                            agreeTerms: Yup.boolean().oneOf([true], 'Bạn phải đồng ý với Điều khoản dịch vụ'),
+                            confirmInfo: Yup.boolean().oneOf([true], 'Bạn phải cam đoan rằng thông tin là chính xác'),
+                        })}
+                        onSubmit={handleSubmit}
+                    >
+                        {({ isSubmitting, setFieldValue }) => (
+                            <Form>
+                                <Row className="gy-3">
+                                    <Col md={6}>
+                                        <BootstrapForm.Floating>
+                                            <Field name="schoolName" type="text" placeholder="Tên trường đại học" as={BootstrapForm.Control} />
+                                            <label htmlFor="schoolName">Tên trường đại học</label>
+                                            <ErrorMessage name="schoolName" component="div" className="text-danger mt-1" />
+                                        </BootstrapForm.Floating>
+                                    </Col>
+                                    <Col md={6}>
+                                        <BootstrapForm.Floating>
+                                            <Field name="address" type="text" placeholder="Địa chỉ trường đại học" as={BootstrapForm.Control} />
+                                            <label htmlFor="address">Địa chỉ trường đại học</label>
+                                            <ErrorMessage name="address" component="div" className="text-danger mt-1" />
+                                        </BootstrapForm.Floating>
+                                    </Col>
+                                    <Col md={6}>
+                                        <BootstrapForm.Floating>
+                                            <Field name="website" type="text" placeholder="Website" as={BootstrapForm.Control} />
+                                            <label htmlFor="website">Website</label>
+                                            <ErrorMessage name="website" component="div" className="text-danger mt-1" />
+                                        </BootstrapForm.Floating>
+                                    </Col>
+                                    <Col md={6}>
+                                        <BootstrapForm.Floating>
+                                            <Field name="establishedDate" type="date" placeholder="Ngày thành lập" as={BootstrapForm.Control} />
+                                            <label htmlFor="establishedDate">Ngày thành lập</label>
+                                            <ErrorMessage name="establishedDate" component="div" className="text-danger mt-1" />
+                                        </BootstrapForm.Floating>
+                                    </Col>
+                                    <Col md={6}>
+                                        <BootstrapForm.Floating>
+                                            <Field name="accountName" type="text" placeholder="Tên người đại diện" as={BootstrapForm.Control} />
+                                            <label htmlFor="accountName">Tên người đại diện</label>
+                                            <ErrorMessage name="accountName" component="div" className="text-danger mt-1" />
+                                        </BootstrapForm.Floating>
+                                    </Col>
+                                    <Col md={6}>
+                                        <BootstrapForm.Floating>
+                                            <Field name="email" type="email" placeholder="Email" as={BootstrapForm.Control} />
+                                            <label htmlFor="email">Email đăng nhập</label>
+                                            <ErrorMessage name="email" component="div" className="text-danger mt-1" />
+                                        </BootstrapForm.Floating>
+                                    </Col>
+                                    <Col md={6}>
+                                        <BootstrapForm.Floating>
+                                            <Field name="password" type="password" placeholder="Mật khẩu" as={BootstrapForm.Control} />
+                                            <label htmlFor="password">Mật khẩu</label>
+                                            <ErrorMessage name="password" component="div" className="text-danger mt-1" />
+                                        </BootstrapForm.Floating>
+                                    </Col>
+                                    <Col md={6}>
+                                        <BootstrapForm.Floating>
+                                            <Field name="confirmPassword" type="password" placeholder="Xác nhận mật khẩu" as={BootstrapForm.Control} />
+                                            <label htmlFor="confirmPassword">Xác nhận mật khẩu</label>
+                                            <ErrorMessage name="confirmPassword" component="div" className="text-danger mt-1" />
+                                        </BootstrapForm.Floating>
+                                    </Col>
+                                    <Col md={12}>
+                                        <div className="mb-3">
+                                            <label htmlFor="logo" className="form-label">Logo trường đại học</label>
+                                            <div className="d-flex align-items-center">
+                                                <input
+                                                    id="logo"
+                                                    name="logo"
+                                                    type="file"
+                                                    onChange={(event) => handleImageChange(event, setFieldValue)}
+                                                    className="form-control"
+                                                    accept="image/*"
+                                                />
+                                                {previewImage && (
+                                                    <img src={previewImage} alt="Preview" className="ms-3" style={{ width: '50px', height: '50px', objectFit: 'cover' }} />
+                                                )}
+                                            </div>
+                                            <ErrorMessage name="logo" component="div" className="text-danger mt-1" />
+                                        </div>
+                                    </Col>
+                                    <Col md={12}>
+                                        <BootstrapForm.Check className="mb-2">
+                                            <Field type="checkbox" name="agreeTerms" id="agreeTerms" as={BootstrapForm.Check.Input} />
+                                            <BootstrapForm.Check.Label htmlFor="agreeTerms">
+                                                Tôi đồng ý với <a href="/terms">Điều khoản dịch vụ</a>
+                                            </BootstrapForm.Check.Label>
+                                            <ErrorMessage name="agreeTerms" component="div" className="text-danger" />
+                                        </BootstrapForm.Check>
+                                    </Col>
+                                    <Col md={12}>
+                                        <BootstrapForm.Check className="mb-2">
+                                            <Field type="checkbox" name="confirmInfo" id="confirmInfo" as={BootstrapForm.Check.Input} />
+                                            <BootstrapForm.Check.Label htmlFor="confirmInfo">
+                                                Tôi cam đoan rằng tất cả thông tin đã cung cấp là chính xác
+                                            </BootstrapForm.Check.Label>
+                                            <ErrorMessage name="confirmInfo" component="div" className="text-danger" />
+                                        </BootstrapForm.Check>
+                                    </Col>
+                                </Row>
+                                <div className="d-grid gap-2 mt-4">
+                                    <Button type="submit" disabled={isSubmitting} variant="primary" size="lg">
+                                        Đăng ký
+                                    </Button>
+                                </div>
+                            </Form>
+                        )}
+                    </Formik>
                 </Col>
             </Row>
         </Container>

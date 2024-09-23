@@ -108,17 +108,20 @@ const Login = () => {
     const handleLogin = async (values) => {
         console.log('Đang xử lý đăng nhập với giá trị:', values);
         try {
-            const response = await axios.post('http://localhost:5000/api/auth/login/school', values);
+            const { email, password } = values;
+            const response = await axios.post('http://localhost:5000/api/auth/login/school', {
+                schoolId: values.schoolId,
+                email,
+                password,
+            });
+
             const { accessToken, refreshToken } = response.data;
 
             Cookies.set('schoolAccessToken', accessToken, { expires: 1 / 24 });
             Cookies.set('schoolRefreshToken', refreshToken, { expires: 7 });
 
-            const decodedToken = jwtDecode(accessToken);
-            console.log('Decoded token:', decodedToken);
-
             await checkAuthStatus();
-
+            message.success('Đăng nhập thành công!');
             navigate('/school/dashboard');
         } catch (error) {
             console.error('Lỗi đăng nhập:', error);
@@ -132,7 +135,9 @@ const Login = () => {
 
     const handleSchoolSelect = (value) => {
         setSchoolId(value);
+        form.setFieldsValue({ schoolId: value });
         Cookies.set('selectedSchool', value, { expires: 7 });
+        form.validateFields(['schoolId']);
     };
 
     const validationSchema = Yup.object().shape({
@@ -141,15 +146,37 @@ const Login = () => {
         password: Yup.string().required('Vui lòng nhập mật khẩu!'),
     });
 
+    const handleLogoClick = () => {
+        navigate('/');
+    };
+
     return (
-        <Container fluid className="p-0">
-            <Row className="g-0" style={{ minHeight: '100vh' }}>
-                <Col style={{ backgroundColor: '#E6EEFF' }} md={7} className="d-flex align-items-center justify-content-center">
-                    <div className="login-form-container">
-                        <div className="text-center mb-4">
-                            <Title level={2}>Đăng nhập vào hệ thống trường học</Title>
+        <Container fluid className="d-flex justify-content-center align-items-center min-vh-100" style={{ background: '#F0F2F5' }}>
+            <Row className="justify-content-center w-100 min-vh-100">
+                <Col md={7} className='py-4'>
+                    <div className='row'>
+                        <div className='col-md-6 d-flex justify-content-start' onClick={handleLogoClick} style={{ cursor: 'pointer' }}>
+                            <img
+                                src="/logo.png"
+                                height="50"
+                                className="align-top"
+                                alt="Logo"
+                            />
+                            <h2 style={{ color: '#060270', marginLeft: '10px' }}>Internship</h2>
                         </div>
-                        <div className="login-form">
+                        <div className='col-md-6'>
+                            <div style={{ textAlign: 'right' }}>
+                                <span>Bạn chưa có tài khoản? <Link to="/school/register" style={{ color: '#20DC49' }}>Đăng ký</Link></span>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="d-flex flex-column justify-content-center py-4" style={{ display: 'flex', alignItems: 'center' }}>
+                        <div className="p-4" style={{ maxWidth: '600px', margin: '0 auto' }}>
+                            <h2 className="text-center mb-4 display-md-4" style={{ fontWeight: 600 }}>
+                                CHÀO MỪNG BẠN ĐÃ TRỞ LẠI
+                            </h2>
+                            <h5 className="text-center mb-4">Đăng nhập vào tài khoản trường học</h5>
+
                             <Formik
                                 initialValues={{ schoolId: schoolId, email: '', password: '' }}
                                 validationSchema={validationSchema}
@@ -218,9 +245,7 @@ const Login = () => {
 
                                         <div className="d-flex justify-content-between align-items-center mb-4">
                                             <Checkbox>Ghi nhớ tôi</Checkbox>
-                                            <Button type="link" style={{ color: '#D93F21', padding: 0 }} onClick={() => navigate('/school/forgot-password')}>
-                                                Quên mật khẩu?
-                                            </Button>
+                                            <Link to="/school/forgot-password" style={{ color: '#D93F21', fontSize: '14px' }}>Quên mật khẩu?</Link>
                                         </div>
 
                                         <Form.Item>
@@ -241,21 +266,6 @@ const Login = () => {
                                                 Đăng nhập
                                             </Button>
                                         </Form.Item>
-
-                                        <div className="text-center mt-3">
-                                            <Button 
-                                                type="link" 
-                                                style={{ 
-                                                    color: '#4569DF', 
-                                                    padding: '10px 20px', 
-                                                    backgroundColor: '#E6EEFF', 
-                                                    borderRadius: '5px' 
-                                                }} 
-                                                onClick={() => navigate('/school/register')}
-                                            >
-                                                Chưa có tài khoản? Đăng ký ngay
-                                            </Button>
-                                        </div>
                                     </Form>
                                 )}
                             </Formik>
@@ -263,7 +273,7 @@ const Login = () => {
                     </div>
                 </Col>
                 <Col md={5} className="p-0">
-                    <Card className="h-100 d-none d-md-block" style={{ position: 'relative', }}>
+                    <Card className="h-100 d-none d-md-block" style={{ position: 'relative' }}>
                         <div
                             style={{
                                 backgroundImage: 'url(/assets/login-banner.jpg)',

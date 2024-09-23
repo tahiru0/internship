@@ -4,6 +4,13 @@ import Cookies from 'js-cookie';
 import { EventSourcePolyfill } from 'event-source-polyfill';
 import { debounce } from 'lodash';
 
+const getAccessToken = () => {
+  const accessToken = Cookies.get('accessToken');
+  const adminAccessToken = Cookies.get('adminAccessToken');
+  
+  return accessToken || adminAccessToken;
+};
+
 const NotificationContext = createContext();
 
 export const useNotification = () => useContext(NotificationContext);
@@ -18,7 +25,7 @@ export const NotificationProvider = ({ children }) => {
 
   const fetchUnreadNotifications = useCallback(async () => {
     try {
-      const accessToken = Cookies.get('accessToken');
+      const accessToken = getAccessToken();
       if (!accessToken) {
         console.log('Không có accessToken, bỏ qua việc fetch thông báo');
         return [];
@@ -37,7 +44,7 @@ export const NotificationProvider = ({ children }) => {
   const fetchUnreadCount = useCallback(
     debounce(async () => {
       try {
-        const accessToken = Cookies.get('accessToken');
+        const accessToken = getAccessToken();
         if (!accessToken) {
           console.log('Không có accessToken, bỏ qua việc fetch số lượng thông báo chưa đọc');
           return 0;
@@ -58,7 +65,7 @@ export const NotificationProvider = ({ children }) => {
   );
 
   const startNotificationStream = useCallback(() => {
-    const accessToken = Cookies.get('accessToken');
+    const accessToken = getAccessToken();
     if (!accessToken) {
       console.log('Không có accessToken, bỏ qua việc kết nối SSE');
       return;
@@ -153,11 +160,24 @@ export const NotificationProvider = ({ children }) => {
       return;
     }
     try {
-      const accessToken = Cookies.get('accessToken');
-      await axios.patch(`http://localhost:5000/api/notification/${_id}/read`, {}, {
+      const accessToken = getAccessToken();
+      const response = await axios.patch(`http://localhost:5000/api/notification/${_id}/read`, {}, {
         headers: { Authorization: `Bearer ${accessToken}` }
       });
-      setUnreadCount(prev => Math.max((prev || 0) - 1, 0));
+      
+      // Cập nhật số lượng thông báo chưa đọc từ response
+      if (response.data && response.data.unreadCount !== undefined) {
+        const unreadCount = parseInt(response.data.unreadCount, 10);
+        if (!isNaN(unreadCount)) {
+          setUnreadCount(unreadCount);
+        } else {
+          console.error('Giá trị unreadCount không hợp lệ:', response.data.unreadCount);
+        }
+      } else {
+        // Nếu server không trả về unreadCount, giảm số lượng đi 1
+        setUnreadCount(prev => Math.max((prev || 0) - 1, 0));
+      }
+      
       setNotifications(prev => prev.map(notif => 
         notif._id === _id ? { ...notif, isRead: true } : notif
       ));
@@ -168,11 +188,18 @@ export const NotificationProvider = ({ children }) => {
 
   const markAllNotificationsAsRead = async () => {
     try {
-      const accessToken = Cookies.get('accessToken');
-      await axios.patch(`http://localhost:5000/api/notification/read-all`, {}, {
+      const accessToken = getAccessToken();
+      const response = await axios.patch(`http://localhost:5000/api/notification/read-all`, {}, {
         headers: { Authorization: `Bearer ${accessToken}` }
       });
-      setUnreadCount(0);
+      
+      // Cập nhật số lượng thông báo chưa đọc từ response
+      if (response.data && typeof response.data.unreadCount === 'number') {
+        setUnreadCount(response.data.unreadCount);
+      } else {
+        setUnreadCount(0);
+      }
+      
       setNotifications(prev => prev.map(notif => ({ ...notif, isRead: true })));
     } catch (error) {
       console.error('Lỗi khi đánh dấu tất cả thông báo đã đọc:', error);
@@ -181,12 +208,20 @@ export const NotificationProvider = ({ children }) => {
 
   const deleteNotification = async (_id) => {
     try {
-      const accessToken = Cookies.get('accessToken');
-      await axios.delete(`http://localhost:5000/api/notification/${_id}`, {
+      const accessToken = getAccessToken();
+      const response = await axios.delete(`http://localhost:5000/api/notification/${_id}`, {
         headers: { Authorization: `Bearer ${accessToken}` }
       });
+      
       setNotifications(prev => prev.filter(notif => notif._id !== _id));
-      setUnreadCount(prev => prev - (notifications.find(n => n._id === _id)?.isRead ? 0 : 1));
+      
+      // Cập nhật số lượng thông báo chưa đọc từ response
+      if (response.data && typeof response.data.unreadCount === 'number') {
+        setUnreadCount(response.data.unreadCount);
+      } else {
+        // Nếu server không trả về unreadCount, giảm số lượng nếu thông báo chưa đọc
+        setUnreadCount(prev => prev - (notifications.find(n => n._id === _id)?.isRead ? 0 : 1));
+      }
     } catch (error) {
       console.error('Lỗi khi xóa thông báo:', error);
     }
@@ -194,11 +229,17 @@ export const NotificationProvider = ({ children }) => {
 
   const restoreNotification = async (_id) => {
     try {
-      const accessToken = Cookies.get('accessToken');
-      await axios.patch(`http://localhost:5000/api/notification/${_id}/restore`, {}, {
+      const accessToken = getAccessToken();
+      const response = await axios.patch(`http://localhost:5000/api/notification/${_id}/restore`, {}, {
         headers: { Authorization: `Bearer ${accessToken}` }
       });
-      fetchUnreadNotifications();
+      
+      // Cập nhật số lượng thông báo chưa đọc từ response
+      if (response.data && typeof response.data.unreadCount === 'number') {
+        setUnreadCount(response.data.unreadCount);
+      }
+      
+      await fetchUnreadNotifications();
     } catch (error) {
       console.error('Lỗi khi khôi phục thông báo:', error);
     }

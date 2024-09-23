@@ -38,20 +38,20 @@ const AdminProjectManagement = () => {
   const [filteredInfo, setFilteredInfo] = useState({});
   const [sortedInfo, setSortedInfo] = useState({});
   const containerRef = useRef(null);
+  const [skills, setSkills] = useState([]);
+  const [majors, setMajors] = useState([]);
+  
 
   const formFields = [
     { name: 'title', label: 'Tên dự án', type: 'text', rules: [{ required: true, message: 'Vui lòng nhập tên dự án' }], colSpan: 24 },
     { name: 'mentorId', label: 'Người hướng dẫn', type: 'select', options: mentors.map(mentor => ({ value: mentor._id, label: mentor.name })), rules: [{ required: true, message: 'Vui lòng chọn Người hướng dẫn' }], colSpan: 12 },
     { name: 'isRecruiting', label: 'Đang tuyển dụng', type: 'checkbox', colSpan: 12 },
-    { name: 'startDate', label: 'Ngày bắt đầu', type: 'date', rules: [{ required: true, message: 'Vui lòng chọn ngày bắt đầu' }], colSpan: 8 },
-    { name: 'endDate', label: 'Ngày kết thúc', type: 'date', rules: [{ required: true, message: 'Vui lòng chọn ngày kết thúc' }], colSpan: 8 },
     { name: 'maxApplicants', label: 'Số lượng ứng viên tối đa', type: 'number', rules: [{ required: true, message: 'Vui lòng nhập số lượng ứng viên tối đa' }], colSpan: 8, dependsOn: 'isRecruiting' },
     { name: 'applicationPeriod', label: 'Thời gian ứng tuyển', type: 'dateRange', rules: [{ required: true, message: 'Vui lòng chọn thời gian ứng tuyển' }], colSpan: 24, dependsOn: 'isRecruiting' },
     { name: 'description', label: 'Mô tả', type: 'textarea', rules: [{ required: true, message: 'Vui lòng nhập mô tả' }], colSpan: 24 },
     { name: 'objectives', label: 'Mục tiêu', type: 'textarea', rules: [{ required: true, message: 'Vui lòng nhập mục tiêu' }], colSpan: 24 },
-    { name: 'requiredSkills', label: 'Kỹ năng yêu cầu', type: 'tags', colSpan: 12 },
-    { name: 'relatedMajors', label: 'Ngành liên quan', type: 'tags', colSpan: 12 },
-    { name: 'skillRequirements', label: 'Yêu cầu kỹ năng', type: 'textarea', colSpan: 24 },
+    { name: 'requiredSkills', label: 'Kỹ năng yêu cầu', type: 'tags', options: skills.map(skill => ({ value: skill._id, label: skill.name })), colSpan: 12 },
+    { name: 'relatedMajors', label: 'Ngành liên quan', type: 'tags', options: majors.map(major => ({ value: major._id, label: major.name })), colSpan: 12 },
   ];
 
   const handleAddEdit = useCallback(async (values) => {
@@ -179,9 +179,31 @@ const AdminProjectManagement = () => {
     }
   };
 
+  const fetchSkills = async () => {
+    try {
+      const response = await axios.get('http://localhost:5000/api/guest/skills');
+      setSkills(response.data);
+    } catch (error) {
+      console.error('Lỗi khi lấy danh sách kỹ năng:', error);
+      message.error('Không thể lấy danh sách kỹ năng');
+    }
+  };
+
+  const fetchMajors = async () => {
+    try {
+      const response = await axios.get('http://localhost:5000/api/guest/majors');
+      setMajors(response.data);
+    } catch (error) {
+      console.error('Lỗi khi lấy danh sách ngành học:', error);
+      message.error('Không thể lấy danh sách ngành học');
+    }
+  };
+
   useEffect(() => {
     fetchProjects();
     fetchMentors();
+    fetchSkills();
+    fetchMajors();
   }, []);
 
   const handleTableChange = (pagination, filters, sorter) => {

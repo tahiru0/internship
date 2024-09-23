@@ -1,6 +1,6 @@
 import React, { useState, useLayoutEffect, useEffect, useRef, useMemo, useCallback } from 'react';
-import { Card, List, Avatar, Input, Select, message, Spin, Button, Tag, Descriptions, Switch, Modal, DatePicker, InputNumber, Popconfirm, Tooltip, Table, Form, Space, Divider, Menu, Dropdown } from 'antd';
-import { SearchOutlined, MenuFoldOutlined, MenuUnfoldOutlined, LeftOutlined, UserOutlined, PlusOutlined, MoreOutlined } from '@ant-design/icons';
+import { Card, List, Avatar, Input, Select, message, Spin, Button, Tag, Descriptions, Switch, Modal, DatePicker, InputNumber, Popconfirm, Tooltip, Table, Form, Space, Divider } from 'antd';
+import { SearchOutlined, MenuFoldOutlined, MenuUnfoldOutlined, LeftOutlined, UserOutlined, PlusOutlined } from '@ant-design/icons';
 import axios from 'axios';
 import moment from 'moment';
 import { debounce } from 'lodash';
@@ -19,16 +19,14 @@ const MentorProjectManagement = () => {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [projectDetailLoading, setProjectDetailLoading] = useState(false);
-  const [recruitingModalVisible, setRecruitingModalVisible] = useState(false);
-  const [recruitingProject, setRecruitingProject] = useState(null);
-  const [applicationEnd, setApplicationEnd] = useState(null);
-  const [maxApplicants, setMaxApplicants] = useState(0);
   const [collapsed, setCollapsed] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const loader = useRef(null);
   const [taskModalVisible, setTaskModalVisible] = useState(false);
   const [taskForm] = Form.useForm();
+  const [studentModalVisible, setStudentModalVisible] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState(null);
 
   const listRef = useRef(null);
   const resizeTimeout = useRef(null);
@@ -107,8 +105,9 @@ const MentorProjectManagement = () => {
         handleProjectSelect(projects[0].id);
       }
     } catch (error) {
+      const errorMessage = error.response?.data?.message || 'Không thể lấy danh sách dự án';
       console.error('Lỗi khi lấy danh sách dự án:', error);
-      message.error('Không thể lấy danh sách dự án');
+      message.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -154,9 +153,14 @@ const MentorProjectManagement = () => {
         headers: { Authorization: `Bearer ${accessToken}` }
       });
       setSelectedProject(response.data);
+      // Cập nhật project trong danh sách projects
+      setProjects(prevProjects => 
+        prevProjects.map(p => p.id === projectId ? { ...p, members: response.data.members } : p)
+      );
     } catch (error) {
+      const errorMessage = error.response?.data?.message || 'Không thể lấy chi tiết dự án';
       console.error('Lỗi khi lấy chi tiết dự án:', error);
-      message.error('Không thể lấy chi tiết dự án');
+      message.error(errorMessage);
     } finally {
       setProjectDetailLoading(false);
     }
@@ -195,6 +199,9 @@ const MentorProjectManagement = () => {
     try {
       const values = await taskForm.validateFields();
       const accessToken = Cookies.get('accessToken');
+      if (!selectedProject || !selectedProject.id) {
+        throw new Error('Không có dự án nào được chọn');
+      }
       const response = await axios.post(`http://localhost:5000/api/mentor/projects/${selectedProject.id}/tasks`, {
         name: values.title,
         description: values.description,
@@ -213,58 +220,90 @@ const MentorProjectManagement = () => {
       setSelectedProject(updatedProject);
       setTaskModalVisible(false);
       taskForm.resetFields();
-      message.success('Đã thêm task mới');
+      message.success(response.data.message || 'Đã thêm task mới');
     } catch (error) {
+      const errorMessage = error.response?.data?.message || 'Không thể thêm task mới';
       console.error('Lỗi khi thêm task:', error);
-      message.error('Không thể thêm task mới');
+      message.error(errorMessage);
     }
   };
 
-  const taskMenu = (
-    <Menu>
-      <Menu.Item key="1">Chỉnh sửa</Menu.Item>
-      <Menu.Item key="2">Xóa</Menu.Item>
-    </Menu>
-  );
-
   const taskColumns = [
     {
-      title: 'Tên task',
-      dataIndex: 'name',
-      key: 'name',
-    },
-    {
-      title: 'Người được giao',
-      dataIndex: 'assignedTo',
-      key: 'assignedTo',
-      render: (assignedTo) => (
-        <Avatar.Group maxCount={1}>
-          <Tooltip title={assignedTo.name}>
-            <Avatar src={assignedTo.avatar} icon={<UserOutlined />} />
-          </Tooltip>
-        </Avatar.Group>
-      ),
+      title: 'Tiêu đề',
+      dataIndex: 'title',
+      key: 'title',
     },
     {
       title: 'Trạng thái',
       dataIndex: 'status',
       key: 'status',
       render: (status) => (
-        <Tag color={status === 'Pending' ? 'orange' : status === 'In Progress' ? 'blue' : 'green'}>
+        <Tag color={status === 'Done' ? 'green' : status === 'In Progress' ? 'blue' : 'orange'}>
           {status}
         </Tag>
       ),
     },
     {
+      title: 'Người được giao',
+      dataIndex: 'assignee',
+      key: 'assignee',
+    },
+    {
       title: 'Hành động',
       key: 'action',
-      render: () => (
-        <Dropdown overlay={taskMenu} trigger={['click']}>
-          <Button icon={<MoreOutlined />} />
-        </Dropdown>
+      render: (_, record) => (
+        <Space size="middle">
+          <Button size="small">Sửa</Button>
+          <Button size="small" danger>Xóa</Button>
+        </Space>
       ),
     },
   ];
+
+  const fetchStudentDetail = async (studentId) => {
+    try {
+      const accessToken = Cookies.get('accessToken');
+      const response = await axios.get(`http://localhost:5000/api/mentor/students/${studentId}`, {
+        headers: { Authorization: `Bearer ${accessToken}` }
+      });
+      setSelectedStudent(response.data);
+      setStudentModalVisible(true);
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || 'Không thể lấy thông tin sinh viên';
+      console.error('Lỗi khi lấy thông tin sinh viên:', error);
+      message.error(errorMessage);
+    }
+  };
+
+  const renderMembers = (members) => {
+    if (!members || !Array.isArray(members)) return null; // Kiểm tra nếu members là null, undefined hoặc không phải là mảng
+    return (
+      <Avatar.Group
+        maxCount={5}
+        maxStyle={{
+          color: '#f56a00',
+          backgroundColor: '#fde3cf',
+        }}
+      >
+        {members.map((member) => {
+          if (!member) return null; // Kiểm tra nếu member là null hoặc undefined
+          const memberId = member.id || member._id; // Lấy id hoặc _id
+          if (!memberId) return null; // Kiểm tra nếu không có id
+          return (
+            <Tooltip title={member.name} key={memberId}>
+              <Avatar 
+                src={member.avatar} 
+                icon={<UserOutlined />} 
+                onClick={() => fetchStudentDetail(memberId)} 
+                style={{ cursor: 'pointer' }}
+              />
+            </Tooltip>
+          );
+        })}
+      </Avatar.Group>
+    );
+  };
 
   const listStyle = useMemo(() => ({
     width: collapsed ? (isMobile ? '0px' : '80px') : (isMobile ? '100%' : '300px'),
@@ -286,6 +325,13 @@ const MentorProjectManagement = () => {
   const handleCollapse = useCallback(() => {
     setTimeout(() => setCollapsed(!collapsed), 0);
   }, [collapsed]);
+
+  // Hàm này sẽ được truyền xuống ProjectDetail component
+  const refreshProjectDetails = () => {
+    if (selectedProject) {
+      fetchProjectDetail(selectedProject.id);
+    }
+  };
 
   return (
     <div style={{ 
@@ -365,22 +411,7 @@ const MentorProjectManagement = () => {
                   title={project.title}
                   description={
                     <>
-                      <Tag color={project.status === 'Open' ? 'green' : 'red'}>
-                        {project.status}
-                      </Tag>
-                      <Avatar.Group
-                        maxCount={5}
-                        maxStyle={{
-                          color: '#f56a00',
-                          backgroundColor: '#fde3cf',
-                        }}
-                      >
-                        {project.members.map((member) => (
-                          <Tooltip title={member.name} key={member.id}>
-                            <Avatar src={member.avatar} icon={<UserOutlined />} />
-                          </Tooltip>
-                        ))}
-                      </Avatar.Group>
+                      {renderMembers(project.members)}
                     </>
                   }
                 />
@@ -415,6 +446,7 @@ const MentorProjectManagement = () => {
           isMobile={isMobile}
           handleAddTask={handleAddTask}
           taskColumns={taskColumns}
+          fetchProjects={refreshProjectDetails}  // Truyền hàm này xuống ProjectDetail
         />
       </div>
       
@@ -454,6 +486,7 @@ const MentorProjectManagement = () => {
           </Form.Item>
         </Form>
       </Modal>
+      
     </div>
   );
 };

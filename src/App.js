@@ -15,7 +15,12 @@ import CompanyLogin from './components/company/Login';
 import SchoolLogin from './components/school/Login';
 import { CompanyProvider } from './context/CompanyContext';
 import { SchoolProvider } from './context/SchoolContext';
+import JobSearch from './components/PublicJobSearch';
+import { StudentProvider } from './context/StudentContext'; // Thêm dòng này
 import ForgotPassword from './components/company/ForgotPassword'; // Thêm dòng này
+import Student from './routes/Student'; // Thêm dòng này
+import ProjectDetail from './components/ProjectDetail'; // Thêm dòng này
+import AppLayout from './components/AppLayout'; // Thêm dòng này
 
 function ProtectedRoutes() {
   const location = useLocation();
@@ -41,14 +46,14 @@ function ProtectedRoutes() {
     }
 
     // Reset notifications when not in protected routes
-    if (!location.pathname.match(/^\/(admin|company|instructor|school)/)) {
+    if (!location.pathname.match(/^\/(admin|company|instructor|school|student)/)) {
       resetNotifications();
     }
   }, [location, resetNotifications]);
 
   useEffect(() => {
     // Reset notifications when location changes
-    if (!location.pathname.match(/^\/(admin|company|instructor|school)/)) {
+    if (!location.pathname.match(/^\/(admin|company|instructor|school|student)/)) {
       resetNotifications();
     }
   }, [location.pathname, resetNotifications]);
@@ -64,6 +69,10 @@ function ProtectedRoutes() {
         path="/school/*"
         element={<School />}
       />
+      <Route
+        path="/student/*"
+        element={<Student />}
+      />
     </Routes>
   );
 }
@@ -71,7 +80,14 @@ function ProtectedRoutes() {
 function AppContent() {
   return (
     <Routes>
-      <Route path="/login" element={<Login />} />
+      <Route 
+        path="/login" 
+        element={
+          <StudentProvider>
+            <Login />
+          </StudentProvider>
+        } 
+      />
       <Route 
         path="/company/login" 
         element={
@@ -91,6 +107,16 @@ function AppContent() {
       <Route path="/company/register/*" element={<Register/>}/>
       <Route path="/school/register/*" element={<SchoolRegister/>}/>
       <Route path="/company/forgot-password" element={<ForgotPassword />} />
+      <Route path="/jobs" element={
+        <AppLayout>
+          <JobSearch />
+        </AppLayout>
+      } />
+      <Route path="/project/:id" element={
+        <AppLayout>
+          <ProjectDetail />
+        </AppLayout>
+      } />
       <Route path="/" element={<HomePage />} />
       <Route path="/admin/*" element={<Admin />} /> 
       <Route path="/*" element={

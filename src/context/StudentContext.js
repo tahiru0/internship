@@ -5,14 +5,14 @@ import axios from 'axios';
 import { EventSourcePolyfill } from 'event-source-polyfill';
 import { debounce } from 'lodash';
 
-const CompanyContext = createContext();
+const StudentContext = createContext();
 
-export const useCompany = () => {
-    return useContext(CompanyContext);
+export const useStudent = () => {
+    return useContext(StudentContext);
 };
 
-export const CompanyProvider = ({ children }) => {
-    const [companyData, setCompanyData] = useState(null);
+export const StudentProvider = ({ children }) => {
+    const [studentData, setStudentData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [userRole, setUserRole] = useState(null);
     const [refreshAttempts, setRefreshAttempts] = useState(0);
@@ -22,18 +22,19 @@ export const CompanyProvider = ({ children }) => {
     const [unreadCount, setUnreadCount] = useState(0);
     const eventSourceRef = useRef(null);
     const reconnectTimeoutRef = useRef(null);
+    const [userData, setUserData] = useState(null);
 
     const logout = useCallback(() => {
         Cookies.remove('accessToken');
-        Cookies.remove('refreshToken');
-        setCompanyData(null);
+        Cookies.remove('studentRefreshToken');
+        setStudentData(null);
         setUserRole(null);
         setRefreshAttempts(0);
-        navigate('/company/login');
+        navigate('/login');
     }, [navigate]);
 
     const refreshToken = async () => {
-        const refreshToken = Cookies.get('refreshToken');
+        const refreshToken = Cookies.get('studentRefreshToken');
         if (!refreshToken) {
             console.error('Không có refresh token');
             return null;
@@ -42,7 +43,7 @@ export const CompanyProvider = ({ children }) => {
             const response = await axios.post('http://localhost:5000/api/auth/refresh-token', { refreshToken });
             const { accessToken, refreshToken: newRefreshToken } = response.data;
             Cookies.set('accessToken', accessToken, { expires: 1/24 });
-            Cookies.set('refreshToken', newRefreshToken, { expires: 7 });
+            Cookies.set('studentRefreshToken', newRefreshToken, { expires: 7 });
             setRefreshAttempts(0);
             return { accessToken, refreshToken: newRefreshToken };
         } catch (error) {
@@ -86,37 +87,42 @@ export const CompanyProvider = ({ children }) => {
         );
     };
 
+    const fetchUserData = useCallback(async () => {
+        try {
+            const accessToken = Cookies.get('accessToken');
+            if (!accessToken) {
+                console.log('Không có accessToken, bỏ qua việc fetch thông tin người dùng');
+                return null;
+            }
+            const response = await axios.get('http://localhost:5000/api/student/me', {
+                headers: { Authorization: `Bearer ${accessToken}` }
+            });
+            setUserData(response.data.student);
+            return response.data.student;
+        } catch (error) {
+            console.error('Lỗi khi lấy thông tin người dùng:', error);
+            return null;
+        }
+    }, []);
+
     const checkAuthStatus = useCallback(async () => {
+        console.log('checkAuthStatus được gọi');
         setLoading(true);
         try {
-            let accessToken = Cookies.get('accessToken');
+            const accessToken = Cookies.get('accessToken');
             if (!accessToken) {
-                throw new Error('Không có access token');
+                setUserData(null);
+                setUserRole(null);
+                setLoading(false);
+                return;
             }
-            
-            try {
-                const response = await axios.get('http://localhost:5000/api/company/me', {
-                    headers: { Authorization: `Bearer ${accessToken}` }
-                });
-                setCompanyData(response.data);
-                setUserRole(response.data.account.role);
-                setRefreshAttempts(0);
-            } catch (error) {
-                if (refreshAttempts < 1) {
-                    console.log('Access token không hợp lệ, đang thử refresh...');
-                    const newTokens = await refreshToken();
-                    if (newTokens) {
-                        const response = await axios.get('http://localhost:5000/api/company/me', {
-                            headers: { Authorization: `Bearer ${newTokens.accessToken}` }
-                        });
-                        setCompanyData(response.data);
-                        setUserRole(response.data.account.role);
-                    } else {
-                        throw new Error('Không thể refresh token');
-                    }
-                } else {
-                    throw new Error('Đã thử refresh token nhưng không thành công');
-                }
+
+            const userData = await fetchUserData();
+            if (userData) {
+                setUserData(userData);
+                setUserRole('student'); // Hoặc bạn có thể set role cụ thể nếu có
+            } else {
+                logout();
             }
         } catch (error) {
             console.error('Lỗi khi kiểm tra trạng thái xác thực:', error);
@@ -124,13 +130,13 @@ export const CompanyProvider = ({ children }) => {
         } finally {
             setLoading(false);
         }
-    }, [logout, refreshAttempts]);
+    }, [fetchUserData, logout]);
 
     useEffect(() => {
         setupAxiosInterceptors();
         if (
-            location.pathname !== '/company/forgot-password' &&
-            !location.pathname.startsWith('/company/forgot-password')
+            location.pathname !== '/student/forgot-password' &&
+            !location.pathname.startsWith('/student/forgot-password')
         ) {
             checkAuthStatus();
         } else {
@@ -138,17 +144,16 @@ export const CompanyProvider = ({ children }) => {
         }
     }, [checkAuthStatus, location.pathname]);
 
-    const fetchAccounts = async (params) => {
+    const fetchStudentProfile = async () => {
         setLoading(true);
         try {
             const accessToken = Cookies.get('accessToken');
-            const response = await axios.get('http://localhost:5000/api/company/accounts', {
-                headers: { Authorization: `Bearer ${accessToken}` },
-                params
+            const response = await axios.get('http://localhost:5000/api/student/profile', {
+                headers: { Authorization: `Bearer ${accessToken}` }
             });
             return response.data;
         } catch (error) {
-            console.error('Lỗi khi lấy danh sách tài khoản:', error);
+            console.error('Lỗi khi lấy thông tin sinh viên:', error);
             return null;
         } finally {
             setLoading(false);
@@ -156,17 +161,18 @@ export const CompanyProvider = ({ children }) => {
     };
 
     const value = {
-        companyData,
+        userData,
         loading,
         userRole,
         logout,
         checkAuthStatus,
-        fetchAccounts
+        fetchStudentProfile,
+        fetchUserData
     };
     
     return (
-        <CompanyContext.Provider value={value}>
+        <StudentContext.Provider value={value}>
             {children}
-        </CompanyContext.Provider>
+        </StudentContext.Provider>
     );
 };

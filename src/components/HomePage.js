@@ -45,6 +45,7 @@ const HomePage = () => {
                                 <Dropdown.Menu className="custom-dropdown-menu">
                                     <Dropdown.Item as={Link} to="/login" className="custom-dropdown-item">Sinh viên</Dropdown.Item>
                                     <Dropdown.Item as={Link} to="/company/login" className="custom-dropdown-item">Doanh nghiệp</Dropdown.Item>
+                                    <Dropdown.Item as={Link} to="/school/login" className="custom-dropdown-item">Trường đại học</Dropdown.Item>
                                 </Dropdown.Menu>
                             </Dropdown>
                         </Nav>
@@ -59,7 +60,7 @@ const HomePage = () => {
                             <h1 className="display-4 display-md-3" style={{ color: '#5f6469', marginBottom: '30px', fontWeight: '500' }}>
                                 Khám phá cơ hội thực tập tuyệt vời cùng chúng tôi!
                             </h1>
-                            <button className="btn-outline-b" href="#apply">Ứng tuyển ngay</button>
+                            <Link to="/jobs" className="btn-outline-b">Khám phá thực tập ngay</Link>
                             <p className="mt-3" style={{ color: '#5f6469' }}>
                                 Doanh nghiệp cần tuyển dụng? <Link style={{ color: '#007bff' }} to="/company/register">Đăng ký ngay</Link>
                             </p>
