@@ -1,124 +1,167 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Statistic, Row, Col, Progress } from 'antd';
-import { PieChart, Pie, Cell, Tooltip } from 'recharts';
-import { faker } from '@faker-js/faker';
+import { Card, Statistic, Row, Col, Progress, Spin, Typography, Empty } from 'antd';
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
+import { ProjectOutlined, TeamOutlined, CheckCircleOutlined, StarOutlined } from '@ant-design/icons';
+import axios from 'axios';
+import { useCompany } from '../../../context/CompanyContext';
+
+const { Title } = Typography;
 
 function AdminDashboard() {
-  const [totalEmployees, setTotalEmployees] = useState(0);
-  const [mentorData, setMentorData] = useState([]);
-  const [projectData, setProjectData] = useState([]);
+  const [dashboardData, setDashboardData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const { companyData } = useCompany();
 
   useEffect(() => {
-    const generateMentors = () => {
-      const mentors = Array.from({ length: 50 }, () => ({
-        key: faker.datatype.uuid(),
-        name: faker.person.fullName(),
-        project: faker.commerce.productName(),
-        students: faker.number.int({ min: 5, max: 20 }),
-      }));
-      setMentorData(mentors);
-      return mentors.length;
+    const fetchDashboardData = async () => {
+      try {
+        const response = await axios.get('http://localhost:5000/api/company/dashboard');
+        setDashboardData(response.data);
+      } catch (error) {
+        console.error('Lỗi khi lấy dữ liệu dashboard:', error);
+      } finally {
+        setLoading(false);
+      }
     };
 
-    const generateProjects = () => {
-      return Array.from({ length: 25 }, () => ({
-        key: faker.datatype.uuid(),
-        name: faker.commerce.productName(),
-        mentor: faker.person.fullName(),
-        status: faker.helpers.arrayElement(['Đang tiến hành', 'Đã hoàn thành', 'Bị trì hoãn']),
-        students: faker.number.int({ min: 5, max: 20 }),
-      }));
-    };
-
-    const mentorsCount = generateMentors();
-    setProjectData(generateProjects());
-
-    const employeesCount = mentorsCount + faker.number.int({ min: 10, max: 100 });
-    setTotalEmployees(employeesCount);
+    fetchDashboardData();
   }, []);
 
-  const ongoingCount = projectData.filter(project => project.status === 'Đang tiến hành').length;
-  const completedCount = projectData.filter(project => project.status === 'Đã hoàn thành').length;
-  const delayedCount = projectData.filter(project => project.status === 'Bị trì hoãn').length;
+  if (loading) {
+    return <Spin size="large" />;
+  }
 
-  const chartData = [
-    { name: 'Đang tiến hành', value: ongoingCount },
-    { name: 'Đã hoàn thành', value: completedCount },
-    { name: 'Bị trì hoãn', value: delayedCount },
+  if (!dashboardData) {
+    return <Empty description="Không thể tải dữ liệu dashboard" />;
+  }
+
+  const { companyInfo, projectStats, taskStats } = dashboardData;
+
+  const projectStatusData = [
+    { name: 'Đang tuyển', value: projectStats.recruitingProjects },
+    { name: 'Đang tiến hành', value: projectStats.ongoingProjects },
+    { name: 'Đã hoàn thành', value: projectStats.completedProjects },
   ];
 
-  const COLORS = ['#1890ff', '#52c41a', '#faad14'];
+  const taskStatusData = [
+    { name: 'Đang chờ', value: taskStats.pendingTasks },
+    { name: 'Đang thực hiện', value: taskStats.inProgressTasks },
+    { name: 'Đã hoàn thành', value: taskStats.completedTasks },
+    { name: 'Quá hạn', value: taskStats.overdueTasks },
+  ];
+
+  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 
   return (
     <div className="dashboard-container" style={{ padding: '24px' }}>
-      <Row gutter={16}>
-        <Col span={6}>
+      <Row gutter={[16, 16]}>
+        <Col xs={24} sm={12} md={6}>
           <Card>
             <Statistic
-              title="Tổng số nhân viên"
-              value={totalEmployees}
-              valueStyle={{ color: totalEmployees > 0 ? '#3f8600' : '#cf1322' }}
+              title="Tổng số dự án"
+              value={projectStats.totalProjects}
+              prefix={<ProjectOutlined />}
+              valueStyle={{ color: '#3f8600' }}
             />
           </Card>
         </Col>
-        <Col span={6}>
+        <Col xs={24} sm={12} md={6}>
           <Card>
             <Statistic
-              title="Mentors đang hoạt động"
-              value={mentorData.filter(mentor => mentor.students > 0).length}
+              title="Số lượng Mentor"
+              value={companyInfo.mentorCount}
+              prefix={<TeamOutlined />}
+              valueStyle={{ color: '#1890ff' }}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} md={6}>
+          <Card>
+            <Statistic
+              title="Sinh viên được chọn"
+              value={projectStats.totalSelectedStudents}
+              prefix={<CheckCircleOutlined />}
               valueStyle={{ color: '#52c41a' }}
             />
           </Card>
         </Col>
-        <Col span={6}>
+        <Col xs={24} sm={12} md={6}>
           <Card>
             <Statistic
-              title="Dự án đang tiến hành"
-              value={ongoingCount}
+              title="Đánh giá trung bình"
+              value={taskStats.avgRating !== null ? taskStats.avgRating.toFixed(1) : 'N/A'}
+              prefix={<StarOutlined />}
+              suffix={taskStats.avgRating !== null ? "/ 5" : null}
               valueStyle={{ color: '#faad14' }}
-            />
-          </Card>
-        </Col>
-        <Col span={6}>
-          <Card>
-            <Statistic
-              title="Dự án đã hoàn thành"
-              value={completedCount}
-              valueStyle={{ color: '#eb2f96' }}
             />
           </Card>
         </Col>
       </Row>
 
-      <Row gutter={16} style={{ marginTop: '20px' }}>
-        <Col span={12}>
-          <Card title="Tổng quan trạng thái dự án">
-            <PieChart width={400} height={300}>
-              <Pie
-                data={chartData}
-                cx={200}
-                cy={150}
-                innerRadius={60}
-                outerRadius={80}
-                fill="#8884d8"
-                paddingAngle={5}
-                dataKey="value"
-              >
-                {chartData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip />
-            </PieChart>
+      <Row gutter={[16, 16]} style={{ marginTop: '20px' }}>
+        <Col xs={24} md={12}>
+          <Card title="Trạng thái dự án">
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={projectStatusData}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  outerRadius={80}
+                  fill="#8884d8"
+                  dataKey="value"
+                >
+                  {projectStatusData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
           </Card>
         </Col>
-        <Col span={12}>
-          <Card title="Tiến độ hoàn thành">
+        <Col xs={24} md={12}>
+          <Card title="Trạng thái công việc">
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart
+                data={taskStatusData}
+                margin={{
+                  top: 5,
+                  right: 30,
+                  left: 20,
+                  bottom: 5,
+                }}
+              >
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="value" fill="#8884d8" />
+              </BarChart>
+            </ResponsiveContainer>
+          </Card>
+        </Col>
+      </Row>
+
+      <Row gutter={[16, 16]} style={{ marginTop: '20px' }}>
+        <Col xs={24} md={12}>
+          <Card title="Tiến độ hoàn thành dự án">
             <Progress
               type="dashboard"
-              percent={(
-                (completedCount / projectData.length) * 100
-              ).toFixed(2)}
+              percent={((projectStats.completedProjects / projectStats.totalProjects) * 100).toFixed(2)}
+              width={180}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} md={12}>
+          <Card title="Tiến độ hoàn thành công việc">
+            <Progress
+              type="dashboard"
+              percent={((taskStats.completedTasks / taskStats.totalTasks) * 100).toFixed(2)}
+              width={180}
             />
           </Card>
         </Col>

@@ -1,285 +1,342 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Row, Col, Statistic, Progress, Select, Table, Input, DatePicker, Tag, Modal } from 'antd';
-import { BarChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { 
-  UserOutlined, 
-  BankOutlined, 
-  TeamOutlined, 
-  ProjectOutlined,
-  LoginOutlined,
-  UserAddOutlined,
-  FileAddOutlined
-} from '@ant-design/icons';
-import { faker } from '@faker-js/faker/locale/vi';
-
-const { Option } = Select;
-const { RangePicker } = DatePicker;
-
-// Generate fake data
-const generateProjectStats = () => {
-  return Array.from({ length: 5 }, (_, index) => ({
-    thang: `T${index + 1}`,
-    dangTuyenDung: faker.number.int({ min: 5, max: 20 }),
-    dongTuyenDung: faker.number.int({ min: 3, max: 15 }),
-    sinhVienThamGia: faker.number.int({ min: 40, max: 100 })
-  }));
-};
-
-const generateProjects = () => {
-  return Array.from({ length: 10 }, (_, index) => ({
-    id: index + 1,
-    name: faker.company.name(),
-    company: faker.company.name(),
-    students: faker.number.int({ min: 5, max: 50 })
-  }));
-};
-
-const generateTaskStatsByProject = (projectCount) => {
-  const stats = {};
-  for (let i = 1; i <= projectCount; i++) {
-    stats[i] = Array.from({ length: 5 }, (_, index) => ({
-      thang: `T${index + 1}`,
-      hoanThanh: faker.number.int({ min: 2, max: 10 }),
-      dangLam: faker.number.int({ min: 1, max: 5 }),
-      chuaBatDau: faker.number.int({ min: 1, max: 3 })
-    }));
-  }
-  return stats;
-};
-
-const generateTasksByProject = (projectCount) => {
-  const tasks = {};
-  for (let i = 1; i <= projectCount; i++) {
-    tasks[i] = Array.from({ length: faker.number.int({ min: 3, max: 8 })}, (_, index) => ({
-      id: faker.string.uuid(),
-      name: faker.lorem.words(3),
-      status: faker.helpers.arrayElement(['Đang làm', 'Hoàn thành', 'Chưa bắt đầu']),
-      dueDate: faker.date.future().toISOString().split('T')[0]
-    }));
-  }
-  return tasks;
-};
-
-const projectStats = generateProjectStats();
-const projects = generateProjects();
-const taskStatsByProject = generateTaskStatsByProject(projects.length);
-const tasksByProject = generateTasksByProject(projects.length);
-
-const taskColumns = [
-  {
-    title: 'Tên Task',
-    dataIndex: 'name',
-    key: 'name',
-  },
-  {
-    title: 'Trạng Thái',
-    dataIndex: 'status',
-    key: 'status',
-    render: status => {
-      let color = status === 'Hoàn thành' ? 'green' : status === 'Đang làm' ? 'geekblue' : 'volcano';
-      return (
-        <Tag color={color}>
-          {status.toUpperCase()}
-        </Tag>
-      );
-    },
-  },
-  {
-    title: 'Ngày Hết Hạn',
-    dataIndex: 'dueDate',
-    key: 'dueDate',
-  },
-];
+import { useAuthorization } from '../../routes/RequireAdminAuth';
+import { Row, Col, Card, Spinner, Form, Table, ProgressBar } from 'react-bootstrap';
+import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import DatePicker from 'react-datepicker';
+import "react-datepicker/dist/react-datepicker.css";
+import moment from 'moment';
+import { FaBuilding, FaSchool, FaUserGraduate, FaProjectDiagram } from 'react-icons/fa';
 
 const Dashboard = () => {
-  const [filteredProjects, setFilteredProjects] = useState(projects);
-  const [selectedProject, setSelectedProject] = useState(null);
-  const [searchText, setSearchText] = useState('');
-  const [dateRange, setDateRange] = useState(null);
-  const [isModalVisible, setIsModalVisible] = useState(false);
-
-  const projectColumns = [
-    {
-      title: 'Tên Dự Án',
-      dataIndex: 'name',
-      key: 'name',
-    },
-    {
-      title: 'Công Ty',
-      dataIndex: 'company',
-      key: 'company',
-    },
-    {
-      title: 'Hành Động',
-      key: 'action',
-      render: (_, record) => (
-        <a onClick={() => {
-          setSelectedProject(record.id);
-          setIsModalVisible(true);
-        }}>Xem Tasks</a>
-      ),
-    },
-  ];
+  const { axiosInstance } = useAuthorization();
+  const [dashboardData, setDashboardData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [timeUnit, setTimeUnit] = useState('day');
+  const [startDate, setStartDate] = useState(moment().subtract(7, 'days').toDate());
+  const [endDate, setEndDate] = useState(new Date());
 
   useEffect(() => {
-    const filtered = projects.filter(project => 
-      project.name.toLowerCase().includes(searchText.toLowerCase()) ||
-      project.company.toLowerCase().includes(searchText.toLowerCase())
-    );
-    setFilteredProjects(filtered);
-  }, [searchText]);
+    fetchDashboardData();
+  }, [startDate, endDate, timeUnit]);
 
-  const filteredTasks = selectedProject && tasksByProject[selectedProject].filter(task => {
-    const matchesDateRange = dateRange 
-      ? (new Date(task.dueDate) >= dateRange[0] && new Date(task.dueDate) <= dateRange[1])
-      : true;
-    return matchesDateRange;
-  });
-
-  const handleCancel = () => {
-    setIsModalVisible(false);
-    setSelectedProject(null);
+  const fetchDashboardData = async () => {
+    setLoading(true);
+    try {
+      const response = await axiosInstance.get('/admin/dashboard', {
+        params: {
+          startDate: moment(startDate).format('YYYY-MM-DD'),
+          endDate: moment(endDate).format('YYYY-MM-DD'),
+          timeUnit: timeUnit
+        }
+      });
+      setDashboardData(response.data);
+    } catch (error) {
+      console.error('Lỗi khi lấy dữ liệu dashboard:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
+  const handleTimeUnitChange = (e) => {
+    const value = e.target.value;
+    setTimeUnit(value);
+    let newStartDate;
+    switch (value) {
+      case 'day':
+        newStartDate = moment().subtract(7, 'days').toDate();
+        break;
+      case 'week':
+        newStartDate = moment().subtract(4, 'weeks').toDate();
+        break;
+      case 'month':
+        newStartDate = moment().subtract(6, 'months').toDate();
+        break;
+      default:
+        newStartDate = moment().subtract(7, 'days').toDate();
+    }
+    setStartDate(newStartDate);
+    setEndDate(new Date());
+  };
+
+  const dashboardStyles = {
+    container: {
+      background: '#f8f9fa',
+      padding: '20px',
+    },
+    title: {
+      color: '#343a40',
+      textAlign: 'center',
+      marginBottom: '1rem',
+    },
+    customDatepickerWrapper: {
+      width: '100%',
+    },
+    customDatepicker: {
+      width: '100% !important',
+    },
+  };
+
+  // Thêm styles này vào thẻ <style> trong component
+  const additionalStyles = `
+    .react-datepicker-wrapper {
+      width: 100%;
+    }
+    .react-datepicker__input-container {
+      width: 100%;
+    }
+  `;
+
+  if (loading || !dashboardData) {
+    return <Spinner animation="border" variant="primary" />;
+  }
+
+  const { totalCompanies, totalProjects, totalSchools, totalStudents, timeIntervals, topCompaniesByProjects } = dashboardData;
+
+  const projectData = timeIntervals.map(interval => ({
+    date: moment(interval.start).format(timeUnit === 'day' ? 'DD/MM' : 'DD/MM/YYYY'),
+    'Tổng dự án': interval.projectStats.totalProjects,
+    'Dự án đang tuyển': interval.projectStats.recruitingProjects
+  }));
+
+  const lastInterval = timeIntervals[timeIntervals.length - 1];
+  const taskData = [
+    { name: 'Đang chờ', value: lastInterval.taskStats.pendingTasks },
+    { name: 'Đang thực hiện', value: lastInterval.taskStats.inProgressTasks },
+    { name: 'Hoàn thành', value: lastInterval.taskStats.completedTasks },
+    { name: 'Quá hạn', value: lastInterval.taskStats.overdueTasks }
+  ].filter(item => item.value > 0);
+
+  const TASK_COLORS = ['#FFA500', '#1E90FF', '#32CD32', '#DC143C'];
+
+  const loginData = timeIntervals.map(interval => ({
+    date: moment(interval.start).format(timeUnit === 'day' ? 'DD/MM' : 'DD/MM/YYYY'),
+    'Số lượt đăng nhập': interval.loginStats.totalLogins
+  }));
+
+  const recruitmentData = topCompaniesByProjects.map(company => ({
+    name: company.companyName,
+    'Tỷ lệ tuyển dụng': company.recruitmentRate * 100,
+    'Dự án đang tuyển': company.recruitingProjectCount,
+    'Tổng số dự án': company.projectCount
+  }));
+
+  const StatCard = ({ icon, title, value, color }) => (
+    <Card className="mb-3 stat-card" style={{ borderLeft: `4px solid ${color}` }}>
+      <Card.Body>
+        <div className="d-flex justify-content-between align-items-center">
+          <div>
+            <h6 className="mb-0 text-muted">{title}</h6>
+            <h2 className="mb-0" style={{ color }}>{value}</h2>
+          </div>
+          <div className="stat-icon" style={{ color }}>
+            {icon}
+          </div>
+        </div>
+      </Card.Body>
+    </Card>
+  );
+
   return (
-    <div className="container">
-      <h3 className="mb-4">Dashboard Quản Lý Dự Án Thực Tập</h3>
-      
-      <Row gutter={[16, 16]}>
-        <Col xs={24} sm={12} md={8} lg={6}>
-          <Card style={{ borderLeft: '5px solid #722ed1', borderRadius: '8px' }}>
-            <Statistic
-              title="Sinh Viên"
-              value={faker.number.int({ min: 1000, max: 5000 })}
-              prefix={<UserOutlined />}
-              valueStyle={{ color: '#722ed1' }}
-            />
+    <div className="dashboard-container" style={{ background: '#f8f9fa', padding: '20px' }}>
+      <style>{additionalStyles}</style>
+      <h2 style={{ color: '#343a40', textAlign: 'center', marginBottom: '1rem' }}>Bảng điều khiển quản trị</h2>
+      <Form className="mb-4">
+        <Row>
+          <Col xs={12} sm={4}>
+            <Form.Group>
+              <Form.Label>Đơn vị thời gian</Form.Label>
+              <Form.Select value={timeUnit} onChange={handleTimeUnitChange}>
+                <option value="day">Ngày</option>
+                <option value="week">Tuần</option>
+                <option value="month">Tháng</option>
+              </Form.Select>
+            </Form.Group>
+          </Col>
+          <Col xs={12} sm={4}>
+            <Form.Group>
+              <Form.Label>Ngày bắt đầu</Form.Label>
+              <DatePicker
+                selected={startDate}
+                onChange={date => setStartDate(date)}
+                selectsStart
+                startDate={startDate}
+                endDate={endDate}
+                maxDate={endDate}
+                dateFormat="dd/MM/yyyy"
+                className="form-control"
+              />
+            </Form.Group>
+          </Col>
+          <Col xs={12} sm={4}>
+            <Form.Group>
+              <Form.Label>Ngày kết thúc</Form.Label>
+              <DatePicker
+                selected={endDate}
+                onChange={date => setEndDate(date)}
+                selectsEnd
+                startDate={startDate}
+                endDate={endDate}
+                minDate={startDate}
+                maxDate={new Date()}
+                dateFormat="dd/MM/yyyy"
+                className="form-control"
+              />
+            </Form.Group>
+          </Col>
+        </Row>
+      </Form>
+
+      <Row>
+        <Col xs={12} sm={6} md={3}>
+          <StatCard icon={<FaBuilding size={30} />} title="Tổng số công ty" value={totalCompanies} color="#007bff" />
+        </Col>
+        <Col xs={12} sm={6} md={3}>
+          <StatCard icon={<FaSchool size={30} />} title="Tổng số trường học" value={totalSchools} color="#28a745" />
+        </Col>
+        <Col xs={12} sm={6} md={3}>
+          <StatCard icon={<FaUserGraduate size={30} />} title="Tổng số sinh viên" value={totalStudents} color="#ffc107" />
+        </Col>
+        <Col xs={12} sm={6} md={3}>
+          <StatCard icon={<FaProjectDiagram size={30} />} title="Tổng số dự án" value={totalProjects} color="#dc3545" />
+        </Col>
+      </Row>
+
+      <Row className="mt-4">
+        <Col xs={12} lg={6}>
+          <Card className="mb-3">
+            <Card.Body>
+              <h5 className="card-title">Thống kê dự án</h5>
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={projectData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="date" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Line type="monotone" dataKey="Tổng dự án" stroke="#8884d8" />
+                  <Line type="monotone" dataKey="Dự án đang tuyển" stroke="#82ca9d" />
+                </LineChart>
+              </ResponsiveContainer>
+            </Card.Body>
           </Card>
         </Col>
-        <Col xs={24} sm={12} md={8} lg={6}>
-          <Card style={{ borderLeft: '5px solid #13c2c2', borderRadius: '8px' }}>
-            <Statistic
-              title="Công Ty"
-              value={faker.number.int({ min: 50, max: 200 })}
-              prefix={<BankOutlined />}
-              valueStyle={{ color: '#13c2c2' }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} md={8} lg={6}>
-          <Card style={{ borderLeft: '5px solid #fa8c16', borderRadius: '8px' }}>
-            <Statistic
-              title="Trường Đại Học"
-              value={faker.number.int({ min: 10, max: 50 })}
-              prefix={<TeamOutlined />}
-              valueStyle={{ color: '#fa8c16' }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} md={8} lg={6}>
-          <Card style={{ borderLeft: '5px solid #52c41a', borderRadius: '8px' }}>
-            <Statistic
-              title="Người Hướng Dẫn"
-              value={faker.number.int({ min: 50, max: 200 })}
-              prefix={<ProjectOutlined />}
-              valueStyle={{ color: '#52c41a' }}
-            />
+        <Col xs={12} lg={6}>
+          <Card className="mb-3">
+            <Card.Body>
+              <h5 className="card-title">Phân bố trạng thái công việc</h5>
+              {taskData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={taskData}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={80}
+                      fill="#8884d8"
+                      label={(entry) => `${entry.name}: ${entry.value}`}
+                    >
+                      {taskData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={TASK_COLORS[index % TASK_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="text-center py-5">
+                  <h6 className="text-muted">Chưa có dữ liệu</h6>
+                </div>
+              )}
+              <div className="text-center mt-3">
+                <p>Tổng số công việc: {lastInterval.taskStats.totalTasks}</p>
+                <p>Đánh giá trung bình: {lastInterval.taskStats.avgRating ? `${lastInterval.taskStats.avgRating.toFixed(2)}/5` : 'Chưa có đánh giá'}</p>
+              </div>
+            </Card.Body>
           </Card>
         </Col>
       </Row>
 
-      <Row gutter={[16, 16]} className="mt-4">
-        <Col xs={24} md={8}>
-          <Card title="Đăng Ký Mới">
-            <Statistic
-              value={faker.number.int({ min: 50, max: 150 })}
-              prefix={<UserAddOutlined />}
-              suffix="người/ngày"
-            />
-            <Progress percent={faker.number.int({ min: 60, max: 90 })} showInfo={false} />
-            <p className="mt-2">Tăng {faker.number.int({ min: 5, max: 20 })}% so với hôm qua</p>
-          </Card>
-        </Col>
-        <Col xs={24} md={8}>
-          <Card title="Lượt Đăng Nhập">
-            <Statistic
-              value={faker.number.int({ min: 800, max: 2000 })}
-              prefix={<LoginOutlined />}
-              suffix="lượt/ngày"
-            />
-            <Progress percent={faker.number.int({ min: 70, max: 95 })} showInfo={false} />
-            <p className="mt-2">Tăng {faker.number.int({ min: 2, max: 10 })}% so với hôm qua</p>
-          </Card>
-        </Col>
-        <Col xs={24} md={8}>
-          <Card title="Dự Án Mới">
-            <Statistic
-              value={faker.number.int({ min: 10, max: 30 })}
-              prefix={<FileAddOutlined />}
-              suffix="dự án/tuần"
-            />
-            <Progress percent={faker.number.int({ min: 50, max: 80 })} showInfo={false} />
-            <p className="mt-2">Tăng {faker.number.int({ min: 10, max: 30 })}% so với tuần trước</p>
+      <Row className="mt-4">
+        <Col xs={12}>
+          <Card className="mb-3">
+            <Card.Body>
+              <h5 className="card-title">Thống kê đăng nhập</h5>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={loginData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="date" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="Số lượt đăng nhập" fill="#8884d8" />
+                </BarChart>
+              </ResponsiveContainer>
+            </Card.Body>
           </Card>
         </Col>
       </Row>
 
-      <Row gutter={[16, 16]} className="mt-4">
-        <Col xs={24} lg={12}>
-          <Card title="Biểu Đồ Thống Kê Dự Án">
-            <ResponsiveContainer width="100%" height={400}>
-              <BarChart data={projectStats}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="thang" />
-                <YAxis yAxisId="left" />
-                <YAxis yAxisId="right" orientation="right" />
-                <Tooltip />
-                <Legend />
-                <Bar yAxisId="left" dataKey="dangTuyenDung" name="Đang tuyển dụng" fill="#8884d8" />
-                <Bar yAxisId="left" dataKey="dongTuyenDung" name="Đóng tuyển dụng" fill="#82ca9d" />
-                <Line yAxisId="right" type="monotone" dataKey="sinhVienThamGia" name="Sinh viên tham gia" stroke="#ff7300" />
-              </BarChart>
-            </ResponsiveContainer>
-          </Card>
-        </Col>
-        <Col xs={24} lg={12}>
-          <Card title="Danh Sách Dự Án">
-            <Input.Search
-              placeholder="Tìm kiếm dự án hoặc công ty"
-              onSearch={setSearchText}
-              onChange={(e) => setSearchText(e.target.value)}
-              style={{ marginBottom: 16 }}
-            />
-            <Table 
-              columns={projectColumns} 
-              dataSource={filteredProjects}
-              pagination={{ pageSize: 5 }}
-              rowKey="id"
-            />
+      <Row className="mt-4">
+        <Col xs={12}>
+          <Card className="mb-3">
+            <Card.Body>
+              <h5 className="card-title">Top công ty theo tỷ lệ tuyển dụng</h5>
+              <Table striped bordered hover responsive>
+                <thead>
+                  <tr>
+                    <th>Tên công ty</th>
+                    <th>Số dự án</th>
+                    <th>Dự án đang tuyển</th>
+                    <th>Tỷ lệ tuyển dụng</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {topCompaniesByProjects.map((company, index) => (
+                    <tr key={company._id}>
+                      <td>
+                        {company.companyLogo && (
+                          <img 
+                            src={company.companyLogo} 
+                            alt={company.companyName} 
+                            style={{ width: '30px', height: '30px', marginRight: '10px', objectFit: 'cover', borderRadius: '50%' }}
+                          />
+                        )}
+                        {company.companyName}
+                      </td>
+                      <td>{company.projectCount}</td>
+                      <td>{company.recruitingProjectCount}</td>
+                      <td style={{ width: '30%' }}>
+                        <div className="d-flex align-items-center">
+                          <ProgressBar 
+                            now={company.recruitmentRate * 100} 
+                            style={{ flexGrow: 1, height: '20px' }}
+                            variant={getProgressBarVariant(company.recruitmentRate)}
+                          />
+                          <span className="ml-2" style={{ minWidth: '60px', textAlign: 'right' }}>
+                            {(company.recruitmentRate * 100).toFixed(2)}%
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            </Card.Body>
           </Card>
         </Col>
       </Row>
-
-      <Modal
-        title={`Tasks của ${projects.find(p => p.id === selectedProject)?.name}`}
-        visible={isModalVisible}
-        onCancel={handleCancel}
-        footer={null}
-      >
-        <RangePicker 
-          onChange={setDateRange}
-          style={{ marginBottom: 16, width: '100%' }}
-        />
-        <Table 
-          columns={taskColumns} 
-          dataSource={filteredTasks}
-          pagination={{ pageSize: 5 }}
-          rowKey="id"
-        />
-      </Modal>
-
     </div>
   );
+};
+
+// Hàm helper để xác định màu sắc cho ProgressBar
+const getProgressBarVariant = (rate) => {
+  if (rate < 0.3) return 'danger';
+  if (rate < 0.7) return 'warning';
+  return 'success';
 };
 
 export default Dashboard;

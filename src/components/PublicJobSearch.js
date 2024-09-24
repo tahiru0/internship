@@ -121,11 +121,11 @@ const FilterTagContent = styled.span`
   white-space: nowrap;
 `;
 
-const PublicJobSearch = () => {
+const PublicJobSearch = ({ studentData }) => { // Nhận studentData từ props
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filters, setFilters] = useState({ skills: [], status: '', major: '' });
+  const [filters, setFilters] = useState({ skills: [], status: '', major: studentData?.major?._id || '' }); // Tự động điền chuyên ngành
   const [pagination, setPagination] = useState({
     current: 1,
     pageSize: 10,

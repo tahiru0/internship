@@ -18,6 +18,7 @@ const SchoolSelect = ({ onSelect, initialValue }) => {
     const [schools, setSchools] = useState([]);
     const [loading, setLoading] = useState(false);
     const [selectedSchool, setSelectedSchool] = useState(null);
+    const [searchValue, setSearchValue] = useState('');
 
     useEffect(() => {
         if (initialValue) {
@@ -31,8 +32,9 @@ const SchoolSelect = ({ onSelect, initialValue }) => {
             const response = await axios.get(`http://localhost:5000/api/auth/schools?query=${schoolId}`);
             if (response.data && response.data.length > 0) {
                 setSchools(response.data);
-                setSelectedSchool(response.data[0]);
-                onSelect(response.data[0]._id);
+                const initialSchool = response.data.find(school => school._id === schoolId);
+                setSelectedSchool(initialSchool);
+                onSelect(initialSchool._id);
             }
         } catch (error) {
             console.error('Lỗi khi lấy thông tin trường:', error);
@@ -42,31 +44,29 @@ const SchoolSelect = ({ onSelect, initialValue }) => {
         }
     };
 
-    const fetchSchools = async (query) => {
-        setLoading(true);
-        try {
-            const response = await axios.get(`http://localhost:5000/api/auth/schools?query=${query}`);
-            if (response.data && response.data.length > 0) {
-                setSchools(response.data);
-            }
-        } catch (error) {
-            console.error('Lỗi khi lấy thông tin trường:', error);
-            message.error('Không thể lấy thông tin trường');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const debouncedFetchSchools = debounce((value) => {
+    const handleSearch = async (value) => {
+        setSearchValue(value);
         if (value.length >= 2) {
-            fetchSchools(value);
+            setLoading(true);
+            try {
+                const response = await axios.get(`http://localhost:5000/api/auth/schools?query=${value}`);
+                setSchools(response.data);
+                if (response.data.length === 1 && response.data[0]._id === value) {
+                    setSelectedSchool(response.data[0]);
+                }
+            } catch (error) {
+                console.error('Lỗi khi tìm kiếm trường học:', error);
+                if (error.response && error.response.data && error.response.data.message) {
+                    message.error(error.response.data.message);
+                } else {
+                    message.error('Không thể tìm kiếm trường học');
+                }
+            } finally {
+                setLoading(false);
+            }
         } else {
             setSchools([]);
         }
-    }, 300);
-
-    const handleSearch = (value) => {
-        debouncedFetchSchools(value);
     };
 
     const handleChange = (value, option) => {
@@ -78,26 +78,20 @@ const SchoolSelect = ({ onSelect, initialValue }) => {
     return (
         <Select
             showSearch
-            placeholder="Tìm kiếm trường"
-            optionFilterProp="children"
-            onChange={handleChange}
+            placeholder="Chọn trường học"
+            filterOption={false}
             onSearch={handleSearch}
+            onChange={handleChange}
+            notFoundContent={null}
             style={{ width: '100%' }}
-            loading={loading}
+            value={selectedSchool ? selectedSchool.id : undefined}
             size="large"
-            optionLabelProp="label"
-            value={selectedSchool ? selectedSchool._id : undefined}
+            dropdownStyle={{ maxHeight: 400, overflow: 'auto' }}
         >
             {schools.map((school) => (
-                <Option 
-                    key={school._id} 
-                    value={school._id} 
-                    label={school.name}
-                >
-                    <div style={{ display: 'flex', alignItems: 'center' }}>
-                        <Avatar src={school.logo} size="small" style={{ marginRight: 8 }} />
-                        {school.name}
-                    </div>
+                <Option key={school.id} value={school.id} school={school}>
+                    <Avatar src={school.logo} size="default" style={{ marginRight: 8 }} />
+                    {school.name}
                 </Option>
             ))}
         </Select>
@@ -132,7 +126,7 @@ const Login = () => {
             setSchoolId(schoolIdFromUrl);
             form.setFieldsValue({ schoolId: schoolIdFromUrl });
             Cookies.set('selectedSchool', schoolIdFromUrl, { expires: 7 });
-        } else if (schoolId) {
+        } else if (!form.getFieldValue('schoolId')) { // Chỉ điền từ cookie nếu trường không có giá trị
             form.setFieldsValue({ schoolId });
         }
 
@@ -246,7 +240,7 @@ const Login = () => {
                                     >
                                         <Form.Item
                                             name="schoolId"
-                                            rules={[{ required: true, message: 'Vui lòng chọn trường!' }]}
+                                            rules={[{ required: true, message: 'Vui lòng chọn trường học!' }]}
                                         >
                                             <SchoolSelect
                                                 onSelect={(value) => {

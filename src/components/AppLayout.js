@@ -61,7 +61,10 @@ const AppLayout = ({ children }) => {
 
   const childrenWithProps = React.Children.map(children, child => {
     if (React.isValidElement(child)) {
-      return React.cloneElement(child, { updateAppliedProjects });
+      return React.cloneElement(child, { 
+        updateAppliedProjects,
+        studentData // Thêm dòng này
+      });
     }
     return child;
   });

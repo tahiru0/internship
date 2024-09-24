@@ -78,6 +78,11 @@ const School = () => {
       key: 'address',
     },
     {
+      title: 'SL sinh viên',
+      dataIndex: 'studentCount',
+      key: 'studentCount',
+    },
+    {
       title: 'Active',
       key: 'isActive',
       render: (text, record) => (

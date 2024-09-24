@@ -81,6 +81,12 @@ const Company = () => {
       sorter: true,
     },
     {
+      title: 'SL dự án',
+      dataIndex: 'projectCount',
+      key: 'projectCount',
+      sorter: true,
+    },
+    {
       title: 'Active',
       key: 'isActive',
       render: (text, record) => (

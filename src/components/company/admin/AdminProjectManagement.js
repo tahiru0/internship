@@ -441,7 +441,7 @@ const AdminProjectManagement = () => {
       title: 'Đơn Ứng Tuyển',
       dataIndex: 'applicantCount',
       key: 'applicantCount',
-      render: (applicantCount, record) => `${applicantCount}/${record.maxApplicants}`,
+      render: (applicantCount, record) => record.isRecruiting ? `${applicantCount}/${record.maxApplicants}` : '-',
     },
     {
       title: 'Số Lượng Thành Viên',
@@ -551,7 +551,9 @@ const AdminProjectManagement = () => {
                 />
               </Popconfirm>
             </p>
-            <p><strong>Đơn Ứng Tuyển:</strong> {project.ApplicantCount}/{project.maxApplicants}</p>
+            {project.isRecruiting && (
+              <p><strong>Đơn Ứng Tuyển:</strong> {project.applicantCount}/{project.maxApplicants}</p>
+            )}
             <p><strong>Số Lượng Thành Viên:</strong> {project.approvedMemberCount}</p>
           </Card>
         </Col>

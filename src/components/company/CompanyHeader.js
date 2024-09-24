@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useCompany } from '../../context/CompanyContext';
-import { BellOutlined, LogoutOutlined, SearchOutlined, SettingOutlined, UserOutlined } from '@ant-design/icons';
-import { Badge, Dropdown, Input, Menu, Modal, Typography } from 'antd';
+import { BellOutlined, LogoutOutlined, SearchOutlined, SettingOutlined } from '@ant-design/icons';
+import { Avatar, Badge, Dropdown, Input, Menu, Modal, Typography } from 'antd';
 import NotificationMenu from '../../layout/NotificationMenu';
 import SettingsDrawer from '../../layout/SettingsDrawer';
 import { useNavigate } from 'react-router-dom';
@@ -25,10 +25,6 @@ function CompanyHeader({ handleSidenavColor, handleSidenavType, handleFixedNavba
     }, [companyData, fetchUnreadCount]);
 
     useEffect(() => {
-        console.log('Current unreadCount in CompanyHeader:', unreadCount);
-    }, [unreadCount]);
-
-    useEffect(() => {
         const handleResize = () => setWindowWidth(window.innerWidth);
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
@@ -41,6 +37,7 @@ function CompanyHeader({ handleSidenavColor, handleSidenavType, handleFixedNavba
     const userRole = companyData?.account?.role || '';
     const companyName = companyData?.company?.name || '';
     const companyLogo = companyData?.company?.logo || '';
+    const userAvatar = companyData?.account?.avatar || '';
 
     const showModal = () => {
         setIsModalVisible(true);
@@ -70,13 +67,6 @@ function CompanyHeader({ handleSidenavColor, handleSidenavType, handleFixedNavba
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-    };
-
-    const logoStyle = {
-        width: '50px',
-        height: 'auto',
-        borderRadius: '8px',
-        marginRight: '10px',
     };
 
     const iconStyle = {
@@ -139,7 +129,9 @@ function CompanyHeader({ handleSidenavColor, handleSidenavType, handleFixedNavba
                 </Badge>
                 <SearchOutlined style={iconStyle} onClick={showModal} />
                 <Dropdown overlay={userMenu} trigger={['click']}>
-                    <UserOutlined style={iconStyle} />
+                    <Avatar src={userAvatar} style={{ ...iconStyle, cursor: 'pointer' }}>
+                        {!userAvatar && userName.charAt(0)}
+                    </Avatar>
                 </Dropdown>
             </div>
             <Modal
