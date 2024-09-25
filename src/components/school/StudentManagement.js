@@ -320,8 +320,40 @@ function StudentManagement() {
 
         try {
             const workbook = XLSX.utils.book_new();
-            const worksheet = XLSX.utils.json_to_sheet(data);
+            
+            // Chuyển đổi dữ liệu ngày tháng và loại bỏ trường id
+            const formattedData = data.map(row => {
+                const newRow = {...row};
+                delete newRow.id; // Loại bỏ trường id
+
+                if (newRow.dateOfBirth) {
+                    newRow.dateOfBirth = new Date(newRow.dateOfBirth);
+                    if (!isNaN(newRow.dateOfBirth.getTime())) {
+                        newRow.dateOfBirth = XLSX.SSF.format('yyyy-mm-dd', XLSX.SSF.parse_date_code(newRow.dateOfBirth));
+                    } else {
+                        newRow.dateOfBirth = 'Invalid Date';
+                    }
+                }
+                return newRow;
+            });
+
+            const worksheet = XLSX.utils.json_to_sheet(formattedData);
             XLSX.utils.book_append_sheet(workbook, worksheet, "Errors");
+            
+            // Đặt kiểu dữ liệu cho cột ngày tháng
+            const dateColumn = XLSX.utils.encode_col(formattedData[0].hasOwnProperty('dateOfBirth') ? 
+                Object.keys(formattedData[0]).indexOf('dateOfBirth') : -1);
+            if (dateColumn !== -1) {
+                const range = XLSX.utils.decode_range(worksheet['!ref']);
+                for (let row = range.s.r + 1; row <= range.e.r; ++row) {
+                    const cell = worksheet[dateColumn + XLSX.utils.encode_row(row)];
+                    if (cell && cell.v !== 'Invalid Date') {
+                        cell.t = 'd';
+                        cell.z = XLSX.SSF.get_table()[14]; // "mm-dd-yy"
+                    }
+                }
+            }
+
             const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
             const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
             saveAs(blob, 'student_upload_errors.xlsx');

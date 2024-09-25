@@ -63,42 +63,46 @@ const Dashboard = () => {
       <h3 className="mb-4">{`${greeting}, ${schoolData?.account?.name || 'Người dùng'}!`}</h3>
       <Row gutter={[16, 16]}>
         <Col xs={24} sm={12} md={6}>
-          <Card style={{ background: 'linear-gradient(135deg, #f6d365 0%, #fda085 100%)' }}>
+          <Card style={{ background: 'linear-gradient(135deg, #fff9c4 0%, #ffecb3 100%)' }}>
             <Statistic
               title="Tổng số sinh viên"
               value={studentStatistics.totalStudents}
               prefix={<UserOutlined />}
-              valueStyle={{ color: '#3f8600' }}
+              valueStyle={{ color: '#ff6f00', fontWeight: 'bold' }}
+              titleStyle={{ color: '#ff8f00' }}
             />
           </Card>
         </Col>
         <Col xs={24} sm={12} md={6}>
-          <Card style={{ background: 'linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%)' }}>
+          <Card style={{ background: 'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)' }}>
             <Statistic
               title="Sinh viên đã duyệt"
               value={studentStatistics.approvedStudents}
               prefix={<CheckCircleOutlined />}
-              valueStyle={{ color: '#108ee9' }}
+              valueStyle={{ color: '#1565c0', fontWeight: 'bold' }}
+              titleStyle={{ color: '#1976d2' }}
             />
           </Card>
         </Col>
         <Col xs={24} sm={12} md={6}>
-          <Card style={{ background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)' }}>
+          <Card style={{ background: 'linear-gradient(135deg, #f8bbd0 0%, #f48fb1 100%)' }}>
             <Statistic
               title="Tổng số ứng tuyển"
               value={studentStatistics.totalApplications}
               prefix={<FileDoneOutlined />}
-              valueStyle={{ color: '#cf1322' }}
+              valueStyle={{ color: '#c2185b', fontWeight: 'bold' }}
+              titleStyle={{ color: '#d81b60' }}
             />
           </Card>
         </Col>
         <Col xs={24} sm={12} md={6}>
-          <Card style={{ background: 'linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%)' }}>
+          <Card style={{ background: 'linear-gradient(135deg, #c8e6c9 0%, #a5d6a7 100%)' }}>
             <Statistic
               title="Thực tập"
               value={internsApplicationsText}
               prefix={<FileSearchOutlined />}
-              valueStyle={{ color: '#722ed1' }}
+              valueStyle={{ color: '#2e7d32', fontWeight: 'bold' }}
+              titleStyle={{ color: '#388e3c' }}
             />
           </Card>
         </Col>
