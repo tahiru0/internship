@@ -1,52 +1,63 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Table, Button, Modal, Input, Row, Col, Switch, Dropdown, Menu, Card, message } from 'antd';
 import { SearchOutlined, EyeOutlined, DownOutlined, EditOutlined } from '@ant-design/icons';
 import { InputGroup } from 'react-bootstrap';
 import { useAuthorization } from '../../routes/RequireAdminAuth';
 import moment from 'moment';
 import useForm from '../../common/useForm';
-import useCrudController from '../../common/useCrudController';
 
 const Company = () => {
   const { axiosInstance } = useAuthorization();
   const [detailsVisible, setDetailsVisible] = useState(false);
   const [selectedDetails, setSelectedDetails] = useState(null);
 
-  const {
-    data: companies,
-    loading,
-    isModalVisible,
-    selectedItem: selectedCompany,
-    showActive,
-    searchText,
-    pagination,
-    setIsModalVisible,
-    setSelectedItem: setSelectedCompany,
-    setShowActive,
-    setSearchText,
-    handleCreate,
-    handleUpdate,
-    handleTableChange,
-    fetchData,
-  } = useCrudController(axiosInstance, '/admin/companies', {
-    dataField: 'data',
-    totalField: 'total',
-    defaultSortField: 'createdAt',
-    defaultPageSize: 10,
+  const [companies, setCompanies] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [pagination, setPagination] = useState({
+    current: 1,
+    pageSize: 10,
+    total: 0,
   });
+  const [searchText, setSearchText] = useState('');
+  const [sortField, setSortField] = useState('createdAt');
+  const [sortOrder, setSortOrder] = useState('');
 
-  const menu = (
-    <Menu>
-      <Menu.Item key="1">
-        <Switch
-          checked={showActive}
-          onChange={setShowActive}
-          checkedChildren="Active"
-          unCheckedChildren="All"
-        />
-      </Menu.Item>
-    </Menu>
-  );
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await axiosInstance.get('/admin/companies', {
+        params: {
+          page: pagination.current,
+          limit: pagination.pageSize,
+          sort: sortOrder === 'descend' ? `-${sortField}` : sortField,
+          search: searchText,
+        },
+      });
+      setCompanies(response.data.data);
+      setPagination(prev => ({
+        ...prev,
+        total: response.data.totalItems,
+      }));
+    } catch (error) {
+      message.error('Không thể tải dữ liệu công ty');
+    } finally {
+      setLoading(false);
+    }
+  }, [pagination.current, pagination.pageSize, sortField, sortOrder, searchText]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  const handleTableChange = (newPagination, filters, sorter) => {
+    setPagination({
+      ...newPagination,
+      current: newPagination.current,
+      pageSize: newPagination.pageSize,
+    });
+    setSortField(sorter.field);
+    setSortOrder(sorter.order);
+  };
 
   const toggleActiveStatus = async (record) => {
     try {
@@ -103,16 +114,13 @@ const Company = () => {
       dataIndex: 'createdAt',
       key: 'createdAt',
       render: (text) => moment(text).format('DD/MM/YYYY HH:mm:ss'),
+      sorter: true,
     },
     {
       title: '',
       key: 'action',
       render: (_, record) => (
         <>
-          <Button 
-            onClick={() => { setSelectedCompany(record); setIsModalVisible(true); }} 
-            icon={<EditOutlined />} 
-          />
           <Button 
             onClick={() => { setSelectedDetails(record); setDetailsVisible(true); }} 
             icon={<EyeOutlined />} 
@@ -125,11 +133,27 @@ const Company = () => {
     },
   ];
 
+  const menu = (
+    <Menu>
+      <Menu.Item key="1" onClick={() => handleExport('csv')}>
+        Xuất CSV
+      </Menu.Item>
+      <Menu.Item key="2" onClick={() => handleExport('excel')}>
+        Xuất Excel
+      </Menu.Item>
+    </Menu>
+  );
+
+  const handleExport = (type) => {
+    // Xử lý xuất dữ liệu
+    message.info(`Đang xuất dữ liệu dạng ${type}. Tính năng này chưa được triển khai.`);
+  };
+
   return (
     <div className='container'>
       <div style={{ marginBottom: 16, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px' }}>
         <div className="col-auto">
-          <Button type="primary" size="small" onClick={() => { setSelectedCompany(null); setIsModalVisible(true); }}>
+          <Button type="primary" size="small" onClick={() => { setSelectedDetails(null); setDetailsVisible(true); }}>
             Tạo công ty
           </Button>
         </div>
@@ -157,23 +181,16 @@ const Company = () => {
           dataSource={companies}
           rowKey="_id"
           loading={loading}
-          pagination={pagination}
+          pagination={{
+            ...pagination,
+            showSizeChanger: true,
+            showQuickJumper: true,
+            showTotal: (total, range) => `${range[0]}-${range[1]} của ${total} mục`,
+          }}
           onChange={handleTableChange}
           scroll={{ x: 'max-content' }}
         />
       </Card>
-
-      <Modal
-        title={selectedCompany ? 'Edit Company' : 'Create Company'}
-        visible={isModalVisible}
-        onCancel={() => setIsModalVisible(false)}
-        footer={null}
-      >
-        {selectedCompany ?
-          <EditCompanyForm initialValues={selectedCompany} onSubmit={(values) => handleUpdate(selectedCompany._id, values)} /> :
-          <CreateCompanyForm onSubmit={handleCreate} />
-        }
-      </Modal>
 
       <Modal
         title="Company Details"

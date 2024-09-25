@@ -1,52 +1,67 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Table, Button, Modal, Input, Row, Col, Switch, Dropdown, Menu, Card, message } from 'antd';
 import { SearchOutlined, EyeOutlined, DownOutlined, EditOutlined } from '@ant-design/icons';
 import { InputGroup } from 'react-bootstrap';
 import { useAuthorization } from '../../routes/RequireAdminAuth';
 import moment from 'moment';
 import useForm from '../../common/useForm';
-import useCrudController from '../../common/useCrudController';
 
 const School = () => {
   const { axiosInstance } = useAuthorization();
   const [detailsVisible, setDetailsVisible] = useState(false);
   const [selectedDetails, setSelectedDetails] = useState(null);
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [selectedSchool, setSelectedSchool] = useState(null);
 
-  const {
-    data: schools,
-    loading,
-    isModalVisible,
-    selectedItem: selectedSchool,
-    showActive,
-    searchText,
-    pagination,
-    setIsModalVisible,
-    setSelectedItem: setSelectedSchool,
-    setShowActive,
-    setSearchText,
-    handleCreate,
-    handleUpdate,
-    handleTableChange,
-    fetchData,
-  } = useCrudController(axiosInstance, '/admin/schools', {
-    dataField: 'data',
-    totalField: 'total',
-    defaultSortField: 'createdAt',
-    defaultPageSize: 10,
+  const [schools, setSchools] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showActive, setShowActive] = useState(false);
+  const [searchText, setSearchText] = useState('');
+  const [pagination, setPagination] = useState({
+    current: 1,
+    pageSize: 10,
+    total: 0,
   });
+  const [sortField, setSortField] = useState('createdAt');
+  const [sortOrder, setSortOrder] = useState('');
 
-  const menu = (
-    <Menu>
-      <Menu.Item key="1">
-        <Switch
-          checked={showActive}
-          onChange={setShowActive}
-          checkedChildren="Active"
-          unCheckedChildren="All"
-        />
-      </Menu.Item>
-    </Menu>
-  );
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await axiosInstance.get('/admin/schools', {
+        params: {
+          page: pagination.current,
+          limit: pagination.pageSize,
+          sort: sortOrder === 'descend' ? `-${sortField}` : sortField,
+          search: searchText,
+          isActive: showActive ? true : undefined,
+        },
+      });
+      setSchools(response.data.data);
+      setPagination(prev => ({
+        ...prev,
+        total: response.data.totalItems,
+      }));
+    } catch (error) {
+      message.error('Không thể tải dữ liệu trường học');
+    } finally {
+      setLoading(false);
+    }
+  }, [pagination.current, pagination.pageSize, sortField, sortOrder, searchText, showActive]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  const handleTableChange = (newPagination, filters, sorter) => {
+    setPagination({
+      ...newPagination,
+      current: newPagination.current,
+      pageSize: newPagination.pageSize,
+    });
+    setSortField(sorter.field);
+    setSortOrder(sorter.order);
+  };
 
   const toggleActiveStatus = async (record) => {
     try {
@@ -55,6 +70,30 @@ const School = () => {
       fetchData();
     } catch (error) {
       message.error('Không thể cập nhật trạng thái trường học');
+    }
+  };
+
+  const handleCreate = async (formData) => {
+    try {
+      const response = await axiosInstance.post('/admin/schools', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      message.success('Tạo trường học thành công');
+      fetchData();
+      setIsModalVisible(false);
+    } catch (error) {
+      message.error(error.response?.data?.message || 'Không thể tạo trường học');
+    }
+  };
+
+  const handleUpdate = async (id, values) => {
+    try {
+      const response = await axiosInstance.patch(`/admin/schools/${id}`, values);
+      message.success('Cập nhật trường học thành công');
+      fetchData();
+      setIsModalVisible(false);
+    } catch (error) {
+      message.error(error.response?.data?.message || 'Không thể cập nhật trường học');
     }
   };
 
@@ -121,6 +160,19 @@ const School = () => {
     },
   ];
 
+  const menu = (
+    <Menu>
+      <Menu.Item key="1">
+        <Switch
+          checked={showActive}
+          onChange={setShowActive}
+          checkedChildren="Active"
+          unCheckedChildren="All"
+        />
+      </Menu.Item>
+    </Menu>
+  );
+
   return (
     <div className='container'>
       <div style={{ marginBottom: 16, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px' }}>
@@ -153,7 +205,12 @@ const School = () => {
           dataSource={schools}
           rowKey="_id"
           loading={loading}
-          pagination={pagination}
+          pagination={{
+            ...pagination,
+            showSizeChanger: true,
+            showQuickJumper: true,
+            showTotal: (total, range) => `${range[0]}-${range[1]} của ${total} mục`,
+          }}
           onChange={handleTableChange}
           scroll={{ x: 'max-content' }}
         />
