@@ -204,7 +204,7 @@ const ProjectDetail = ({ isLoggedIn, studentData, appliedProjects, updateApplied
                     <ClockCircleOutlined /> {project.isRecruiting ? 'Đang tuyển' : 'Đã đóng'}
                   </Tag>
                   <Tag color="blue">
-                    <TeamOutlined /> {project.maxApplicants || 'Không xác định'} vị trí
+                    <TeamOutlined /> {project.availablePositions === 0 ? 'Đã đủ người' : `${project.availablePositions || project.maxApplicants || 'Không xác định'} vị trí`}
                   </Tag>
                   <Tag color="purple">
                     <CalendarOutlined /> Bắt đầu: {new Date(project.applicationStart).toLocaleDateString('vi-VN')}

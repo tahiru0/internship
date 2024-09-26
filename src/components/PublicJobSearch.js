@@ -121,7 +121,7 @@ const FilterTagContent = styled.span`
   white-space: nowrap;
 `;
 
-const PublicJobSearch = ({ studentData, isDataLoaded }) => {
+const PublicJobSearch = ({ studentData, isLoggedIn }) => {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -140,34 +140,25 @@ const PublicJobSearch = ({ studentData, isDataLoaded }) => {
   const [skills, setSkills] = useState([]);
   const [majors, setMajors] = useState([]);
   const navigate = useNavigate();
-  const [isInitialized, setIsInitialized] = useState(false);
+  const [isRecommended, setIsRecommended] = useState(false);
 
   useEffect(() => {
-    if (isDataLoaded && !isInitialized) {
+    if (isLoggedIn && studentData && studentData.major) {
       setFilters(prevFilters => ({
         ...prevFilters,
-        major: studentData?.major?._id || ''
+        major: studentData.major._id
       }));
-      setIsInitialized(true);
+      setIsRecommended(true);
     }
-  }, [isDataLoaded, studentData, isInitialized]);
+  }, [isLoggedIn, studentData]);
 
   useEffect(() => {
-    if (isInitialized) {
-      fetchProjects();
-    }
-  }, [isInitialized, searchQuery, filters, pagination.current]);
-
-  useEffect(() => {
-    if (isInitialized) {
-      fetchSkills();
-      fetchMajors();
-    }
-  }, [isInitialized]);
+    fetchProjects();
+    fetchSkills();
+    fetchMajors();
+  }, [searchQuery, filters, pagination.current]);
 
   const fetchProjects = async () => {
-    if (!isInitialized) return;
-    
     setLoading(true);
     try {
       const response = await axiosInstance.get('/guest/projects', {
@@ -204,6 +195,7 @@ const PublicJobSearch = ({ studentData, isDataLoaded }) => {
       setSkills(response.data);
     } catch (error) {
       console.error('Lỗi khi lấy danh sách kỹ năng:', error);
+      message.error('Không thể lấy danh sách kỹ năng');
     }
   };
 
@@ -213,6 +205,7 @@ const PublicJobSearch = ({ studentData, isDataLoaded }) => {
       setMajors(response.data);
     } catch (error) {
       console.error('Lỗi khi lấy danh sách ngành học:', error);
+      message.error('Không thể lấy danh sách ngành học');
     }
   };
 
@@ -222,8 +215,16 @@ const PublicJobSearch = ({ studentData, isDataLoaded }) => {
   };
 
   const handleFilterChange = (value, filterType) => {
-    setFilters({ ...filters, [filterType]: value });
+    setFilters(prevFilters => ({
+      ...prevFilters,
+      [filterType]: value
+    }));
     setPagination({ ...pagination, current: 1 });
+    if (filterType === 'major') {
+      setIsRecommended(value === studentData?.major?._id);
+    } else {
+      setIsRecommended(false);
+    }
   };
 
   const handlePageChange = (page) => {
@@ -242,10 +243,33 @@ const PublicJobSearch = ({ studentData, isDataLoaded }) => {
   const removeFilter = (filterType) => {
     setFilters({ ...filters, [filterType]: filterType === 'skills' ? [] : '' });
     setPagination({ ...pagination, current: 1 });
+    if (filterType === 'major') {
+      setIsRecommended(false);
+    }
   };
 
   const handleApply = (projectId) => {
     navigate(`/login?redirect=/project/${projectId}`);
+  };
+
+  const handleSkillClick = (skillId, skillName) => {
+    setFilters(prevFilters => ({
+      ...prevFilters,
+      skills: prevFilters.skills.includes(skillId) 
+        ? prevFilters.skills.filter(s => s !== skillId)
+        : [...prevFilters.skills, skillId]
+    }));
+    setPagination({ ...pagination, current: 1 });
+    setIsRecommended(false);
+  };
+
+  const handleMajorClick = (majorId) => {
+    setFilters(prevFilters => ({
+      ...prevFilters,
+      major: prevFilters.major === majorId ? '' : majorId
+    }));
+    setPagination({ ...pagination, current: 1 });
+    setIsRecommended(majorId === studentData?.major?._id);
   };
 
   const renderFilterTags = () => (
@@ -279,7 +303,7 @@ const PublicJobSearch = ({ studentData, isDataLoaded }) => {
           color="orange"
         >
           <FilterTagContent>
-            Chuyên ngành: {majors.find(major => major._id === filters.major)?.name}
+            Ngành: {majors.find(major => major._id === filters.major)?.name}
           </FilterTagContent>
         </FilterTag>
       )}
@@ -335,6 +359,11 @@ const PublicJobSearch = ({ studentData, isDataLoaded }) => {
             </StyledCard>
           </StickyCol>
           <StickyCol span={18}>
+            {isRecommended && (
+              <Title level={4} style={{ marginBottom: 16, color: '#1890ff' }}>
+                Công việc thực tập gợi ý cho bạn
+              </Title>
+            )}
             <Spin spinning={loading}>
               {projects.length > 0 ? (
                 projects.map((project) => (
@@ -365,19 +394,33 @@ const PublicJobSearch = ({ studentData, isDataLoaded }) => {
                             </StyledTag>
                           </Tooltip>
                         </Space>
-                        {project.relatedMajors && project.relatedMajors.length > 0 && (
-                          <div style={{ marginTop: 8 }}>
-                            <Text strong>Ngành học liên quan: </Text>
-                            {project.relatedMajors.map((major, index) => (
-                              <StyledTag key={index} color="orange">{major}</StyledTag>
-                            ))}
-                          </div>
-                        )}
                         {project.requiredSkills && project.requiredSkills.length > 0 && (
                           <div style={{ marginTop: 8 }}>
                             <Text strong>Kỹ năng yêu cầu: </Text>
-                            {project.requiredSkills.map((skill, index) => (
-                              <StyledTag key={index} color="cyan">{skill}</StyledTag>
+                            {project.requiredSkills.map((skill) => (
+                              <StyledTag 
+                                key={skill._id} 
+                                color="cyan" 
+                                onClick={() => handleSkillClick(skill._id, skill.name)}
+                                style={{ cursor: 'pointer' }}
+                              >
+                                {skill.name}
+                              </StyledTag>
+                            ))}
+                          </div>
+                        )}
+                        {project.relatedMajors && project.relatedMajors.length > 0 && (
+                          <div style={{ marginTop: 8 }}>
+                            <Text strong>Ngành học liên quan: </Text>
+                            {project.relatedMajors.map((major) => (
+                              <StyledTag 
+                                key={major._id} 
+                                color="orange"
+                                onClick={() => handleMajorClick(major._id)}
+                                style={{ cursor: 'pointer' }}
+                              >
+                                {major.name}
+                              </StyledTag>
                             ))}
                           </div>
                         )}
