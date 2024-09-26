@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Table, Button, Modal, Form, Input, DatePicker, Select, message, Space, Avatar, Row, Col, Upload, Progress, Steps, Statistic, Tabs, Badge } from 'antd';
 import { UploadOutlined, DownloadOutlined, CheckOutlined, CloseOutlined } from '@ant-design/icons';
 import { useSchool } from '../../context/SchoolContext';
@@ -74,22 +74,21 @@ function StudentManagement() {
     const [uploadFile, setUploadFile] = useState(null);
     const [activeTab, setActiveTab] = useState('pending');
     const [pendingCount, setPendingCount] = useState(0);
+    const [cachedMajors, setCachedMajors] = useState({});
 
     const fetchStudents = useCallback(async () => {
+        if (loading) return; // Prevent multiple requests while loading
         setLoading(true);
         try {
-            const { current, pageSize } = pagination;
-            const { search, major, sort, order } = filters;
-            const isApproved = activeTab === 'approved';
             const response = await api.get('/school/students', {
                 params: {
-                    search,
-                    isApproved,
-                    major,
-                    sort,
-                    order,
-                    page: current,
-                    limit: pageSize,
+                    search: filters.search,
+                    isApproved: activeTab === 'approved',
+                    major: filters.major,
+                    sort: filters.sort,
+                    order: filters.order,
+                    page: pagination.current,
+                    limit: pagination.pageSize,
                 },
             });
             setStudents(response.data.students);
@@ -97,9 +96,9 @@ function StudentManagement() {
                 ...prev,
                 total: response.data.totalStudents,
             }));
-            
+
             // Cập nhật số lượng sinh viên chờ xác nhận
-            if (!isApproved) {
+            if (activeTab !== 'approved') {
                 setPendingCount(response.data.totalStudents);
             }
         } catch (error) {
@@ -111,10 +110,16 @@ function StudentManagement() {
         } finally {
             setLoading(false);
         }
-    }, [api, pagination.current, pagination.pageSize, filters, activeTab]);
+    }, [api, filters.search, activeTab, filters.major, filters.sort, filters.order, pagination.current, pagination.pageSize]);
 
     useEffect(() => {
-        fetchStudents();
+        const debouncedFetchStudents = debounce(() => {
+            fetchStudents();
+        }, 300);
+
+        debouncedFetchStudents();
+
+        return () => debouncedFetchStudents.cancel();
     }, [fetchStudents]);
 
     useEffect(() => {
@@ -122,11 +127,16 @@ function StudentManagement() {
     }, []);
 
     const fetchMajors = async (search = '') => {
+        if (cachedMajors[search]) {
+            setMajors(cachedMajors[search]);
+            return;
+        }
         try {
             const response = await api.get('/school/majors', {
                 params: { search },
             });
             setMajors(response.data);
+            setCachedMajors(prev => ({ ...prev, [search]: response.data }));
         } catch (error) {
             message.error('Lỗi khi lấy danh sách ngành học');
         }
@@ -134,14 +144,16 @@ function StudentManagement() {
 
     const debouncedFetchMajors = debounce(fetchMajors, 300);
 
-    const handleTableChange = (newPagination, _, sorter) => {
+    const handleTableChange = useCallback((newPagination, _, sorter) => {
         setPagination(newPagination);
-        setFilters(prev => ({
-            ...prev,
-            sort: sorter.field || 'name',
-            order: sorter.order === 'descend' ? 'desc' : 'asc',
-        }));
-    };
+        if (sorter.field && sorter.order) {
+            setFilters(prev => ({
+                ...prev,
+                sort: sorter.field,
+                order: sorter.order === 'descend' ? 'desc' : 'asc',
+            }));
+        }
+    }, []);
 
     const handleEdit = (student) => {
         setEditingStudent(student);
@@ -182,44 +194,65 @@ function StudentManagement() {
         }
     };
 
+    const debouncedHandleFilterChange = useCallback(
+        debounce((value, filterName) => {
+            setFilters(prev => ({
+                ...prev,
+                [filterName]: value,
+            }));
+            setPagination(prev => ({
+                ...prev,
+                current: 1,
+            }));
+        }, 300),
+        []
+    );
+
     const handleFilterChange = (value, filterName) => {
-        setFilters(prev => ({
-            ...prev,
-            [filterName]: value,
-        }));
-        setPagination(prev => ({
-            ...prev,
-            current: 1,
-        }));
+        debouncedHandleFilterChange(value, filterName);
     };
 
     const onDrop = useCallback((acceptedFiles) => {
         const file = acceptedFiles[0];
+
+        // Kiểm tra loại file
+        if (!file.type.match('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') &&
+            !file.type.match('application/vnd.ms-excel')) {
+            message.error('Vui lòng chỉ upload file Excel (.xlsx hoặc .xls)');
+            return;
+        }
+
         const reader = new FileReader();
         reader.onload = (e) => {
-            const data = new Uint8Array(e.target.result);
-            const workbook = XLSX.read(data, { type: 'array' });
-            const sheetName = workbook.SheetNames[0];
-            const worksheet = workbook.Sheets[sheetName];
-            const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+            try {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const sheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[sheetName];
+                const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
-            const headers = jsonData[0];
-            const rows = jsonData.slice(1).map((row, index) => {
-                const obj = {
-                    stt: index + 1,  // Thêm STT vào đây
-                };
-                headers.forEach((header, i) => {
-                    obj[header] = row[i];
+                const headers = jsonData[0];
+                const rows = jsonData.slice(1).map((row, index) => {
+                    const obj = {
+                        stt: index + 1,
+                    };
+                    headers.forEach((header, i) => {
+                        // Cắt ngắn nội dung nếu vượt quá giới hạn
+                        obj[header] = typeof row[i] === 'string' ? row[i].substring(0, 32700) : row[i];
+                    });
+                    obj.id = index;
+                    return obj;
                 });
-                obj.id = index;
-                return obj;
-            });
 
-            setPreviewData(rows);
-            setPreviewColumns([
-                { key: 'stt', name: 'STT' },
-                ...headers.map(header => ({ key: header, name: header }))
-            ]);
+                setPreviewData(rows);
+                setPreviewColumns([
+                    { key: 'stt', name: 'STT' },
+                    ...headers.map(header => ({ key: header, name: header }))
+                ]);
+            } catch (error) {
+                console.error('Lỗi khi đọc file:', error);
+                message.error('Không thể đọc file. Vui lòng kiểm tra lại định dạng file.');
+            }
         };
         reader.readAsArrayBuffer(file);
     }, []);
@@ -227,16 +260,30 @@ function StudentManagement() {
     const { getRootProps, getInputProps } = useDropzone({ onDrop });
 
     const handlePreview = () => {
-        const workbook = XLSX.utils.book_new();
-        const worksheet = XLSX.utils.json_to_sheet(previewData);
-        XLSX.utils.book_append_sheet(workbook, worksheet, "Students");
-        const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
-        const file = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-        
-        // Lưu file vào state để sử dụng sau này khi tải lên
-        setUploadFile(file);
-        
-        setUploadStep('preview');
+        try {
+            const workbook = XLSX.utils.book_new();
+            const worksheet = XLSX.utils.json_to_sheet(previewData.map(row => {
+                const newRow = { ...row };
+                delete newRow.id;
+                delete newRow.stt;
+                // Cắt ngắn nội dung của mỗi ô nếu cần
+                Object.keys(newRow).forEach(key => {
+                    if (typeof newRow[key] === 'string' && newRow[key].length > 32700) {
+                        newRow[key] = newRow[key].substring(0, 32700);
+                    }
+                });
+                return newRow;
+            }));
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Students");
+            const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+            const file = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+
+            setUploadFile(file);
+            setUploadStep('preview');
+        } catch (error) {
+            console.error('Lỗi khi tạo file preview:', error);
+            message.error('Có lỗi xảy ra khi tạo bản xem trước. Vui lòng thử lại.');
+        }
     };
 
     const handleUpload = async () => {
@@ -260,7 +307,7 @@ function StudentManagement() {
 
             if (responseData.issueCount > 0) {
                 message.warning(`Tải lên thành công. Có ${responseData.issueCount} bản ghi có vấn đề. Vui lòng kiểm tra danh sách chi tiết.`);
-                
+
                 // Tạo một mảng mới chứa tất cả các hàng, bao gồm cả những hàng không có vấn đề
                 const allRows = previewData.map((row, index) => {
                     const issue = responseData.issues.find(issue => issue.row === index + 2);
@@ -311,64 +358,51 @@ function StudentManagement() {
         handleDownloadErrors(rows);
     };
 
-    const handleDownloadErrors = (data = errorData) => {
-        if (!Array.isArray(data) || data.length === 0) {
+    const handleDownloadErrors = (response) => {
+        if (!response || !Array.isArray(response.issues) || response.issues.length === 0) {
             console.log('Không có dữ liệu lỗi để tải xuống');
             message.error('Không có dữ liệu lỗi để tải xuống');
             return;
         }
 
         try {
-            const validData = data.map(row => {
-                const newRow = {...row};
-                Object.keys(newRow).forEach(key => {
-                    if (newRow[key] === undefined || newRow[key] === null) {
-                        newRow[key] = ''; // Hoặc một giá trị mặc định khác
-                    }
-                });
-                return newRow;
-            });
+            console.log('Dữ liệu lỗi:', JSON.stringify(response.issues, null, 2));
 
+            // Định nghĩa các cột cố định
+            const columns = ['STT', 'Dòng', 'Tên', 'Email', 'Mã sinh viên', 'Ngày sinh', 'Ngành học', 'Vấn đề'];
+
+            // Chuẩn hóa dữ liệu
+            const normalizedData = response.issues.map((item, index) => ({
+                'STT': index + 1,
+                'Dòng': item.row,
+                'Tên': item.data?.name || '',
+                'Email': item.data?.email || '',
+                'Mã sinh viên': item.data?.studentId || '',
+                'Ngày sinh': item.data?.dateOfBirth || '',
+                'Ngành học': item.data?.major || '',
+                'Vấn đề': item.issue
+            }));
+
+            console.log('Dữ liệu đã chuẩn hóa:', JSON.stringify(normalizedData, null, 2));
+
+            // Tạo worksheet
+            const worksheet = XLSX.utils.json_to_sheet(normalizedData);
+
+            // Tạo workbook và thêm worksheet vào
             const workbook = XLSX.utils.book_new();
-            
-            // Chuyển đổi dữ liệu ngày tháng và loại bỏ trường id
-            const formattedData = validData.map(row => {
-                const newRow = {...row};
-                delete newRow.id;
-
-                if (newRow.dateOfBirth) {
-                    newRow.dateOfBirth = new Date(newRow.dateOfBirth);
-                    if (!isNaN(newRow.dateOfBirth.getTime())) {
-                        newRow.dateOfBirth = XLSX.SSF.format('yyyy-mm-dd', XLSX.SSF.parse_date_code(newRow.dateOfBirth));
-                    } else {
-                        newRow.dateOfBirth = 'Invalid Date';
-                    }
-                }
-                return newRow;
-            });
-
-            const worksheet = XLSX.utils.json_to_sheet(formattedData);
             XLSX.utils.book_append_sheet(workbook, worksheet, "Errors");
-            
-            // Đặt kiểu dữ liệu cho cột ngày tháng
-            const dateColumn = XLSX.utils.encode_col(formattedData[0].hasOwnProperty('dateOfBirth') ? 
-                Object.keys(formattedData[0]).indexOf('dateOfBirth') : -1);
-            if (dateColumn !== -1) {
-                const range = XLSX.utils.decode_range(worksheet['!ref']);
-                for (let row = range.s.r + 1; row <= range.e.r; ++row) {
-                    const cell = worksheet[dateColumn + XLSX.utils.encode_row(row)];
-                    if (cell && cell.v !== 'Invalid Date') {
-                        cell.t = 'd';
-                        cell.z = XLSX.SSF.get_table()[14]; // "mm-dd-yy"
-                    }
-                }
-            }
 
+            // Thêm header
+            XLSX.utils.sheet_add_aoa(worksheet, [columns], { origin: 'A1' });
+
+            // Tạo buffer
             const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
             const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-            saveAs(blob, 'student_upload_errors.xlsx');
-            console.log('File Excel đã được tạo và đang được tải xuống');
-            message.success('Đã tải xuống file lỗi thành công');
+
+            // Tải file
+            saveAs(blob, 'error_data.xlsx');
+
+            message.success('Đã tải xuống dữ liệu lỗi thành công');
         } catch (error) {
             console.error('Lỗi khi tạo file Excel:', error);
             message.error('Có lỗi xảy ra khi tạo file Excel');
@@ -403,7 +437,7 @@ function StudentManagement() {
         fetchPendingCount();
     }, [api]);
 
-    const columns = [
+    const columns = useMemo(() => [
         {
             title: 'STT',
             dataIndex: 'stt',
@@ -471,20 +505,32 @@ function StudentManagement() {
                 </Space>
             ),
         },
+    ], [handleEdit, handleApprove]);
+
+    // Định nghĩa lại cấu trúc cột cho DataGrid
+    const issueColumns = [
+        { key: 'stt', name: 'STT', width: 70 },
+        { key: 'row', name: 'Dòng', width: 70 },
+        { key: 'name', name: 'Tên', editor: TextEditor },
+        { key: 'email', name: 'Email', editor: TextEditor },
+        { key: 'studentId', name: 'Mã sinh viên', editor: TextEditor },
+        { key: 'dateOfBirth', name: 'Ngày sinh', editor: TextEditor },
+        { key: 'major', name: 'Ngành học', editor: TextEditor },
+        { key: 'issue', name: 'Vấn đề', width: 300 }
     ];
 
     return (
         <div>
             <Tabs activeKey={activeTab} onChange={setActiveTab}>
-                
-            <Tabs.TabPane tab="Đã xác nhận" key="approved" />
-                <Tabs.TabPane 
+
+                <Tabs.TabPane tab="Đã xác nhận" key="approved" />
+                <Tabs.TabPane
                     tab={
                         <Badge count={pendingCount} offset={[10, 0]}>
                             Chờ xác nhận
                         </Badge>
-                    } 
-                    key="pending" 
+                    }
+                    key="pending"
                 />
             </Tabs>
 
@@ -574,126 +620,131 @@ function StudentManagement() {
             </Modal>
 
             <Modal
-        title="Quản lý tải lên sinh viên"
-        visible={uploadModalVisible}
-        onCancel={() => {
-          setUploadModalVisible(false);
-          setUploadResult(null);
-          setErrorData([]);
-          setUploadStep('upload');
-        }}
-        footer={null}
-        width={800}
-      >
-        <Steps current={uploadStep === 'upload' ? 0 : uploadStep === 'preview' ? 1 : 2} style={{ marginBottom: 20 }}>
-          <Steps.Step title="Tải lên" />
-          <Steps.Step title="Xem trước" />
-          <Steps.Step title="Kết quả" />
-        </Steps>
+                title="Quản lý tải lên sinh viên"
+                visible={uploadModalVisible}
+                onCancel={() => {
+                    setUploadModalVisible(false);
+                    setUploadResult(null);
+                    setErrorData([]);
+                    setUploadStep('upload');
+                }}
+                footer={null}
+                width={800}
+            >
+                <Steps current={uploadStep === 'upload' ? 0 : uploadStep === 'preview' ? 1 : 2} style={{ marginBottom: 20 }}>
+                    <Steps.Step title="Tải lên" />
+                    <Steps.Step title="Xem trước" />
+                    <Steps.Step title="Kết quả" />
+                </Steps>
 
-        {uploadStep === 'upload' && (
-          <>
-            <div {...getRootProps()} style={{ 
-              border: '2px dashed #1890ff', 
-              padding: '20px', 
-              textAlign: 'center', 
-              marginBottom: '20px',
-              backgroundColor: '#f0f2f5',
-              borderRadius: '4px'
-            }}>
-              <input {...getInputProps()} />
-              <p>Kéo và thả file vào đây, hoặc nhấp để chọn file</p>
-            </div>
-            {previewData.length > 0 && (
-              <Button type="primary" onClick={handlePreview}>
-                Xem trước dữ liệu
-              </Button>
-            )}
-          </>
-        )}
+                {uploadStep === 'upload' && (
+                    <>
+                        <div {...getRootProps()} style={{
+                            border: '2px dashed #1890ff',
+                            padding: '20px',
+                            textAlign: 'center',
+                            marginBottom: '20px',
+                            backgroundColor: '#f0f2f5',
+                            borderRadius: '4px'
+                        }}>
+                            <input {...getInputProps()} />
+                            <p>Kéo và thả file vào đây, hoặc nhấp để chọn file</p>
+                        </div>
+                        {previewData.length > 0 && (
+                            <Button type="primary" onClick={handlePreview}>
+                                Xem trước dữ liệu
+                            </Button>
+                        )}
+                    </>
+                )}
 
-        {uploadStep === 'preview' && (
-          <>
-            <h3>Xem trước dữ liệu</h3>
-            <ResizeObserverWrapper>
-              <div style={{ height: '400px', width: '100%', border: '1px solid #d9d9d9', borderRadius: '4px' }}>
-                <DataGrid
-                  columns={previewColumns}
-                  rows={previewData}
-                  style={{
-                    height: '100%',
-                    width: '100%',
-                    border: 'none',
-                  }}
-                />
-              </div>
-            </ResizeObserverWrapper>
-            <div style={{ marginTop: 20, display: 'flex', justifyContent: 'space-between' }}>
-              <Button onClick={() => setUploadStep('upload')}>Quay lại</Button>
-              <Button type="primary" onClick={handleUpload} disabled={uploading}>
-                Tải lên
-              </Button>
-            </div>
-          </>
-        )}
+                {uploadStep === 'preview' && (
+                    <>
+                        <h3>Xem trước dữ liệu</h3>
+                        <ResizeObserverWrapper>
+                            <div style={{ height: '400px', width: '100%', border: '1px solid #d9d9d9', borderRadius: '4px' }}>
+                                <DataGrid
+                                    columns={previewColumns}
+                                    rows={previewData}
+                                    style={{
+                                        height: '100%',
+                                        width: '100%',
+                                        border: 'none',
+                                    }}
+                                />
+                            </div>
+                        </ResizeObserverWrapper>
+                        <div style={{ marginTop: 20, display: 'flex', justifyContent: 'space-between' }}>
+                            <Button onClick={() => setUploadStep('upload')}>Quay lại</Button>
+                            <Button type="primary" onClick={handleUpload} disabled={uploading}>
+                                Tải lên
+                            </Button>
+                        </div>
+                    </>
+                )}
 
-        {uploadStep === 'result' && (
-          <>
-            <h3>Kết quả tải lên</h3>
-            <Row gutter={16}>
-              <Col span={8}>
-                <Statistic title="Tổng số bản ghi" value={uploadResult.totalProcessed} />
-              </Col>
-              <Col span={8}>
-                <Statistic title="Số bản ghi thành công" value={uploadResult.successCount} valueStyle={{ color: '#3f8600' }} />
-              </Col>
-              <Col span={8}>
-                <Statistic title="Số bản ghi có vấn đề" value={uploadResult.issueCount} valueStyle={{ color: '#cf1322' }} />
-              </Col>
-            </Row>
+                {uploadStep === 'result' && (
+                    <>
+                        <h3>Kết quả tải lên</h3>
+                        <Row gutter={16}>
+                            <Col span={8}>
+                                <Statistic title="Tổng số bản ghi" value={uploadResult.totalRows} />
+                            </Col>
+                            <Col span={8}>
+                                <Statistic title="Số bản ghi thành công" value={uploadResult.successCount} valueStyle={{ color: '#3f8600' }} />
+                            </Col>
+                            <Col span={8}>
+                                <Statistic title="Số bản ghi có vấn đề" value={uploadResult.issues?.length || 0} valueStyle={{ color: '#cf1322' }} />
+                            </Col>
+                        </Row>
 
-            {errorData.length > 0 && (
-              <>
-                <h4 style={{ marginTop: 20 }}>Danh sách vấn đề</h4>
-                <ResizeObserverWrapper>
-                  <div style={{ height: '300px', width: '100%', border: '1px solid #d9d9d9', borderRadius: '4px' }}>
-                    <DataGrid
-                      columns={errorColumns}
-                      rows={errorData}
-                      onRowsChange={handleErrorDataChange}
-                      style={{
-                        height: '100%',
-                        width: '100%',
-                        border: 'none',
-                      }}
-                    />
-                  </div>
-                </ResizeObserverWrapper>
-                <div style={{ marginTop: 20, display: 'flex', justifyContent: 'space-between' }}>
-                  <Button onClick={() => handleDownloadErrors(errorData)}>
-                    Tải xuống danh sách vấn đề
-                  </Button>
-                </div>
-              </>
-            )}
-          </>
-        )}
+                        {uploadResult.issues && uploadResult.issues.length > 0 && (
+                            <>
+                                <h4 style={{ marginTop: 20 }}>Danh sách vấn đề</h4>
+                                <ResizeObserverWrapper>
+                                    <div style={{ height: '300px', width: '100%', border: '1px solid #d9d9d9', borderRadius: '4px' }}>
+                                        <DataGrid
+                                            columns={issueColumns}
+                                            rows={uploadResult.issues.map((issue, index) => ({
+                                                stt: index + 1,
+                                                ...issue,
+                                                ...issue.data,
+                                                id: issue.row // Đảm bảo mỗi hàng có một id duy nhất
+                                            }))}
+                                            onRowsChange={handleErrorDataChange}
+                                            style={{
+                                                height: '100%',
+                                                width: '100%',
+                                                border: 'none',
+                                            }}
+                                        />
+                                    </div>
+                                </ResizeObserverWrapper>
+                                <div style={{ marginTop: 20, display: 'flex', justifyContent: 'space-between' }}>
+                                    <Button onClick={() => handleDownloadErrors(uploadResult)}>
+                                        Tải xuống danh sách vấn đề
+                                    </Button>
+                                </div>
+                            </>
+                        )}
+                    </>
+                )}
 
-        {uploading && <Progress percent={uploadProgress} style={{ marginTop: 20 }} />}
-      </Modal>
+                {uploading && <Progress percent={uploadProgress} style={{ marginTop: 20 }} />}
+            </Modal>
         </div>
     );
 }
 
 const TextEditor = ({ row, column, onRowChange }) => {
     const [value, setValue] = useState(row[column.key]);
-  
+
     const onChange = (e) => {
-      setValue(e.target.value);
-      onRowChange({ ...row, [column.key]: e.target.value });
+        setValue(e.target.value);
+        onRowChange({ ...row, [column.key]: e.target.value });
     };
-  
+
     return <Input value={value} onChange={onChange} />;
-  };
+};
 
 export default StudentManagement;

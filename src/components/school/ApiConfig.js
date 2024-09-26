@@ -133,7 +133,6 @@ const ApiConfig = () => {
                         <Form.Item
                             name="uri"
                             label="URI API"
-                            rules={[{ required: true, message: 'Vui lòng nhập URI API' }]}
                         >
                             <Input prefix={<LinkOutlined />} placeholder="https://api.yourschool.edu/v1/students" />
                         </Form.Item>
