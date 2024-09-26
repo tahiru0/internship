@@ -121,11 +121,15 @@ const FilterTagContent = styled.span`
   white-space: nowrap;
 `;
 
-const PublicJobSearch = ({ studentData }) => { // Nhận studentData từ props
+const PublicJobSearch = ({ studentData, isDataLoaded }) => {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filters, setFilters] = useState({ skills: [], status: '', major: studentData?.major?._id || '' }); // Tự động điền chuyên ngành
+  const [filters, setFilters] = useState({
+    skills: [],
+    status: '',
+    major: ''
+  });
   const [pagination, setPagination] = useState({
     current: 1,
     pageSize: 10,
@@ -136,29 +140,47 @@ const PublicJobSearch = ({ studentData }) => { // Nhận studentData từ props
   const [skills, setSkills] = useState([]);
   const [majors, setMajors] = useState([]);
   const navigate = useNavigate();
+  const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
-    fetchProjects();
-    fetchSkills();
-    fetchMajors();
-  }, []);
+    if (isDataLoaded && !isInitialized) {
+      setFilters(prevFilters => ({
+        ...prevFilters,
+        major: studentData?.major?._id || ''
+      }));
+      setIsInitialized(true);
+    }
+  }, [isDataLoaded, studentData, isInitialized]);
 
   useEffect(() => {
-    fetchProjects();
-  }, [searchQuery, filters, pagination.current]);
+    if (isInitialized) {
+      fetchProjects();
+    }
+  }, [isInitialized, searchQuery, filters, pagination.current]);
+
+  useEffect(() => {
+    if (isInitialized) {
+      fetchSkills();
+      fetchMajors();
+    }
+  }, [isInitialized]);
 
   const fetchProjects = async () => {
+    if (!isInitialized) return;
+    
     setLoading(true);
     try {
       const response = await axiosInstance.get('/guest/projects', {
         params: {
           query: searchQuery,
-          filters: JSON.stringify(filters),
+          skills: filters.skills.join(','),
+          status: filters.status,
+          major: filters.major,
           page: pagination.current,
           limit: pagination.pageSize,
         },
       });
-      setProjects(response.data.projects || []); // Đảm bảo luôn có một mảng, ngay cả khi không có dữ liệu
+      setProjects(response.data.projects || []);
       setPagination({
         ...pagination,
         total: response.data.totalProjects || 0,
@@ -170,7 +192,7 @@ const PublicJobSearch = ({ studentData }) => { // Nhận studentData từ props
       } else {
         message.error('Không thể lấy danh sách dự án');
       }
-      setProjects([]); // Đặt projects thành mảng rỗng nếu có lỗi
+      setProjects([]);
     } finally {
       setLoading(false);
     }
@@ -334,7 +356,7 @@ const PublicJobSearch = ({ studentData }) => { // Nhận studentData từ props
                           </Tooltip>
                           <Tooltip title="Số lượng vị trí">
                             <StyledTag color="blue">
-                              <TeamOutlined /> {project.maxApplicants} vị trí
+                              <TeamOutlined /> {project.availablePositions} vị trí
                             </StyledTag>
                           </Tooltip>
                           <Tooltip title="Hạn nộp hồ sơ">
@@ -410,7 +432,7 @@ const PublicJobSearch = ({ studentData }) => { // Nhận studentData từ props
                       <ClockCircleOutlined /> {selectedProject.isRecruiting ? 'Đang tuyển' : 'Đã đóng'}
                     </Tag>
                     <Tag color="blue">
-                      <TeamOutlined /> {selectedProject.maxApplicants} vị trí
+                      <TeamOutlined /> {selectedProject.availablePositions} vị trí
                     </Tag>
                   </Space>
                 </div>

@@ -319,12 +319,22 @@ function StudentManagement() {
         }
 
         try {
+            const validData = data.map(row => {
+                const newRow = {...row};
+                Object.keys(newRow).forEach(key => {
+                    if (newRow[key] === undefined || newRow[key] === null) {
+                        newRow[key] = ''; // Hoặc một giá trị mặc định khác
+                    }
+                });
+                return newRow;
+            });
+
             const workbook = XLSX.utils.book_new();
             
             // Chuyển đổi dữ liệu ngày tháng và loại bỏ trường id
-            const formattedData = data.map(row => {
+            const formattedData = validData.map(row => {
                 const newRow = {...row};
-                delete newRow.id; // Loại bỏ trường id
+                delete newRow.id;
 
                 if (newRow.dateOfBirth) {
                     newRow.dateOfBirth = new Date(newRow.dateOfBirth);

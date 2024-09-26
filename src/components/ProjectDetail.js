@@ -49,7 +49,7 @@ const BackButton = styled(Button)`
   margin-bottom: 20px;
 `;
 
-const ProjectDetail = ({ updateAppliedProjects }) => {
+const ProjectDetail = ({ isLoggedIn, studentData, appliedProjects, updateAppliedProjects }) => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [project, setProject] = useState(null);
@@ -57,31 +57,41 @@ const ProjectDetail = ({ updateAppliedProjects }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchProjectDetails = async () => {
-      try {
-        const accessToken = Cookies.get('accessToken');
-        const headers = accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
-        const response = await axios.get(`http://localhost:5000/api/guest/projects/${id}`, { headers });
-        setProject(response.data);
-        // Giả sử thông tin công ty được lấy riêng
+    fetchProjectDetails();
+  }, [id]); // Chỉ phụ thuộc vào id
+
+  const fetchProjectDetails = async () => {
+    try {
+      setLoading(true);
+      const accessToken = Cookies.get('accessToken');
+      const headers = accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
+      const response = await axios.get(`http://localhost:5000/api/guest/projects/${id}`, { headers });
+      setProject(response.data);
+      // Giả sử thông tin công ty được lấy riêng
+      if (response.data.companyId) {
         const companyResponse = await axios.get(`http://localhost:5000/api/guest/companies/${response.data.companyId}`);
         setCompany(companyResponse.data);
-      } catch (error) {
-        console.error('Lỗi khi lấy chi tiết dự án:', error);
-        if (error.response && error.response.data && error.response.data.message) {
-          message.error(error.response.data.message);
-        } else {
-          message.error('Không thể lấy thông tin dự án');
-        }
-      } finally {
-        setLoading(false);
       }
-    };
-
-    fetchProjectDetails();
-  }, [id]);
+    } catch (error) {
+      console.error('Lỗi khi lấy chi tiết dự án:', error);
+      if (error.response && error.response.data && error.response.data.message) {
+        message.error(error.response.data.message);
+      } else {
+        message.error('Không thể lấy thông tin dự án');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleApply = async () => {
+    if (!isLoggedIn) {
+      // Nếu chưa đăng nhập, chuyển hướng đến trang đăng nhập với redirect
+      const currentPath = encodeURIComponent(window.location.pathname);
+      navigate(`/login?redirect=${currentPath}`);
+      return;
+    }
+
     try {
       const accessToken = Cookies.get('accessToken');
       await axios.post(`http://localhost:5000/api/student/apply/${id}`, {}, {
@@ -240,13 +250,19 @@ const ProjectDetail = ({ updateAppliedProjects }) => {
             </Col>
             <Col xs={24} md={8}>
               <div style={{ position: 'sticky', top: '88px' }}>
-                {project.hasApplied ? (
-                  <Button type="primary" danger size="large" onClick={handleCancelApply} style={{ width: '100%', marginBottom: '20px' }}>
-                    Hủy ứng tuyển
-                  </Button>
+                {isLoggedIn ? (
+                  project.hasApplied ? (
+                    <Button type="primary" danger size="large" onClick={handleCancelApply} style={{ width: '100%', marginBottom: '20px' }}>
+                      Hủy ứng tuyển
+                    </Button>
+                  ) : (
+                    <Button type="primary" size="large" onClick={handleApply} style={{ width: '100%', marginBottom: '20px' }}>
+                      Ứng tuyển ngay
+                    </Button>
+                  )
                 ) : (
                   <Button type="primary" size="large" onClick={handleApply} style={{ width: '100%', marginBottom: '20px' }}>
-                    Ứng tuyển ngay
+                    Đăng nhập để ứng tuyển
                   </Button>
                 )}
                 {company && (

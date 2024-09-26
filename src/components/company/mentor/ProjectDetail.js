@@ -1,6 +1,6 @@
 import React, { memo, useState, useEffect, useCallback } from 'react';
-import { Card, Button, Descriptions, Tag, Switch, Divider, Table, Spin, Avatar, Tooltip, Modal, DatePicker, InputNumber, message, Form, Select, Input, Dropdown, Menu, Alert, Checkbox, Rate, Space, Progress, Timeline, Comment, Row, Col, Empty, List, Typography } from 'antd';
-import { PlusOutlined, UserOutlined, FilePdfOutlined, InfoCircleOutlined,DownloadOutlined, StarOutlined, ClockCircleOutlined, CheckCircleOutlined, ExclamationCircleOutlined, SyncOutlined, MailOutlined, PhoneOutlined, IdcardOutlined, CalendarOutlined, ManOutlined, BankOutlined, ProjectOutlined, UnlockOutlined, LockOutlined, TeamOutlined, BulbOutlined, UserAddOutlined, UnorderedListOutlined, ToolOutlined } from '@ant-design/icons';
+import { Card, Button, Descriptions, Tag, Switch, Divider, Table, Spin, Avatar, Tooltip, Modal, DatePicker, InputNumber, message, Form, Select, Input, Dropdown, Menu, Alert, Checkbox, Rate, Space, Progress, Timeline, Comment, Row, Col, Empty, List, Typography, Popconfirm } from 'antd';
+import { PlusOutlined, UserOutlined, FilePdfOutlined, InfoCircleOutlined,DownloadOutlined, StarOutlined, ClockCircleOutlined, CheckCircleOutlined, ExclamationCircleOutlined, SyncOutlined, MailOutlined, PhoneOutlined, IdcardOutlined, CalendarOutlined, ManOutlined, BankOutlined, ProjectOutlined, UnlockOutlined, LockOutlined, TeamOutlined, BulbOutlined, UserAddOutlined, UnorderedListOutlined, ToolOutlined, DeleteOutlined } from '@ant-design/icons';
 import moment from 'moment';
 import axios from 'axios';
 import Cookies from 'js-cookie';
@@ -32,6 +32,10 @@ const ProjectDetail = memo(({ project, loading, onBack, isMobile, fetchProjects 
   const [applicants, setApplicants] = useState([]);
   const [applicantsLoading, setApplicantsLoading] = useState(false);
   const [confirmCloseModalVisible, setConfirmCloseModalVisible] = useState(false);
+  const [removeStudentModalVisible, setRemoveStudentModalVisible] = useState(false);
+  const [studentToRemove, setStudentToRemove] = useState(null);
+  const [removeReason, setRemoveReason] = useState('');
+  const [membersModalVisible, setMembersModalVisible] = useState(false);
 
   useEffect(() => {
     if (project) {
@@ -105,6 +109,15 @@ const ProjectDetail = memo(({ project, loading, onBack, isMobile, fetchProjects 
                 icon={<UserOutlined />}
                 onClick={() => fetchStudentDetail(memberId)}
                 style={{ cursor: 'pointer' }}
+              />
+              <Button
+                type="link"
+                icon={<DeleteOutlined />}
+                onClick={() => {
+                  setStudentToRemove(member);
+                  setRemoveStudentModalVisible(true);
+                }}
+                style={{ marginLeft: 8 }}
               />
             </Tooltip>
           );
@@ -424,6 +437,51 @@ const ProjectDetail = memo(({ project, loading, onBack, isMobile, fetchProjects 
     }
   };
 
+  const handleRemoveStudent = async (studentId) => {
+    try {
+      const accessToken = Cookies.get('accessToken');
+      const response = await axios.post(
+        `http://localhost:5000/api/mentor/projects/${project.id}/remove-student/${studentId}`,
+        { reason: removeReason },
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+      message.success(response.data.message || 'Đã xóa sinh viên khỏi dự án thành công');
+      // Gọi fetchProjects để cập nhật thông tin dự án trong component cha
+      if (typeof fetchProjects === 'function') {
+        fetchProjects();
+      }
+      setMembersModalVisible(false);
+      setRemoveStudentModalVisible(false);
+      setRemoveReason('');
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || 'Không thể xóa sinh viên khỏi dự án';
+      console.error('Lỗi khi xóa sinh viên khỏi dự án:', error);
+      message.error(errorMessage);
+    }
+  };
+
+  const fetchProjectDetail = async (projectId) => {
+    if (!projectId) {
+      message.error('Không thể lấy thông tin dự án. ID dự án không hợp lệ.');
+      return;
+    }
+    try {
+      const accessToken = Cookies.get('accessToken');
+      const response = await axios.get(`http://localhost:5000/api/mentor/projects/${projectId}`, {
+        headers: { Authorization: `Bearer ${accessToken}` }
+      });
+      // Thay vì setProject, chúng ta gọi fetchProjects để cập nhật dự án trong component cha
+      if (typeof fetchProjects === 'function') {
+        fetchProjects();
+      }
+      setTasks(response.data.tasks || []);
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || 'Không thể lấy thông tin dự án';
+      console.error('Lỗi khi lấy thông tin dự án:', error);
+      message.error(errorMessage);
+    }
+  };
+
   if (loading) {
     return <Spin size="large" />;
   }
@@ -487,7 +545,11 @@ const ProjectDetail = memo(({ project, loading, onBack, isMobile, fetchProjects 
           </Card>
         </Col>
         <Col xs={24} md={12}>
-          <Card title={<><TeamOutlined /> Thành viên dự án</>} size="small">
+          <Card title={<><TeamOutlined /> Thành viên dự án</>} size="small" extra={
+            <Button onClick={() => setMembersModalVisible(true)} icon={<UnorderedListOutlined />}>
+              Xem danh sách
+            </Button>
+          }>
             <Avatar.Group
               maxCount={5}
               maxStyle={{ color: '#f56a00', backgroundColor: '#fde3cf' }}
@@ -624,7 +686,7 @@ const ProjectDetail = memo(({ project, loading, onBack, isMobile, fetchProjects 
           <p>Bạn có chắc chắn muốn cập nhật trạng thái của task "{taskToUpdate.taskName}" từ "{statusMapping[taskToUpdate.currentStatus] || taskToUpdate.currentStatus}" sang "{statusMapping[taskToUpdate.newStatus] || taskToUpdate.newStatus}"?</p>
         )}
         <Checkbox checked={rememberChoice} onChange={handleRememberChoiceChange}>
-          Ghi nhớ lựa chọn của tôi
+          Ghi nhớt lựa chọn của tôi
         </Checkbox>
       </Modal>
       <Modal
@@ -769,9 +831,65 @@ const ProjectDetail = memo(({ project, loading, onBack, isMobile, fetchProjects 
         </p>
         <p>Lưu ý: Tất cả danh sách ứng tuyển hiện tại sẽ bị xóa.</p>
       </Modal>
+      <Modal
+        title="Xóa sinh viên khỏi dự án"
+        visible={removeStudentModalVisible}
+        onOk={() => {
+          handleRemoveStudent(studentToRemove.id);
+          setRemoveStudentModalVisible(false);
+          setRemoveReason('');
+        }}
+        onCancel={() => {
+          setRemoveStudentModalVisible(false);
+          setRemoveReason('');
+        }}
+      >
+        <p>Bạn có chắc chắn muốn xóa sinh viên {studentToRemove?.name} khỏi dự án?</p>
+        <Input.TextArea
+          placeholder="Nhập lý do xóa sinh viên"
+          value={removeReason}
+          onChange={(e) => setRemoveReason(e.target.value)}
+          rows={4}
+        />
+      </Modal>
+      <Modal
+        title="Danh sách thành viên dự án"
+        visible={membersModalVisible}
+        onCancel={() => setMembersModalVisible(false)}
+        footer={null}
+        width={800}
+      >
+        <List
+          itemLayout="horizontal"
+          dataSource={project.members}
+          renderItem={member => (
+            <List.Item
+              actions={[
+                <Button
+                  type="link"
+                  danger
+                  onClick={() => {
+                    setStudentToRemove(member);
+                    setRemoveStudentModalVisible(true);
+                  }}
+                >
+                  Xóa
+                </Button>
+              ]}
+            >
+              <List.Item.Meta
+                avatar={<Avatar src={member.avatar} icon={<UserOutlined />} />}
+                title={<a onClick={() => fetchStudentDetail(member.id)}>{member.name}</a>}
+                description={member.email}
+              />
+            </List.Item>
+          )}
+        />
+      </Modal>
     </Card>
   );
 });
+
 
 const TaskDetailModal = ({ task, visible, onCancel, getStatusColor, statusMapping, getRatingColor }) => {
   if (!task) return null;
@@ -791,11 +909,13 @@ const TaskDetailModal = ({ task, visible, onCancel, getStatusColor, statusMappin
     }
   };
 
+
   const getProgressPercent = () => {
     const total = moment(task.deadline).diff(moment(task.createdAt), 'days');
     const elapsed = moment().diff(moment(task.createdAt), 'days');
     return Math.min(Math.round((elapsed / total) * 100), 100);
   };
+
 
   return (
     <Modal
@@ -850,5 +970,6 @@ const TaskDetailModal = ({ task, visible, onCancel, getStatusColor, statusMappin
     </Modal>
   );
 };
+
 
 export default ProjectDetail;

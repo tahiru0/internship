@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Layout } from 'antd';
+import { Layout, Spin } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Cookies from 'js-cookie';
@@ -13,8 +13,10 @@ const AppLayout = ({ children }) => {
   const [studentData, setStudentData] = useState(null);
   const [appliedProjects, setAppliedProjects] = useState([]);
   const [acceptedProjects, setAcceptedProjects] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   const fetchUserData = async () => {
+    setIsLoading(true);
     const accessToken = Cookies.get('accessToken');
     if (accessToken) {
       try {
@@ -30,15 +32,33 @@ const AppLayout = ({ children }) => {
         if (meResponse.data && meResponse.data.student) {
           setIsLoggedIn(true);
           setStudentData(meResponse.data.student);
+        } else {
+          setIsLoggedIn(false);
+          setStudentData(null);
         }
 
         if (projectsResponse.data) {
           setAppliedProjects(projectsResponse.data.appliedProjects || []);
           setAcceptedProjects(projectsResponse.data.acceptedProjects || []);
+        } else {
+          setAppliedProjects([]);
+          setAcceptedProjects([]);
         }
       } catch (error) {
         console.error('Lỗi khi kiểm tra trạng thái đăng nhập:', error);
+        setIsLoggedIn(false);
+        setStudentData(null);
+        setAppliedProjects([]);
+        setAcceptedProjects([]);
+      } finally {
+        setIsLoading(false);
       }
+    } else {
+      setIsLoggedIn(false);
+      setStudentData(null);
+      setAppliedProjects([]);
+      setAcceptedProjects([]);
+      setIsLoading(false);
     }
   };
 
@@ -62,8 +82,13 @@ const AppLayout = ({ children }) => {
   const childrenWithProps = React.Children.map(children, child => {
     if (React.isValidElement(child)) {
       return React.cloneElement(child, { 
+        isLoggedIn,
+        studentData,
+        appliedProjects,
+        acceptedProjects,
         updateAppliedProjects,
-        studentData // Thêm dòng này
+        studentData ,
+        onLogout: handleLogout
       });
     }
     return child;
@@ -79,7 +104,13 @@ const AppLayout = ({ children }) => {
         acceptedProjects={acceptedProjects}
       />
       <Content style={{ marginTop: 64 }}>
-        {childrenWithProps}
+        {isLoading ? (
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+            <Spin size="large" />
+          </div>
+        ) : (
+          childrenWithProps
+        )}
       </Content>
     </Layout>
   );

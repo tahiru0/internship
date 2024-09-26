@@ -30,9 +30,9 @@ const HomePage = () => {
                     <Navbar.Toggle aria-controls="basic-navbar-nav" />
                     <Navbar.Collapse id="basic-navbar-nav">
                         <Nav className="mx-auto">
-                            <Nav.Link className='nav-link1' href="#home" active={location.pathname === '/'}>Trang chủ</Nav.Link>
-                            <Nav.Link className='nav-link1' href="#about" active={location.pathname === '/about'}>Về chúng tôi</Nav.Link>
-                            <Nav.Link className='nav-link1' href="#profile" active={location.pathname === '/profile'}>Việc làm</Nav.Link>
+                            <Nav.Link as={Link} to="/" className='nav-link1' active={location.pathname === '/'}>Trang chủ</Nav.Link>
+                            <Nav.Link as={Link} to="/about" className='nav-link1' active={location.pathname === '/about'}>Về chúng tôi</Nav.Link>
+                            <Nav.Link as={Link} to="/jobs" className='nav-link1' active={location.pathname === '/jobs'}>Việc làm</Nav.Link>
                         </Nav>
 
                         <Nav>
