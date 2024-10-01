@@ -496,7 +496,7 @@ const PublicJobSearch = ({ studentData, isLoggedIn }) => {
               <ModalSubtitle level={5}>Kỹ năng yêu cầu</ModalSubtitle>
               <div style={{ marginBottom: 8 }}>
                 {selectedProject.requiredSkills.map((skill) => (
-                  <ModalTag key={skill} color="cyan">{skill}</ModalTag>
+                  <ModalTag key={skill._id} color="cyan">{skill.name}</ModalTag>
                 ))}
               </div>
               <Paragraph>{selectedProject.skillRequirements}</Paragraph>
@@ -509,7 +509,7 @@ const PublicJobSearch = ({ studentData, isLoggedIn }) => {
                   <CalendarOutlined /> Thời gian: {new Date(selectedProject.startDate).toLocaleDateString('vi-VN')} - {new Date(selectedProject.endDate).toLocaleDateString('vi-VN')}
                 </ModalText>
                 <ModalText>
-                  <UserOutlined /> Chuyên ngành: {selectedProject.relatedMajors.join(', ')}
+                  <UserOutlined /> Chuyên ngành: {selectedProject.relatedMajors.map(major => major.name).join(', ')}
                 </ModalText>
                 <ModalText>
                   <AimOutlined /> Trạng thái dự án: {selectedProject.projectStatus}

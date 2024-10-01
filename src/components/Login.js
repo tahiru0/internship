@@ -318,7 +318,7 @@ const Login = () => {
                     <Card className="h-100 d-none d-md-block" style={{ position: 'relative' }}>
                         <div
                             style={{
-                                backgroundImage: 'url(./assets/student-login-banner.jpg)',
+                                backgroundImage: 'url(./assets/sign-page-abstract-concept-vector-illustration_107173-25670.avif)',
                                 backgroundSize: 'contain',
                                 backgroundPosition: 'center',
                                 backgroundRepeat: 'no-repeat',

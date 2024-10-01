@@ -21,6 +21,7 @@ import ForgotPassword from './components/company/ForgotPassword'; // Thêm dòng
 import Student from './routes/Student'; // Thêm dòng này
 import ProjectDetail from './components/ProjectDetail'; // Thêm dòng này
 import AppLayout from './components/AppLayout'; // Thêm dòng này
+import NotFound from './components/NotFound'; // Thêm dòng này
 
 function ProtectedRoutes() {
   const location = useLocation();
@@ -119,11 +120,31 @@ function AppContent() {
       } />
       <Route path="/" element={<HomePage />} />
       <Route path="/admin/*" element={<Admin />} /> 
-      <Route path="/*" element={
+      
+      {/* Thay đổi route này */}
+      <Route path="/company/*" element={
         <NotificationProvider>
           <ProtectedRoutes />
         </NotificationProvider>
       } />
+      <Route path="/instructor/*" element={
+        <NotificationProvider>
+          <ProtectedRoutes />
+        </NotificationProvider>
+      } />
+      <Route path="/school/*" element={
+        <NotificationProvider>
+          <ProtectedRoutes />
+        </NotificationProvider>
+      } />
+      <Route path="/student/*" element={
+        <NotificationProvider>
+          <ProtectedRoutes />
+        </NotificationProvider>
+      } />
+      
+      {/* Đặt route cho trang 404 xuống cuối cùng */}
+      <Route path="*" element={<NotFound />} />
     </Routes>
   );
 }
