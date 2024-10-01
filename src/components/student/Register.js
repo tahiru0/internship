@@ -119,14 +119,6 @@ const Register = () => {
         setSubmitting(false);
     };
 
-    const getEmailProvider = (email) => {
-        const domain = email.split('@')[1];
-        if (domain.includes('gmail')) return 'https://mail.google.com';
-        if (domain.includes('yahoo')) return 'https://mail.yahoo.com';
-        if (domain.includes('outlook') || domain.includes('hotmail')) return 'https://outlook.live.com';
-        return 'https://mail.google.com'; // Mặc định là Gmail
-    };
-
     const handleSchoolSelect = (value) => {
         setSchoolId(value);
         Cookies.set('selectedSchool', value, { expires: 7 });
@@ -139,18 +131,10 @@ const Register = () => {
                     <Col md={8} lg={6} className="bg-white p-5 rounded shadow text-center">
                         <FaCheckCircle className="text-success mb-4" style={{ fontSize: '100px' }} />
                         <h2 className="mb-4" style={{ color: '#060270', fontWeight: 'bold' }}>Chúc mừng! Đăng ký thành công!</h2>
-                        <p className="mb-4" style={{ fontSize: '18px', color: '#555' }}>Vui lòng chờ nhà trường xác nhận tài khoản của bạn. Chúng tôi sẽ gửi email thông báo khi tài khoản được kích hoạt.</p>
-                        <div className="d-flex justify-content-center gap-3">
+                        <p className="mb-4" style={{ fontSize: '18px', color: '#555' }}>Vui lòng liên hệ với nhà trường để được kích hoạt tài khoản của bạn.</p>
+                        <div className="d-flex justify-content-center">
                             <Button variant="primary" size="lg" onClick={() => navigate('/')} className="px-4 py-2">
                                 <FaHome className="me-2" /> Quay về trang chủ
-                            </Button>
-                            <Button 
-                                variant="outline-primary" 
-                                size="lg" 
-                                onClick={() => window.open(getEmailProvider(userEmail), '_blank')} 
-                                className="px-4 py-2"
-                            >
-                                <FaEnvelope className="me-2" /> Kiểm tra email
                             </Button>
                         </div>
                     </Col>
