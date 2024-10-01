@@ -1,38 +1,110 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Container, Row, Col, Button, Form as BootstrapForm } from 'react-bootstrap';
 import { Formik, Form, Field, ErrorMessage } from 'formik';
 import * as Yup from 'yup';
-import { message } from 'antd';
+import { message, Select, Avatar } from 'antd';
 import { useNavigate } from 'react-router-dom';
-import Cookies from 'js-cookie';
 import confetti from 'canvas-confetti';
 import { FaCheckCircle, FaHome, FaEnvelope } from 'react-icons/fa';
+import axiosInstance from '../../utils/axiosInstance';
+import Cookies from 'js-cookie';
+
+const { Option } = Select;
+
+const SchoolSelect = ({ onSelect, initialValue }) => {
+    const [schools, setSchools] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [selectedSchool, setSelectedSchool] = useState(null);
+    const [searchValue, setSearchValue] = useState('');
+
+    useEffect(() => {
+        if (initialValue) {
+            fetchInitialSchool(initialValue);
+        }
+    }, [initialValue]);
+
+    const fetchInitialSchool = async (schoolId) => {
+        setLoading(true);
+        try {
+            const response = await axiosInstance.get(`/auth/schools?query=${schoolId}`);
+            if (response.data && response.data.length > 0) {
+                setSchools(response.data);
+                const initialSchool = response.data.find(school => school._id === schoolId);
+                setSelectedSchool(initialSchool);
+                onSelect(initialSchool._id);
+            }
+        } catch (error) {
+            console.error('Lỗi khi lấy thông tin trường:', error);
+            message.error('Không thể lấy thông tin trường');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleSearch = async (value) => {
+        setSearchValue(value);
+        if (value.length >= 2) {
+            setLoading(true);
+            try {
+                const response = await axiosInstance.get(`/auth/schools?query=${value}`);
+                setSchools(response.data);
+                if (response.data.length === 1 && response.data[0]._id === value) {
+                    setSelectedSchool(response.data[0]);
+                }
+            } catch (error) {
+                console.error('Lỗi khi tìm kiếm trường học:', error);
+                if (error.response && error.response.data && error.response.data.message) {
+                    message.error(error.response.data.message);
+                } else {
+                    message.error('Không thể tìm kiếm trường học');
+                }
+            } finally {
+                setLoading(false);
+            }
+        } else {
+            setSchools([]);
+        }
+    };
+
+    const handleChange = (value, option) => {
+        const selected = schools.find(school => school._id === value);
+        setSelectedSchool(selected);
+        onSelect(value);
+    };
+
+    return (
+        <Select
+            showSearch
+            placeholder="Chọn trường học"
+            filterOption={false}
+            onSearch={handleSearch}
+            onChange={handleChange}
+            notFoundContent={null}
+            style={{ width: '100%' }}
+            value={selectedSchool ? selectedSchool._id : undefined}
+            loading={loading}
+            className="bootstrap-select" // Thêm class này
+        >
+            {schools.map((school) => (
+                <Option key={school._id} value={school._id}>
+                    <Avatar src={school.logo} size="small" style={{ marginRight: 8 }} />
+                    {school.name}
+                </Option>
+            ))}
+        </Select>
+    );
+};
 
 const Register = () => {
     const navigate = useNavigate();
-    const [previewImage, setPreviewImage] = useState(null);
     const [registrationSuccess, setRegistrationSuccess] = useState(false);
     const [userEmail, setUserEmail] = useState('');
+    const [schoolId, setSchoolId] = useState(Cookies.get('selectedSchool') || '');
 
-    const handleSubmit = async (values, { setSubmitting, setFieldError }) => {
-        const formData = new FormData();
-        for (const key in values) {
-            if (key === 'logo') {
-                formData.append(key, values[key]);
-            } else {
-                formData.append(key, JSON.stringify(values[key]));
-            }
-        }
-
+    const handleSubmit = async (values, { setSubmitting }) => {
         try {
-            const response = await fetch('http://localhost:5000/api/school/register', {
-                method: 'POST',
-                body: formData,
-            });
-            const data = await response.json();
-
-            if (response.ok) {
-                Cookies.set('selectedSchool', data.school._id, { expires: 7 });
+            const response = await axiosInstance.post('/student/register', values);
+            if (response.status === 201) {
                 setRegistrationSuccess(true);
                 setUserEmail(values.email);
                 confetti({
@@ -40,27 +112,11 @@ const Register = () => {
                     spread: 70,
                     origin: { y: 0.6 }
                 });
-            } else {
-                message.error(data.message);
             }
         } catch (error) {
-            message.error('Đã xảy ra lỗi!');
-            console.error(error);
+            message.error(error.response?.data?.message || 'Đã xảy ra lỗi khi đăng ký!');
         }
-
         setSubmitting(false);
-    };
-
-    const handleImageChange = (event, setFieldValue) => {
-        const file = event.currentTarget.files[0];
-        if (file) {
-            setFieldValue("logo", file);
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setPreviewImage(reader.result);
-            };
-            reader.readAsDataURL(file);
-        }
     };
 
     const getEmailProvider = (email) => {
@@ -71,6 +127,11 @@ const Register = () => {
         return 'https://mail.google.com'; // Mặc định là Gmail
     };
 
+    const handleSchoolSelect = (value) => {
+        setSchoolId(value);
+        Cookies.set('selectedSchool', value, { expires: 7 });
+    };
+
     if (registrationSuccess) {
         return (
             <Container fluid className="d-flex justify-content-center align-items-center min-vh-100" style={{ background: 'linear-gradient(135deg, #E6F3FF 0%, #B5D8FF 100%)' }}>
@@ -78,7 +139,7 @@ const Register = () => {
                     <Col md={8} lg={6} className="bg-white p-5 rounded shadow text-center">
                         <FaCheckCircle className="text-success mb-4" style={{ fontSize: '100px' }} />
                         <h2 className="mb-4" style={{ color: '#060270', fontWeight: 'bold' }}>Chúc mừng! Đăng ký thành công!</h2>
-                        <p className="mb-4" style={{ fontSize: '18px', color: '#555' }}>Chúng tôi đã gửi email xác nhận đến địa chỉ email của bạn. Vui lòng kiểm tra và xác nhận tài khoản để bắt đầu sử dụng dịch vụ.</p>
+                        <p className="mb-4" style={{ fontSize: '18px', color: '#555' }}>Vui lòng chờ nhà trường xác nhận tài khoản của bạn. Chúng tôi sẽ gửi email thông báo khi tài khoản được kích hoạt.</p>
                         <div className="d-flex justify-content-center gap-3">
                             <Button variant="primary" size="lg" onClick={() => navigate('/')} className="px-4 py-2">
                                 <FaHome className="me-2" /> Quay về trang chủ
@@ -106,83 +167,45 @@ const Register = () => {
                         <img src="/logo.png" height="50" alt="Logo" />
                         <h2 className="ms-2" style={{ color: '#060270' }}>Internship</h2>
                     </div>
-                    <h2 className="text-center mb-4" style={{ fontWeight: 600, color: '#060270' }}>ĐĂNG KÝ TÀI KHOẢN CHO TRƯỜNG ĐẠI HỌC</h2>
+                    <h2 className="text-center mb-4" style={{ fontWeight: 600, color: '#060270' }}>ĐĂNG KÝ TÀI KHOẢN SINH VIÊN</h2>
 
                     <Formik
                         initialValues={{
                             name: '',
-                            address: '',
-                            website: '',
-                            establishedDate: '',
-                            accountName: '',
                             email: '',
                             password: '',
                             confirmPassword: '',
-                            logo: null,
+                            studentId: '',
+                            schoolId: schoolId,
                             agreeTerms: false,
                             confirmInfo: false,
                         }}
                         validationSchema={Yup.object({
-                            name: Yup.string().required('Tên trường đại học là bắt buộc'),
-                            address: Yup.string().required('Địa chỉ là bắt buộc'),
-                            website: Yup.string().url('URL không hợp lệ').required('Website là bắt buộc'),
-                            establishedDate: Yup.date().required('Ngày thành lập là bắt buộc'),
-                            accountName: Yup.string().required('Tên người đại diện là bắt buộc'),
-                            email: Yup.string()
-                                .required('Email là bắt buộc')
-                                .email('Email không hợp lệ'),
-                            password: Yup.string().required('Mật khẩu là bắt buộc'),
-                            confirmPassword: Yup.string()
-                                .oneOf([Yup.ref('password'), null], 'Mật khẩu không khớp')
-                                .required('Xác nhận mật khẩu là bắt buộc'),
-                            logo: Yup.mixed().required('Logo là bắt buộc'),
+                            name: Yup.string().required('Họ tên là bắt buộc'),
+                            email: Yup.string().email('Email không hợp lệ').required('Email là bắt buộc'),
+                            password: Yup.string().min(6, 'Mật khẩu phải có ít nhất 6 ký tự').required('Mật khẩu là bắt buộc'),
+                            confirmPassword: Yup.string().oneOf([Yup.ref('password'), null], 'Mật khẩu không khớp').required('Xác nhận mật khẩu là bắt buộc'),
+                            studentId: Yup.string().required('Mã số sinh viên là bắt buộc'),
+                            schoolId: Yup.string().required('Vui lòng chọn trường'),
                             agreeTerms: Yup.boolean().oneOf([true], 'Bạn phải đồng ý với Điều khoản dịch vụ'),
                             confirmInfo: Yup.boolean().oneOf([true], 'Bạn phải cam đoan rằng thông tin là chính xác'),
                         })}
                         onSubmit={handleSubmit}
                     >
-                        {({ isSubmitting, setFieldValue }) => (
+                        {({ isSubmitting, setFieldValue, values }) => (
                             <Form>
                                 <Row className="gy-3">
                                     <Col md={6}>
                                         <BootstrapForm.Floating>
-                                            <Field name="name" type="text" placeholder="Tên trường đại học" as={BootstrapForm.Control} />
-                                            <label htmlFor="name">Tên trường đại học</label>
+                                            <Field name="name" type="text" placeholder="Họ tên" as={BootstrapForm.Control} />
+                                            <label htmlFor="name">Họ tên</label>
                                             <ErrorMessage name="name" component="div" className="text-danger mt-1" />
                                         </BootstrapForm.Floating>
                                     </Col>
                                     <Col md={6}>
                                         <BootstrapForm.Floating>
-                                            <Field name="address" type="text" placeholder="Địa chỉ trường đại học" as={BootstrapForm.Control} />
-                                            <label htmlFor="address">Địa chỉ trường đại học</label>
-                                            <ErrorMessage name="address" component="div" className="text-danger mt-1" />
-                                        </BootstrapForm.Floating>
-                                    </Col>
-                                    <Col md={6}>
-                                        <BootstrapForm.Floating>
-                                            <Field name="website" type="text" placeholder="Website" as={BootstrapForm.Control} />
-                                            <label htmlFor="website">Website</label>
-                                            <ErrorMessage name="website" component="div" className="text-danger mt-1" />
-                                        </BootstrapForm.Floating>
-                                    </Col>
-                                    <Col md={6}>
-                                        <BootstrapForm.Floating>
-                                            <Field name="establishedDate" type="date" placeholder="Ngày thành lập" as={BootstrapForm.Control} />
-                                            <label htmlFor="establishedDate">Ngày thành lập</label>
-                                            <ErrorMessage name="establishedDate" component="div" className="text-danger mt-1" />
-                                        </BootstrapForm.Floating>
-                                    </Col>
-                                    <Col md={6}>
-                                        <BootstrapForm.Floating>
-                                            <Field name="accountName" type="text" placeholder="Tên người đại diện" as={BootstrapForm.Control} />
-                                            <label htmlFor="accountName">Tên người đại diện</label>
-                                            <ErrorMessage name="accountName" component="div" className="text-danger mt-1" />
-                                        </BootstrapForm.Floating>
-                                    </Col>
-                                    <Col md={6}>
-                                        <BootstrapForm.Floating>
                                             <Field name="email" type="email" placeholder="Email" as={BootstrapForm.Control} />
-                                            <label htmlFor="email">Email đăng nhập</label>
+                                            <label htmlFor="email">Email</label>
                                             <ErrorMessage name="email" component="div" className="text-danger mt-1" />
                                         </BootstrapForm.Floating>
                                     </Col>
@@ -200,24 +223,24 @@ const Register = () => {
                                             <ErrorMessage name="confirmPassword" component="div" className="text-danger mt-1" />
                                         </BootstrapForm.Floating>
                                     </Col>
-                                    <Col md={12}>
-                                        <div className="mb-3">
-                                            <label htmlFor="logo" className="form-label">Logo trường đại học</label>
-                                            <div className="d-flex align-items-center">
-                                                <input
-                                                    id="logo"
-                                                    name="logo"
-                                                    type="file"
-                                                    onChange={(event) => handleImageChange(event, setFieldValue)}
-                                                    className="form-control"
-                                                    accept="image/*"
-                                                />
-                                                {previewImage && (
-                                                    <img src={previewImage} alt="Preview" className="ms-3" style={{ width: '50px', height: '50px', objectFit: 'cover' }} />
-                                                )}
-                                            </div>
-                                            <ErrorMessage name="logo" component="div" className="text-danger mt-1" />
-                                        </div>
+                                    <Col md={6}>
+                                        <BootstrapForm.Floating>
+                                            <Field name="studentId" type="text" placeholder="Mã số sinh viên" as={BootstrapForm.Control} />
+                                            <label htmlFor="studentId">Mã số sinh viên</label>
+                                            <ErrorMessage name="studentId" component="div" className="text-danger mt-1" />
+                                        </BootstrapForm.Floating>
+                                    </Col>
+                                    <Col md={6}>
+                                        <BootstrapForm.Floating>
+                                            <SchoolSelect
+                                                onSelect={(value) => {
+                                                    handleSchoolSelect(value);
+                                                    setFieldValue('schoolId', value);
+                                                }}
+                                                initialValue={values.schoolId}
+                                            />
+                                            <ErrorMessage name="schoolId" component="div" className="text-danger mt-1" />
+                                        </BootstrapForm.Floating>
                                     </Col>
                                     <Col md={12}>
                                         <BootstrapForm.Check className="mb-2">
@@ -248,6 +271,36 @@ const Register = () => {
                     </Formik>
                 </Col>
             </Row>
+            <style jsx>{`
+                .bootstrap-select .ant-select-selector {
+                    height: calc(3.5rem + 2px) !important;
+                    padding: 1rem 0.75rem !important;
+                    font-size: 1rem;
+                    font-weight: 400;
+                    line-height: 1.5;
+                    color: #212529;
+                    background-color: #fff;
+                    border: 1px solid #ced4da !important;
+                    border-radius: 0.25rem;
+                    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+                }
+                .bootstrap-select .ant-select-selection-placeholder {
+                    line-height: 1.5rem;
+                }
+                .bootstrap-select .ant-select-selection-search-input {
+                    height: 100% !important;
+                }
+                .bootstrap-select .ant-select-arrow {
+                    top: 50%;
+                    right: 11px;
+                    margin-top: -6px;
+                }
+                .bootstrap-select.ant-select-focused .ant-select-selector {
+                    border-color: #86b7fe !important;
+                    outline: 0;
+                    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+                }
+            `}</style>
         </Container>
     );
 };

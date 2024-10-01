@@ -8,6 +8,7 @@ import Instructor from './routes/Instructor';
 import School from './routes/School';
 import Register from './components/company/Register';
 import SchoolRegister from './components/school/Register';
+import StudentRegister from './components/student/Register';
 import { useEffect } from 'react';
 import { Modal } from 'antd';
 import { NotificationProvider, useNotification } from './context/NotificationContext';
@@ -107,6 +108,7 @@ function AppContent() {
       />
       <Route path="/company/register/*" element={<Register/>}/>
       <Route path="/school/register/*" element={<SchoolRegister/>}/>
+      <Route path="/student/register/*" element={<StudentRegister/>}/>
       <Route path="/company/forgot-password" element={<ForgotPassword />} />
       <Route path="/jobs" element={
         <AppLayout>
