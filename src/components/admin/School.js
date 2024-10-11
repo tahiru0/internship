@@ -278,18 +278,46 @@ const CreateSchoolForm = ({ onSubmit }) => {
 };
 
 const EditSchoolForm = ({ initialValues, onSubmit }) => {
+  const allowedFields = ['name', 'address', 'website', 'description', 'logo'];
+
+  // Xử lý ngày thành lập và lọc các trường được phép chỉnh sửa
+  const processedInitialValues = Object.keys(initialValues)
+    .filter(key => allowedFields.includes(key))
+    .reduce((obj, key) => {
+      if (key === 'establishedDate') {
+        obj[key] = initialValues[key] ? moment(initialValues[key]) : null;
+      } else {
+        obj[key] = initialValues[key];
+      }
+      return obj;
+    }, {});
+
   const formFields = [
     { name: 'name', label: 'Tên trường', type: 'text' },
     { name: 'address', label: 'Địa chỉ', type: 'text' },
     { name: 'website', label: 'Website', type: 'link' },
-    { name: 'establishedDate', label: 'Ngày thành lập', type: 'date' },
-    { name: ['accounts', 0, 'name'], label: 'Tên admin', type: 'text' },
-    { name: ['accounts', 0, 'email'], label: 'Email admin', type: 'text', rules: [{ type: 'email', message: 'Vui lòng nhập email hợp lệ' }] },
-    { name: 'isActive', label: 'Hoạt động', type: 'checkbox' },
+    { name: 'description', label: 'Mô tả', type: 'textarea' },
     { name: 'logo', label: 'Logo', type: 'upload', accept: 'image/*', colSpan: 24 },
   ];
 
-  const { form, renderForm } = useForm({ fields: formFields, onSubmit, initialValues });
+  const handleSubmit = (values) => {
+    // Chỉ gửi các trường được phép chỉnh sửa
+    const filteredValues = Object.keys(values)
+      .filter(key => allowedFields.includes(key))
+      .reduce((obj, key) => {
+        obj[key] = values[key];
+        return obj;
+      }, {});
+
+    onSubmit(filteredValues);
+  };
+
+  const { form, renderForm } = useForm({ 
+    fields: formFields, 
+    onSubmit: handleSubmit, 
+    initialValues: processedInitialValues 
+  });
+  
   return renderForm();
 };
 

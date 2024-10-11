@@ -1,9 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { Layout, Input, Card, Tag, Button, Row, Col, Pagination, Spin, Select, Typography, Space, Tooltip, Modal, message, Empty } from 'antd';
-import { SearchOutlined, ClockCircleOutlined, TeamOutlined, CalendarOutlined, UserOutlined, AimOutlined, CloseCircleOutlined } from '@ant-design/icons';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Layout, Input, Card, Tag, Button, Row, Col, Pagination, Spin, Select, Typography, Space, Tooltip, Modal, message, Empty, Drawer, Skeleton } from 'antd';
+import { SearchOutlined, ClockCircleOutlined, TeamOutlined, CalendarOutlined, UserOutlined, AimOutlined, CloseCircleOutlined, FilterOutlined, LeftOutlined, RightOutlined } from '@ant-design/icons';
 import axiosInstance from '../utils/axiosInstance';
 import styled from 'styled-components';
 import { useNavigate } from 'react-router-dom';
+import { useMediaQuery } from 'react-responsive';
+import NoProjectsFound from './utils/NoProjectsFound';
+import { debounce } from 'lodash';
 
 const { Header, Content } = Layout;
 const { Option } = Select;
@@ -21,7 +24,7 @@ const StyledLayout = styled(Layout)`
 const StickyCol = styled(Col)`
   position: sticky;
   top: 88px; // Điều chỉnh giá trị này để phù hợp với chiều cao của header
-  height: calc(100vh - 120px);
+  height: calc(100vh - 115px);
   overflow-y: auto;
 `;
 
@@ -98,6 +101,9 @@ const ModalTag = styled(Tag)`
 `;
 
 const FilterTagsContainer = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
   margin-top: 16px;
   max-width: 100%;
   overflow-x: auto;
@@ -121,9 +127,54 @@ const FilterTagContent = styled.span`
   white-space: nowrap;
 `;
 
+const MobileFilterButton = styled(Button)`
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 1000;
+  border-radius: 50%;
+  width: 50px !important;
+  height: 50px !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border: none;
+  color: #fff;
+
+  &:hover, &:focus {
+    background-color: #E09600;
+    color: #fff;
+  }
+`;
+
+const MobileFilterDrawer = styled(Drawer)`
+  .ant-drawer-body {
+    padding: 24px;
+  }
+`;
+
+const SkeletonCard = () => (
+  <Card style={{ marginBottom: 16 }}>
+    <Skeleton avatar active paragraph={{ rows: 4 }} />
+  </Card>
+);
+
+// Thêm styled components cho nút điều hướng
+const NavigationButton = styled(Button)`
+  margin-left: 8px;
+`;
+
+const FilterHeader = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+`;
+
 const PublicJobSearch = ({ studentData, isLoggedIn }) => {
   const [projects, setProjects] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [filters, setFilters] = useState({
     skills: [],
@@ -141,6 +192,12 @@ const PublicJobSearch = ({ studentData, isLoggedIn }) => {
   const [majors, setMajors] = useState([]);
   const navigate = useNavigate();
   const [isRecommended, setIsRecommended] = useState(false);
+  const [mobileFilterVisible, setMobileFilterVisible] = useState(false);
+  const isMobile = useMediaQuery({ maxWidth: 767 });
+  const [majorSearchValue, setMajorSearchValue] = useState('');
+  const [filteredMajors, setFilteredMajors] = useState([]);
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
+  const isXLScreen = useMediaQuery({ minWidth: 1200 });
 
   useEffect(() => {
     if (isLoggedIn && studentData && studentData.major) {
@@ -152,42 +209,57 @@ const PublicJobSearch = ({ studentData, isLoggedIn }) => {
     }
   }, [isLoggedIn, studentData]);
 
-  useEffect(() => {
-    fetchProjects();
-    fetchSkills();
-    fetchMajors();
-  }, [searchQuery, filters, pagination.current]);
-
-  const fetchProjects = async () => {
-    setLoading(true);
-    try {
-      const response = await axiosInstance.get('/guest/projects', {
-        params: {
-          query: searchQuery,
-          skills: filters.skills.join(','),
-          status: filters.status,
-          major: filters.major,
-          page: pagination.current,
-          limit: pagination.pageSize,
-        },
-      });
-      setProjects(response.data.projects || []);
-      setPagination({
-        ...pagination,
-        total: response.data.totalProjects || 0,
-      });
-    } catch (error) {
-      console.error('Lỗi khi lấy danh sách dự án:', error);
-      if (error.response && error.response.data && error.response.data.error) {
-        message.error(error.response.data.error);
-      } else {
-        message.error('Không thể lấy danh sách dự án');
+  const debouncedFetchProjects = useCallback(
+    debounce(async () => {
+      setLoading(true);
+      try {
+        const response = await axiosInstance.get('/guest/projects', {
+          params: {
+            query: searchQuery,
+            skills: filters.skills.join(','),
+            status: filters.status,
+            major: filters.major,
+            page: pagination.current,
+            limit: pagination.pageSize,
+          },
+        });
+        setProjects(response.data.projects || []);
+        setPagination(prev => ({
+          ...prev,
+          total: response.data.totalProjects || 0,
+        }));
+      } catch (error) {
+        console.error('Lỗi khi lấy danh sách dự án:', error);
+        if (error.response?.data?.error) {
+          message.error(error.response.data.error);
+        } else {
+          message.error('Không thể lấy danh sách dự án');
+        }
+        setProjects([]);
+      } finally {
+        setLoading(false);
+        setInitialLoadComplete(true);
       }
-      setProjects([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+    }, 500),
+    [searchQuery, filters, pagination.current, pagination.pageSize]
+  );
+
+  useEffect(() => {
+    debouncedFetchProjects();
+    return () => debouncedFetchProjects.cancel();
+  }, [debouncedFetchProjects]);
+
+  useEffect(() => {
+    const fetchInitialData = async () => {
+      if (skills.length === 0) {
+        await fetchSkills();
+      }
+      if (majors.length === 0) {
+        await fetchMajors();
+      }
+    };
+    fetchInitialData();
+  }, []);
 
   const fetchSkills = async () => {
     try {
@@ -217,7 +289,7 @@ const PublicJobSearch = ({ studentData, isLoggedIn }) => {
   const handleFilterChange = (value, filterType) => {
     setFilters(prevFilters => ({
       ...prevFilters,
-      [filterType]: value
+      [filterType]: value === null || value === undefined ? '' : value
     }));
     setPagination({ ...pagination, current: 1 });
     if (filterType === 'major') {
@@ -228,7 +300,20 @@ const PublicJobSearch = ({ studentData, isLoggedIn }) => {
   };
 
   const handlePageChange = (page) => {
-    setPagination({ ...pagination, current: page });
+    setPagination(prev => ({ ...prev, current: page }));
+    window.scrollTo(0, 0);
+  };
+
+  const handlePrevPage = () => {
+    if (pagination.current > 1) {
+      handlePageChange(pagination.current - 1);
+    }
+  };
+
+  const handleNextPage = () => {
+    if (pagination.current < Math.ceil(pagination.total / pagination.pageSize)) {
+      handlePageChange(pagination.current + 1);
+    }
   };
 
   const showProjectDetails = (projectId) => {
@@ -255,7 +340,7 @@ const PublicJobSearch = ({ studentData, isLoggedIn }) => {
   const handleSkillClick = (skillId, skillName) => {
     setFilters(prevFilters => ({
       ...prevFilters,
-      skills: prevFilters.skills.includes(skillId) 
+      skills: prevFilters.skills.includes(skillId)
         ? prevFilters.skills.filter(s => s !== skillId)
         : [...prevFilters.skills, skillId]
     }));
@@ -310,137 +395,221 @@ const PublicJobSearch = ({ studentData, isLoggedIn }) => {
     </FilterTagsContainer>
   );
 
+  const toggleMobileFilter = () => {
+    setMobileFilterVisible(!mobileFilterVisible);
+  };
+
+  const handleMajorSearch = (value) => {
+    setMajorSearchValue(value);
+    if (value) {
+      const filtered = majors.filter(major => 
+        major.name.toLowerCase().includes(value.toLowerCase())
+      );
+      setFilteredMajors(filtered);
+    } else {
+      setFilteredMajors(majors);
+    }
+  };
+
+  const handleMajorSelect = (value) => {
+    handleFilterChange(value, 'major');
+    setMajorSearchValue('');
+    setFilteredMajors(majors);
+  };
+
+  const handleMajorDropdownVisibleChange = (open) => {
+    if (open) {
+      setFilteredMajors(majors);
+    }
+  };
+
+  const renderFilters = () => (
+    <>
+      <FilterHeader>
+        <div>
+          <Title level={4} style={{ marginBottom: 0 }}>Lọc tìm kiếm</Title>
+          <Text type="secondary">
+            {pagination.total} dự án • Trang {pagination.current}/{Math.ceil(pagination.total / pagination.pageSize)}
+          </Text>
+        </div>
+        {isXLScreen && (
+          <Space>
+            <NavigationButton 
+              icon={<LeftOutlined />} 
+              onClick={handlePrevPage}
+              disabled={pagination.current === 1 || loading}
+            />
+            <NavigationButton 
+              icon={<RightOutlined />} 
+              onClick={handleNextPage}
+              disabled={pagination.current === Math.ceil(pagination.total / pagination.pageSize) || loading}
+            />
+          </Space>
+        )}
+      </FilterHeader>
+      <Space direction="vertical" style={{ width: '100%' }}>
+        <Select
+          style={{ width: '100%' }}
+          placeholder="Chọn kỹ năng"
+          mode="multiple"
+          value={filters.skills}
+          onChange={(value) => handleFilterChange(value, 'skills')}
+        >
+          {skills.map(skill => (
+            <Option key={skill._id} value={skill._id}>{skill.name}</Option>
+          ))}
+        </Select>
+        <Select
+          style={{ width: '100%' }}
+          placeholder="Chọn trạng thái"
+          value={filters.status}
+          onChange={(value) => handleFilterChange(value, 'status')}
+        >
+          <Option value="active">Đang tuyển</Option>
+          <Option value="closed">Đã đóng</Option>
+        </Select>
+        <Select
+          style={{ width: '100%' }}
+          placeholder="Chọn chuyên ngành"
+          showSearch
+          value={filters.major || undefined}
+          onSearch={handleMajorSearch}
+          onSelect={handleMajorSelect}
+          onDropdownVisibleChange={handleMajorDropdownVisibleChange}
+          filterOption={false}
+          notFoundContent={null}
+          searchValue={majorSearchValue}
+        >
+          {filteredMajors.length === 0 ? (
+            <Option disabled value="">Không tìm thấy chuyên ngành phù hợp</Option>
+          ) : (
+            filteredMajors.map(major => (
+              <Option key={major._id} value={major._id}>{major.name}</Option>
+            ))
+          )}
+        </Select>
+      </Space>
+      {renderFilterTags()}
+    </>
+  );
+
+  const renderProjectCards = () => {
+    if (loading) {
+      return Array(5).fill(null).map((_, index) => (
+        <SkeletonCard key={`skeleton-${index}`} />
+      ));
+    }
+
+    if (initialLoadComplete && projects.length === 0) {
+      return <NoProjectsFound />;
+    }
+
+    return projects.map(project => (
+      <StyledCard key={project._id} hoverable>
+        <Row gutter={[16, 16]} align="middle">
+          <Col xs={6} sm={6} md={4}>
+            <CompanyLogo style={{ margin: isMobile ? '0 auto 16px' : '0' }}>
+              <CompanyLogoImage src={project.companyLogo} alt={project.companyName} />
+            </CompanyLogo>
+          </Col>
+          <Col xs={18} sm={18} md={14}>
+            <Title level={4} style={{ marginBottom: 8 }}>{project.title}</Title>
+            <Paragraph style={{ marginBottom: 8 }}>{project.companyName}</Paragraph>
+            <Space wrap>
+              <Tooltip title="Trạng thái">
+                <StyledTag color={project.isRecruiting ? 'green' : 'red'}>
+                  <ClockCircleOutlined /> {project.isRecruiting ? 'Đang tuyển' : 'Đã đóng'}
+                </StyledTag>
+              </Tooltip>
+              <Tooltip title="Số lượng vị trí">
+                <StyledTag color="blue">
+                  <TeamOutlined /> {project.availablePositions} vị trí
+                </StyledTag>
+              </Tooltip>
+              <Tooltip title="Hạn nộp hồ sơ">
+                <StyledTag color="purple">
+                  <CalendarOutlined /> {new Date(project.applicationEnd).toLocaleDateString('vi-VN')}
+                </StyledTag>
+              </Tooltip>
+            </Space>
+            {project.requiredSkills && project.requiredSkills.length > 0 && (
+              <div style={{ marginTop: 8 }}>
+                <Text strong>Kỹ năng yêu cầu: </Text>
+                {project.requiredSkills.map((skill) => (
+                  <StyledTag
+                    key={skill._id}
+                    color="cyan"
+                    onClick={() => handleSkillClick(skill._id, skill.name)}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    {skill.name}
+                  </StyledTag>
+                ))}
+              </div>
+            )}
+            {project.relatedMajors && project.relatedMajors.length > 0 && (
+              <div style={{ marginTop: 8 }}>
+                <Text strong>Ngành học liên quan: </Text>
+                {project.relatedMajors.map((major) => (
+                  <StyledTag
+                    key={major._id}
+                    color="orange"
+                    onClick={() => handleMajorClick(major._id)}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    {major.name}
+                  </StyledTag>
+                ))}
+              </div>
+            )}
+          </Col>
+          <Col xs={24} sm={24} md={6} style={{ textAlign: isMobile ? 'center' : 'right' }}>
+            <Space direction={isMobile ? 'horizontal' : 'vertical'}>
+              <StyledButton onClick={() => showProjectDetails(project._id)}>
+                Xem chi tiết
+              </StyledButton>
+            </Space>
+          </Col>
+        </Row>
+      </StyledCard>
+    ));
+  };
+
   return (
     <StyledLayout>
-      <Content style={{ padding: '24px 50px' }}>
+      <Content style={{ padding: isMobile ? '16px' : '24px 50px' }}>
         <Row gutter={24}>
-          <StickyCol span={6}>
-            <Input.Search
-              placeholder="Tìm kiếm dự án thực tập mơ ước"
-              onSearch={handleSearch}
-              style={{ width: '100%', marginBottom: 16 }}
-              size="large"
-              enterButton={<SearchOutlined />}
-            />
-            <StyledCard title="Lọc tìm kiếm">
-              <Space direction="vertical" style={{ width: '100%' }}>
-                <Select
-                  style={{ width: '100%' }}
-                  placeholder="Chọn kỹ năng"
-                  mode="multiple"
-                  value={filters.skills}
-                  onChange={(value) => handleFilterChange(value, 'skills')}
-                >
-                  {skills.map(skill => (
-                    <Option key={skill._id} value={skill._id}>{skill.name}</Option>
-                  ))}
-                </Select>
-                <Select
-                  style={{ width: '100%' }}
-                  placeholder="Chọn trạng thái"
-                  value={filters.status}
-                  onChange={(value) => handleFilterChange(value, 'status')}
-                >
-                  <Option value="active">Đang tuyển</Option>
-                  <Option value="closed">Đã đóng</Option>
-                </Select>
-                <Select
-                  style={{ width: '100%' }}
-                  placeholder="Chọn chuyên ngành"
-                  value={filters.major}
-                  onChange={(value) => handleFilterChange(value, 'major')}
-                >
-                  {majors.map(major => (
-                    <Option key={major._id} value={major._id}>{major.name}</Option>
-                  ))}
-                </Select>
-              </Space>
-              {renderFilterTags()}
-            </StyledCard>
-          </StickyCol>
-          <StickyCol span={18}>
+          {!isMobile && (
+            <StickyCol span={6}>
+              <Input.Search
+                placeholder="Tìm kiếm dự án thực tập mơ ước"
+                onSearch={handleSearch}
+                style={{ width: '100%', marginBottom: 16 }}
+                size="large"
+                enterButton={<SearchOutlined />}
+              />
+              <StyledCard>
+                {renderFilters()}
+              </StyledCard>
+            </StickyCol>
+          )}
+          <Col span={isMobile ? 24 : 18}>
+            {isMobile && (
+              <Input.Search
+                placeholder="Tìm kiếm dự án thực tập mơ ước"
+                onSearch={handleSearch}
+                style={{ width: '100%', marginBottom: 16 }}
+                size="large"
+                enterButton={<SearchOutlined />}
+              />
+            )}
             {isRecommended && (
               <Title level={4} style={{ marginBottom: 16, color: '#1890ff' }}>
                 Công việc thực tập gợi ý cho bạn
               </Title>
             )}
-            <Spin spinning={loading}>
-              {projects.length > 0 ? (
-                projects.map((project) => (
-                  <StyledCard key={project._id} hoverable>
-                    <Row gutter={[16, 16]} align="middle">
-                      <Col span={4}>
-                        <CompanyLogo>
-                          <CompanyLogoImage src={project.companyLogo} alt={project.companyName} />
-                        </CompanyLogo>
-                      </Col>
-                      <Col span={14}>
-                        <Title level={4} style={{ marginBottom: 8 }}>{project.title}</Title>
-                        <Paragraph style={{ marginBottom: 8 }}>{project.companyName}</Paragraph>
-                        <Space wrap>
-                          <Tooltip title="Trạng thái">
-                            <StyledTag color={project.isRecruiting ? 'green' : 'red'}>
-                              <ClockCircleOutlined /> {project.isRecruiting ? 'Đang tuyển' : 'Đã đóng'}
-                            </StyledTag>
-                          </Tooltip>
-                          <Tooltip title="Số lượng vị trí">
-                            <StyledTag color="blue">
-                              <TeamOutlined /> {project.availablePositions} vị trí
-                            </StyledTag>
-                          </Tooltip>
-                          <Tooltip title="Hạn nộp hồ sơ">
-                            <StyledTag color="purple">
-                              <CalendarOutlined /> {new Date(project.applicationEnd).toLocaleDateString('vi-VN')}
-                            </StyledTag>
-                          </Tooltip>
-                        </Space>
-                        {project.requiredSkills && project.requiredSkills.length > 0 && (
-                          <div style={{ marginTop: 8 }}>
-                            <Text strong>Kỹ năng yêu cầu: </Text>
-                            {project.requiredSkills.map((skill) => (
-                              <StyledTag 
-                                key={skill._id} 
-                                color="cyan" 
-                                onClick={() => handleSkillClick(skill._id, skill.name)}
-                                style={{ cursor: 'pointer' }}
-                              >
-                                {skill.name}
-                              </StyledTag>
-                            ))}
-                          </div>
-                        )}
-                        {project.relatedMajors && project.relatedMajors.length > 0 && (
-                          <div style={{ marginTop: 8 }}>
-                            <Text strong>Ngành học liên quan: </Text>
-                            {project.relatedMajors.map((major) => (
-                              <StyledTag 
-                                key={major._id} 
-                                color="orange"
-                                onClick={() => handleMajorClick(major._id)}
-                                style={{ cursor: 'pointer' }}
-                              >
-                                {major.name}
-                              </StyledTag>
-                            ))}
-                          </div>
-                        )}
-                      </Col>
-                      <Col span={6} style={{ textAlign: 'right' }}>
-                        <Space direction="vertical">
-                          <StyledButton onClick={() => showProjectDetails(project._id)}>
-                            Xem chi tiết
-                          </StyledButton>
-                          <Text strong style={{ color: primaryColor }}>{project.status}</Text>
-                        </Space>
-                      </Col>
-                    </Row>
-                  </StyledCard>
-                ))
-              ) : (
-                <Empty description="Không có dự án nào phù hợp với tìm kiếm của bạn" />
-              )}
-            </Spin>
-            {projects.length > 0 && (
+            {renderProjectCards()}
+            {!loading && projects.length > 0 && (
               <Pagination
                 current={pagination.current}
                 total={pagination.total}
@@ -449,9 +618,22 @@ const PublicJobSearch = ({ studentData, isLoggedIn }) => {
                 style={{ marginTop: 24, textAlign: 'center' }}
               />
             )}
-          </StickyCol>
+          </Col>
         </Row>
       </Content>
+      {isMobile && (
+        <>
+          <MobileFilterButton type="primary" icon={<FilterOutlined />} onClick={toggleMobileFilter} />
+          <MobileFilterDrawer
+            title="Lọc tìm kiếm"
+            placement="right"
+            onClose={toggleMobileFilter}
+            visible={mobileFilterVisible}
+          >
+            {renderFilters()}
+          </MobileFilterDrawer>
+        </>
+      )}
       <Modal
         title={null}
         visible={modalVisible}

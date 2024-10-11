@@ -76,11 +76,13 @@ const CompanySelect = ({ onSelect, initialValue }) => {
 };
 
 const Login = () => {
+    const [isAuthChecked, setIsAuthChecked] = useState(false);
     const [form] = Form.useForm();
     const [companyId, setCompanyId] = useState(Cookies.get('selectedCompany') || '');
     const navigate = useNavigate();
     const location = useLocation();
     const { checkAuthStatus } = useCompany();
+    const [isLoading, setIsLoading] = useState(false);
 
     useEffect(() => {
         const searchParams = new URLSearchParams(location.search);
@@ -107,6 +109,7 @@ const Login = () => {
 
     const handleLogin = async (values) => {
         console.log('Đang xử lý đăng nhập với giá trị:', values);
+        setIsLoading(true);
         try {
             const { email, password } = values;
             const response = await axios.post('http://localhost:5000/api/auth/login/company', {
@@ -121,11 +124,14 @@ const Login = () => {
             Cookies.set('refreshToken', refreshToken, { expires: 7 });
 
             await checkAuthStatus();
+            setIsAuthChecked(false);
             message.success('Đăng nhập thành công!');
             navigate('/company/dashboard');
         } catch (error) {
             console.error('Lỗi đăng nhập:', error);
             message.error(error.response?.data?.message || 'Đăng nhập thất bại');
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -171,7 +177,7 @@ const Login = () => {
                             <h2 className="text-center mb-4 display-md-4" style={{ fontWeight: 600 }}>
                                 CHÀO MỪNG BẠN ĐÃ TRỞ LẠI
                             </h2>
-                            <h5 className="text-center mb-4">Đăng nhập vào tài khoản</h5>
+                            <h5 className="text-center mb-4">Đăng nhập vào tài khoản doanh nghiệp</h5>
 
                             <Formik
                                 initialValues={{ companyId: companyId, email: '', password: '' }}
@@ -257,7 +263,7 @@ const Login = () => {
                                                     fontSize: '1rem',
                                                     height: '50px',
                                                 }}
-                                                loading={isSubmitting}
+                                                loading={isLoading}
                                             >
                                                 Đăng nhập
                                             </Button>

@@ -1,0 +1,104 @@
+.custom-offcanvas {
+    background-color: #f8f9fa;
+}
+
+.offcanvas-title {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #060270;
+}
+
+.offcanvas-link {
+    font-size: 1.1rem;
+    color: #5f6469;
+    padding: 12px 15px;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    user-select: none;
+    display: flex;
+    align-items: center;
+}
+
+.offcanvas-link:hover,
+.offcanvas-link:active,
+.offcanvas-link.active {
+    color: #060270;
+    background-color: #e9ecef;
+}
+
+.offcanvas-link:active {
+    transform: scale(0.98);
+}
+
+.offcanvas-icon {
+    margin-right: 10px;
+    font-size: 1.2rem;
+}
+
+/* Thêm hiệu ứng ripple */
+.offcanvas-link {
+    position: relative;
+    overflow: hidden;
+}
+
+.offcanvas-link::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 5px;
+    height: 5px;
+    background: rgba(6, 2, 112, 0.3);
+    opacity: 0;
+    border-radius: 100%;
+    transform: scale(1, 1) translate(-50%);
+    transform-origin: 50% 50%;
+}
+
+@keyframes ripple {
+    0% {
+        transform: scale(0, 0);
+        opacity: 1;
+    }
+    20% {
+        transform: scale(25, 25);
+        opacity: 1;
+    }
+    100% {
+        opacity: 0;
+        transform: scale(40, 40);
+    }
+}
+
+.offcanvas-link:focus:not(:active)::after {
+    animation: ripple 1s ease-out;
+}
+
+.offcanvas-dropdown {
+    font-size: 1.1rem;
+    color: #5f6469;
+    padding: 12px 0;
+    text-decoration: none;
+}
+
+.offcanvas-dropdown:hover,
+.offcanvas-dropdown:focus {
+    color: #060270;
+    text-decoration: none;
+}
+
+.offcanvas-dropdown-menu {
+    background-color: #f8f9fa;
+    border: none;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.offcanvas-dropdown-menu .dropdown-item {
+    color: #5f6469;
+    padding: 10px 20px;
+}
+
+.offcanvas-dropdown-menu .dropdown-item:hover {
+    background-color: #e9ecef;
+    color: #060270;
+}

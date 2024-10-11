@@ -587,7 +587,7 @@ function StudentManagement() {
                     <Form.Item name="name" label="Tên" rules={[{ required: true }]}>
                         <Input />
                     </Form.Item>
-                    <Form.Item name="email" label="Email" rules={[{ required: true, type: 'email' }]}>
+                    <Form.Item name="email" label="Email" rules={[{ type: 'email' }]}>
                         <Input />
                     </Form.Item>
                     <Form.Item name="studentId" label="Mã sinh viên" rules={[{ required: true }]}>

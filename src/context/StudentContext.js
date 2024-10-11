@@ -23,13 +23,17 @@ export const StudentProvider = ({ children }) => {
     const eventSourceRef = useRef(null);
     const reconnectTimeoutRef = useRef(null);
     const [userData, setUserData] = useState(null);
+    const [isAuthChecked, setIsAuthChecked] = useState(false);
 
     const logout = useCallback(() => {
         Cookies.remove('accessToken');
         Cookies.remove('studentRefreshToken');
         setStudentData(null);
+        setUserData(null);
         setUserRole(null);
         setRefreshAttempts(0);
+        setLoading(false);
+        setIsAuthChecked(false); // Reset trạng thái kiểm tra xác thực
         navigate('/login');
     }, [navigate]);
 
@@ -106,13 +110,14 @@ export const StudentProvider = ({ children }) => {
     }, []);
 
     const checkAuthStatus = useCallback(async () => {
-        console.log('checkAuthStatus được gọi');
+        if (isAuthChecked) return; // Nếu đã kiểm tra xác thực rồi thì không cần kiểm tra lại
         setLoading(true);
         try {
             const accessToken = Cookies.get('accessToken');
             if (!accessToken) {
                 setUserData(null);
                 setUserRole(null);
+                setIsAuthChecked(true);
                 setLoading(false);
                 return;
             }
@@ -128,9 +133,10 @@ export const StudentProvider = ({ children }) => {
             console.error('Lỗi khi kiểm tra trạng thái xác thực:', error);
             logout();
         } finally {
+            setIsAuthChecked(true);
             setLoading(false);
         }
-    }, [fetchUserData, logout]);
+    }, [fetchUserData, logout, isAuthChecked]);
 
     useEffect(() => {
         setupAxiosInterceptors();
@@ -141,6 +147,7 @@ export const StudentProvider = ({ children }) => {
             checkAuthStatus();
         } else {
             setLoading(false);
+            setIsAuthChecked(true);
         }
     }, [checkAuthStatus, location.pathname]);
 
@@ -167,9 +174,10 @@ export const StudentProvider = ({ children }) => {
         logout,
         checkAuthStatus,
         fetchStudentProfile,
-        fetchUserData
+        fetchUserData,
+        isAuthChecked // Thêm isAuthChecked vào context
     };
-    
+
     return (
         <StudentContext.Provider value={value}>
             {children}

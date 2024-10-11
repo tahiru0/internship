@@ -27,7 +27,7 @@ export const NotificationProvider = ({ children }) => {
     try {
       const accessToken = getAccessToken();
       if (!accessToken) {
-        console.log('Không có accessToken, bỏ qua việc fetch thông báo');
+        
         return [];
       }
       const response = await axios.get('http://localhost:5000/api/notification/unread', {
@@ -36,7 +36,6 @@ export const NotificationProvider = ({ children }) => {
       setNotifications(response.data.notifications);
       return response.data.notifications;
     } catch (error) {
-      console.error('Lỗi khi lấy danh sách thông báo chưa đọc:', error);
       return [];
     }
   }, []);
@@ -46,7 +45,6 @@ export const NotificationProvider = ({ children }) => {
       try {
         const accessToken = getAccessToken();
         if (!accessToken) {
-          console.log('Không có accessToken, bỏ qua việc fetch số lượng thông báo chưa đọc');
           return 0;
         }
         const response = await axios.get('http://localhost:5000/api/notification/unread-count', {
@@ -57,7 +55,6 @@ export const NotificationProvider = ({ children }) => {
         setUnreadCount(count);
         return count;
       } catch (error) {
-        console.error('Lỗi khi lấy số lượng thông báo chưa đọc:', error);
         return 0;
       }
     }, 1000),
@@ -67,7 +64,6 @@ export const NotificationProvider = ({ children }) => {
   const startNotificationStream = useCallback(() => {
     const accessToken = getAccessToken();
     if (!accessToken) {
-      console.log('Không có accessToken, bỏ qua việc kết nối SSE');
       return;
     }
     if (eventSourceRef.current) {
@@ -182,7 +178,7 @@ export const NotificationProvider = ({ children }) => {
         notif._id === _id ? { ...notif, isRead: true } : notif
       ));
     } catch (error) {
-      console.error('Lỗi khi đánh dấu thông báo đã đọc:', error);
+      return null;
     }
   };
 
@@ -202,7 +198,7 @@ export const NotificationProvider = ({ children }) => {
       
       setNotifications(prev => prev.map(notif => ({ ...notif, isRead: true })));
     } catch (error) {
-      console.error('Lỗi khi đánh dấu tất cả thông báo đã đọc:', error);
+      return null;
     }
   };
 
@@ -223,7 +219,7 @@ export const NotificationProvider = ({ children }) => {
         setUnreadCount(prev => prev - (notifications.find(n => n._id === _id)?.isRead ? 0 : 1));
       }
     } catch (error) {
-      console.error('Lỗi khi xóa thông báo:', error);
+      return null;
     }
   };
 
@@ -241,7 +237,7 @@ export const NotificationProvider = ({ children }) => {
       
       await fetchUnreadNotifications();
     } catch (error) {
-      console.error('Lỗi khi khôi phục thông báo:', error);
+      return null;
     }
   };
 

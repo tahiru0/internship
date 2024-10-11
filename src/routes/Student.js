@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import Main from '../layout/Main';
 import Dashboard from '../components/student/Dashboard';
 import NotFound from '../common/Notfound';
@@ -15,6 +15,12 @@ import Internships from '../components/student/Internships';
 import InternshipDetails from '../components/student/InternshipDetails';
 import Applications from '../components/student/Applications';
 import Settings from '../components/student/Settings';
+import { NotificationProvider } from '../context/NotificationContext'; // Import NotificationProvider
+import { debounce } from 'lodash';
+
+const delayedRequest = (func, delay = 1000) => {
+    return debounce(func, delay, { leading: true, trailing: false });
+};
 
 const getNavItems = () => {
     return [
@@ -27,11 +33,26 @@ const getNavItems = () => {
 };
 
 const isAuthenticated = () => {
+    console.log('Checking authentication status');
     return Boolean(Cookies.get('accessToken'));
 };
 
 function PrivateRoute({ children }) {
-    const { loading } = useStudent();
+    const { loading, checkAuthStatus, userData, isAuthChecked } = useStudent();
+    const navigate = useNavigate();
+    const location = useLocation();
+
+    useEffect(() => {
+        if (!isAuthChecked) {
+            checkAuthStatus();
+        }
+    }, [checkAuthStatus, isAuthChecked]);
+
+    useEffect(() => {
+        if (isAuthChecked && !userData) {
+            navigate('/login', { replace: true, state: { from: location } });
+        }
+    }, [isAuthChecked, userData, navigate, location]);
 
     useEffect(() => {
         if (loading) {
@@ -41,11 +62,11 @@ function PrivateRoute({ children }) {
         }
     }, [loading]);
 
-    if (!isAuthenticated()) {
-        return <Navigate to="/login" replace />;
+    if (!isAuthChecked || loading) {
+        return <Spin size="large" />;
     }
 
-    return children;
+    return userData ? <NotificationProvider>{children}</NotificationProvider> : null;
 }
 
 function Student() {
@@ -60,6 +81,18 @@ function Student() {
 
 function ProtectedRoutes() {
     const { studentData, loading, logout } = useStudent();
+    const [isDataLoaded, setIsDataLoaded] = useState(false);
+
+    useEffect(() => {
+        const loadData = delayedRequest(async () => {
+            // Thực hiện các request cần thiết ở đây
+            setIsDataLoaded(true);
+        });
+
+        loadData();
+
+        return () => loadData.cancel();
+    }, []);
 
     useEffect(() => {
         if (loading) {
@@ -71,24 +104,22 @@ function ProtectedRoutes() {
 
     const navItems = getNavItems();
 
+    if (!isDataLoaded) {
+        return <Spin size="large" />;
+    }
+
     return (
         <Main navItems={navItems} RightComponent={StudentHeader} logout={logout}>
-            {loading ? (
-                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-                    <Spin size="large" />
-                </div>
-            ) : (
-                <Routes>
-                    <Route path="/" element={<Navigate to="/student/dashboard" replace />} />
-                    <Route path="/dashboard" element={<Dashboard />} />
-                    <Route path="/internships" element={<Internships />} />
-                    <Route path="/internships/:id" element={<InternshipDetails />} />
-                    <Route path="/applications" element={<Applications />} />
-                    <Route path="/profile" element={<PersonalProfile />} />
-                    <Route path="/settings" element={<Settings />} />
-                    <Route path="*" element={<NotFound homeLink={"/student/dashboard"} />} />
-                </Routes>
-            )}
+            <Routes>
+                <Route path="/" element={<Navigate to="/student/dashboard" replace />} />
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/internships" element={<Internships />} />
+                <Route path="/internships/:id" element={<InternshipDetails />} />
+                <Route path="/applications" element={<Applications />} />
+                <Route path="/profile" element={<PersonalProfile />} />
+                <Route path="/settings" element={<Settings />} />
+                <Route path="*" element={<NotFound homeLink={"/student/dashboard"} />} />
+            </Routes>
         </Main>
     );
 }

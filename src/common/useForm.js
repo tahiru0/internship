@@ -1,9 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Form, Input, Button, DatePicker, Upload, Checkbox, InputNumber, Modal, Row, Col, Select, Radio, Switch, Slider, Rate, TimePicker } from 'antd';
 import { UploadOutlined, PlusOutlined, MinusCircleOutlined } from '@ant-design/icons';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import styled from 'styled-components';
+import moment from 'moment';
+import Cropper from 'react-easy-crop';
 
 const { RangePicker } = DatePicker;
 const { TextArea } = Input;
@@ -54,8 +56,14 @@ const useForm = ({ fields, onSubmit, initialValues }) => {
   const [form] = Form.useForm();
   const [previewVisible, setPreviewVisible] = useState(false);
   const [previewImage, setPreviewImage] = useState('');
+  const [previewTitle, setPreviewTitle] = useState('');
   const [fileList, setFileList] = useState([]);
   const [isRecruiting, setIsRecruiting] = useState(initialValues?.isRecruiting || false);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [rotation, setRotation] = useState(0);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
+  const [isCropping, setIsCropping] = useState(false);
 
   useEffect(() => {
     if (initialValues) {
@@ -80,6 +88,7 @@ const useForm = ({ fields, onSubmit, initialValues }) => {
     }
     setPreviewImage(file.url || file.preview);
     setPreviewVisible(true);
+    setPreviewTitle(file.name || file.url.substring(file.url.lastIndexOf('/') + 1));
   };
 
   const handleChange = ({ fileList }, maxCount) => {
@@ -96,6 +105,31 @@ const useForm = ({ fields, onSubmit, initialValues }) => {
       reader.onerror = error => reject(error);
     });
   };
+
+  const onCropComplete = useCallback((croppedArea, croppedAreaPixels) => {
+    setCroppedAreaPixels(croppedAreaPixels);
+  }, []);
+
+  const handleCropConfirm = useCallback(async () => {
+    try {
+      const croppedImage = await getCroppedImg(
+        previewImage,
+        croppedAreaPixels,
+        rotation
+      );
+      setFileList([
+        {
+          uid: '-1',
+          name: 'cropped-image.png',
+          status: 'done',
+          url: croppedImage,
+        },
+      ]);
+      setIsCropping(false);
+    } catch (e) {
+      console.error(e);
+    }
+  }, [previewImage, croppedAreaPixels, rotation]);
 
   const renderField = (field) => {
     const { name, label, type, options, maxCount = 1, dependsOn, inputFields, extra, ...rest } = field;
@@ -125,7 +159,7 @@ const useForm = ({ fields, onSubmit, initialValues }) => {
       case 'url':
         return <Input style={commonStyle} type="url" {...rest} />;
       case 'date':
-        return <DatePicker style={commonStyle} {...rest} />;
+        return <DatePicker style={commonStyle} {...rest} value={rest.value ? moment(rest.value) : null} />;
       case 'dateRange':
         return <RangePicker style={commonStyle} {...rest} />;
       case 'time':
@@ -160,20 +194,67 @@ const useForm = ({ fields, onSubmit, initialValues }) => {
         return <Rate style={commonStyle} {...rest} />;
       case 'upload':
         return (
-          <Upload
-            {...rest}
-            fileList={fileList}
-            onPreview={handlePreview}
-            onChange={(info) => handleChange(info, maxCount)}
-            listType="picture-card"
-          >
-            {fileList.length >= maxCount ? null : (
-              <div>
-                <UploadOutlined />
-                <div style={{ marginTop: 8 }}>Upload</div>
+          <>
+            <Upload
+              {...rest}
+              fileList={fileList}
+              onPreview={(file) => {
+                setPreviewImage(file.url || file.preview);
+                setPreviewTitle(file.name || file.url.substring(file.url.lastIndexOf('/') + 1));
+                setIsCropping(true);
+              }}
+              onChange={(info) => handleChange(info, maxCount)}
+              listType="picture-card"
+            >
+              {fileList.length >= maxCount ? null : (
+                <div>
+                  <PlusOutlined />
+                  <div style={{ marginTop: 8 }}>Upload</div>
+                </div>
+              )}
+            </Upload>
+            <Modal
+              visible={isCropping}
+              title="Cắt và xoay ảnh"
+              onCancel={() => setIsCropping(false)}
+              footer={[
+                <Button key="back" onClick={() => setIsCropping(false)}>
+                  Hủy
+                </Button>,
+                <Button key="submit" type="primary" onClick={handleCropConfirm}>
+                  Xác nhận
+                </Button>,
+              ]}
+            >
+              <div style={{ height: 400, position: 'relative' }}>
+                <Cropper
+                  image={previewImage}
+                  crop={crop}
+                  zoom={zoom}
+                  aspect={1}
+                  onCropChange={setCrop}
+                  onCropComplete={onCropComplete}
+                  onZoomChange={setZoom}
+                  rotation={rotation}
+                  onRotationChange={setRotation}
+                />
               </div>
-            )}
-          </Upload>
+              <Slider
+                value={zoom}
+                min={1}
+                max={3}
+                step={0.1}
+                onChange={(value) => setZoom(value)}
+              />
+              <Slider
+                value={rotation}
+                min={0}
+                max={360}
+                step={1}
+                onChange={(value) => setRotation(value)}
+              />
+            </Modal>
+          </>
         );
       case 'uploadList':
         return (
@@ -283,6 +364,55 @@ const useForm = ({ fields, onSubmit, initialValues }) => {
     form,
     renderForm,
   };
+};
+
+// Hàm để cắt ảnh
+const createImage = (url) =>
+  new Promise((resolve, reject) => {
+    const image = new Image();
+    image.addEventListener('load', () => resolve(image));
+    image.addEventListener('error', (error) => reject(error));
+    image.setAttribute('crossOrigin', 'anonymous');
+    image.src = url;
+  });
+
+const getCroppedImg = async (imageSrc, pixelCrop, rotation = 0) => {
+  const image = await createImage(imageSrc);
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+
+  const maxSize = Math.max(image.width, image.height);
+  const safeArea = 2 * ((maxSize / 2) * Math.sqrt(2));
+
+  canvas.width = safeArea;
+  canvas.height = safeArea;
+
+  ctx.translate(safeArea / 2, safeArea / 2);
+  ctx.rotate((rotation * Math.PI) / 180);
+  ctx.translate(-safeArea / 2, -safeArea / 2);
+
+  ctx.drawImage(
+    image,
+    safeArea / 2 - image.width * 0.5,
+    safeArea / 2 - image.height * 0.5
+  );
+
+  const data = ctx.getImageData(0, 0, safeArea, safeArea);
+
+  canvas.width = pixelCrop.width;
+  canvas.height = pixelCrop.height;
+
+  ctx.putImageData(
+    data,
+    0 - safeArea / 2 + image.width * 0.5 - pixelCrop.x,
+    0 - safeArea / 2 + image.height * 0.5 - pixelCrop.y
+  );
+
+  return new Promise((resolve) => {
+    canvas.toBlob((file) => {
+      resolve(URL.createObjectURL(file));
+    }, 'image/png');
+  });
 };
 
 export default useForm;

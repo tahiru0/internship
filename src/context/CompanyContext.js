@@ -22,6 +22,8 @@ export const CompanyProvider = ({ children }) => {
     const [unreadCount, setUnreadCount] = useState(0);
     const eventSourceRef = useRef(null);
     const reconnectTimeoutRef = useRef(null);
+    const checkAuthStatusRef = useRef(null);
+    const [isAuthChecked, setIsAuthChecked] = useState(false);
 
     const logout = useCallback(() => {
         Cookies.remove('accessToken');
@@ -29,10 +31,11 @@ export const CompanyProvider = ({ children }) => {
         setCompanyData(null);
         setUserRole(null);
         setRefreshAttempts(0);
+        setIsAuthChecked(false); // Reset trạng thái kiểm tra xác thực
         navigate('/company/login');
     }, [navigate]);
 
-    const refreshToken = async () => {
+    const refreshToken = useCallback(async () => {
         const refreshToken = Cookies.get('refreshToken');
         if (!refreshToken) {
             console.error('Không có refresh token');
@@ -50,9 +53,9 @@ export const CompanyProvider = ({ children }) => {
             setRefreshAttempts(prev => prev + 1);
             return null;
         }
-    };
+    }, []);
 
-    const setupAxiosInterceptors = () => {
+    const setupAxiosInterceptors = useCallback(() => {
         axios.interceptors.request.use(
             config => {
                 const accessToken = Cookies.get('accessToken');
@@ -84,14 +87,19 @@ export const CompanyProvider = ({ children }) => {
                 return Promise.reject(error);
             }
         );
-    };
+    }, [refreshToken, logout]);
 
     const checkAuthStatus = useCallback(async () => {
+        if (isAuthChecked) return; // Nếu đã kiểm tra xác thực rồi thì không cần kiểm tra lại
         setLoading(true);
         try {
             let accessToken = Cookies.get('accessToken');
             if (!accessToken) {
-                throw new Error('Không có access token');
+                setCompanyData(null);
+                setUserRole(null);
+                setIsAuthChecked(true);
+                setLoading(false);
+                return;
             }
             
             try {
@@ -122,23 +130,25 @@ export const CompanyProvider = ({ children }) => {
             console.error('Lỗi khi kiểm tra trạng thái xác thực:', error);
             logout();
         } finally {
+            setIsAuthChecked(true);
             setLoading(false);
         }
-    }, [logout, refreshAttempts]);
+    }, [logout, refreshAttempts, refreshToken, isAuthChecked]);
 
     useEffect(() => {
         setupAxiosInterceptors();
         if (
             location.pathname !== '/company/forgot-password' &&
-            !location.pathname.startsWith('/company/forgot-password')
+            !location.pathname.startsWith('/company/forgot-password') &&
+            !companyData
         ) {
             checkAuthStatus();
         } else {
             setLoading(false);
         }
-    }, [checkAuthStatus, location.pathname]);
+    }, [setupAxiosInterceptors, checkAuthStatus, location.pathname, companyData]);
 
-    const fetchAccounts = async (params) => {
+    const fetchAccounts = useCallback(async (params) => {
         setLoading(true);
         try {
             const accessToken = Cookies.get('accessToken');
@@ -153,7 +163,7 @@ export const CompanyProvider = ({ children }) => {
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
     const value = {
         companyData,
@@ -161,7 +171,8 @@ export const CompanyProvider = ({ children }) => {
         userRole,
         logout,
         checkAuthStatus,
-        fetchAccounts
+        fetchAccounts,
+        isAuthChecked, // Thêm isAuthChecked vào context
     };
     
     return (

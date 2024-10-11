@@ -686,7 +686,7 @@ const ProjectDetail = memo(({ project, loading, onBack, isMobile, fetchProjects 
           <p>Bạn có chắc chắn muốn cập nhật trạng thái của task "{taskToUpdate.taskName}" từ "{statusMapping[taskToUpdate.currentStatus] || taskToUpdate.currentStatus}" sang "{statusMapping[taskToUpdate.newStatus] || taskToUpdate.newStatus}"?</p>
         )}
         <Checkbox checked={rememberChoice} onChange={handleRememberChoiceChange}>
-          Ghi nhớt lựa chọn của tôi
+          Ghi nhớ lựa chọn của tôi
         </Checkbox>
       </Modal>
       <Modal

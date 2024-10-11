@@ -1,7 +1,8 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Cookies from 'js-cookie';
 import axios from 'axios';
+import { debounce } from 'lodash';
 
 const SchoolContext = createContext();
 
@@ -14,15 +15,18 @@ export const SchoolProvider = ({ children }) => {
     const [loading, setLoading] = useState(true);
     const [userRole, setUserRole] = useState(null);
     const [refreshAttempts, setRefreshAttempts] = useState(0);
+    const [isAuthChecked, setIsAuthChecked] = useState(false);
     const navigate = useNavigate();
     const location = useLocation();
+    const isCheckingAuth = useRef(false);
 
     const logout = useCallback(() => {
-        Cookies.remove('schoolAccessToken');
+        Cookies.remove('accessToken');
         Cookies.remove('schoolRefreshToken');
         setSchoolData(null);
         setUserRole(null);
         setRefreshAttempts(0);
+        setIsAuthChecked(false);
         navigate('/school/login');
     }, [navigate]);
 
@@ -35,7 +39,7 @@ export const SchoolProvider = ({ children }) => {
         try {
             const response = await axios.post('http://localhost:5000/api/auth/refresh-token', { refreshToken });
             const { accessToken, refreshToken: newRefreshToken } = response.data;
-            Cookies.set('schoolAccessToken', accessToken, { expires: 1/24 });
+            Cookies.set('accessToken', accessToken, { expires: 1/24 });
             Cookies.set('schoolRefreshToken', newRefreshToken, { expires: 7 });
             setRefreshAttempts(0);
             return { accessToken, refreshToken: newRefreshToken };
@@ -52,7 +56,7 @@ export const SchoolProvider = ({ children }) => {
 
     api.interceptors.request.use(
         async (config) => {
-            const token = Cookies.get('schoolAccessToken');
+            const token = Cookies.get('accessToken');
             if (token) {
                 config.headers['Authorization'] = `Bearer ${token}`;
             }
@@ -80,7 +84,9 @@ export const SchoolProvider = ({ children }) => {
         }
     );
 
-    const checkAuthStatus = useCallback(async () => {
+    const checkAuthStatus = useCallback(debounce(async () => {
+        if (isAuthChecked || isCheckingAuth.current) return;
+        isCheckingAuth.current = true;
         setLoading(true);
         try {
             const response = await api.get('/school/me');
@@ -109,9 +115,11 @@ export const SchoolProvider = ({ children }) => {
                 logout();
             }
         } finally {
+            setIsAuthChecked(true);
             setLoading(false);
+            isCheckingAuth.current = false;
         }
-    }, [refreshAttempts, logout]);
+    }, 300), [refreshAttempts, logout, api, refreshToken]);
 
     useEffect(() => {
         if (location.pathname !== '/school/forgot-password' && !location.pathname.startsWith('/school/forgot-password')) {
@@ -121,7 +129,7 @@ export const SchoolProvider = ({ children }) => {
         }
     }, [checkAuthStatus, location.pathname]);
 
-    const fetchStudents = async (params) => {
+    const fetchStudents = useCallback(debounce(async (params) => {
         setLoading(true);
         try {
             const response = await api.get('/school/students', { params });
@@ -132,7 +140,7 @@ export const SchoolProvider = ({ children }) => {
         } finally {
             setLoading(false);
         }
-    };
+    }, 300), [api]);
 
     const value = {
         schoolData,
@@ -141,7 +149,8 @@ export const SchoolProvider = ({ children }) => {
         logout,
         checkAuthStatus,
         fetchStudents,
-        api
+        api,
+        isAuthChecked
     };
     
     return (

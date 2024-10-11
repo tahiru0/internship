@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import Main from '../layout/Main';
 import Dashboard from '../components/company/Dashboard';
 import CompanyProfile from '../components/company/CompanyProfile';
@@ -10,6 +10,7 @@ import { Spin } from 'antd';
 import CompanyHeader from '../components/company/CompanyHeader';
 import ProjectManagement from '../components/company/ProjectManagement';
 import { CompanyProvider, useCompany } from '../context/CompanyContext';
+import { NotificationProvider } from '../context/NotificationContext';
 import Cookies from 'js-cookie';
 import PersonalProfile from '../components/company/PersonalProfile';
 import NProgress from 'nprogress';
@@ -31,40 +32,21 @@ const getNavItems = (userRole) => {
     return items;
 };
 
-const isAuthenticated = () => {
-    return Boolean(Cookies.get('accessToken'));
-};
-
-function PrivateRoute({ children }) {
-    const { loading } = useCompany();
-
-    useEffect(() => {
-        if (loading) {
-            NProgress.start();
-        } else {
-            NProgress.done();
-        }
-    }, [loading]);
-
-    if (!isAuthenticated()) {
-        return <Navigate to="/company/login" replace />;
-    }
-
-    return children;
-}
-
 function Company() {
-    return (
-        <CompanyProvider>
-            <Routes>
-                <Route path="/*" element={<PrivateRoute><ProtectedRoutes /></PrivateRoute>} />
-            </Routes>
-        </CompanyProvider>
-    );
-}
+    const { loading, checkAuthStatus, companyData, userRole, logout, isAuthChecked } = useCompany();
+    const navigate = useNavigate();
 
-function ProtectedRoutes() {
-    const { companyData, loading, userRole, logout } = useCompany();
+    useEffect(() => {
+        if (!isAuthChecked) {
+            checkAuthStatus();
+        }
+    }, [checkAuthStatus, isAuthChecked]);
+
+    useEffect(() => {
+        if (isAuthChecked && !companyData) {
+            navigate('/company/login', { replace: true });
+        }
+    }, [isAuthChecked, companyData, navigate]);
 
     useEffect(() => {
         if (loading) {
@@ -73,16 +55,16 @@ function ProtectedRoutes() {
             NProgress.done();
         }
     }, [loading]);
+
+    if (!isAuthChecked || loading) {
+        return <Spin size="large" />;
+    }
 
     const navItems = getNavItems(userRole);
 
     return (
-        <Main navItems={navItems} RightComponent={CompanyHeader} logout={logout}>
-            {loading ? (
-                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-                    <Spin size="large" />
-                </div>
-            ) : (
+        <NotificationProvider>
+            <Main navItems={navItems} RightComponent={CompanyHeader} logout={logout}>
                 <Routes>
                     <Route path="/" element={<Navigate to="/company/dashboard" replace />} />
                     <Route path="/dashboard" element={<Dashboard />} />
@@ -98,9 +80,15 @@ function ProtectedRoutes() {
                     <Route path="/personal" element={<PersonalProfile />} />
                     <Route path="*" element={<NotFound homeLink={"/company/dashboard"} />} />
                 </Routes>
-            )}
-        </Main>
+            </Main>
+        </NotificationProvider>
     );
 }
 
-export default Company;
+export default function CompanyWrapper() {
+    return (
+        <CompanyProvider>
+            <Company />
+        </CompanyProvider>
+    );
+}

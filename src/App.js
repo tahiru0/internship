@@ -11,7 +11,6 @@ import SchoolRegister from './components/school/Register';
 import StudentRegister from './components/student/Register';
 import { useEffect } from 'react';
 import { Modal } from 'antd';
-import { NotificationProvider, useNotification } from './context/NotificationContext';
 import CompanyLogin from './components/company/Login';
 import SchoolLogin from './components/school/Login';
 import { CompanyProvider } from './context/CompanyContext';
@@ -26,7 +25,6 @@ import NotFound from './components/NotFound'; // Thêm dòng này
 
 function ProtectedRoutes() {
   const location = useLocation();
-  const { resetNotifications } = useNotification();
 
   useEffect(() => {
     const queryParams = new URLSearchParams(location.search);
@@ -46,35 +44,15 @@ function ProtectedRoutes() {
         content: message,
       });
     }
-
-    // Reset notifications when not in protected routes
-    if (!location.pathname.match(/^\/(admin|company|instructor|school|student)/)) {
-      resetNotifications();
-    }
-  }, [location, resetNotifications]);
-
-  useEffect(() => {
-    // Reset notifications when location changes
-    if (!location.pathname.match(/^\/(admin|company|instructor|school|student)/)) {
-      resetNotifications();
-    }
-  }, [location.pathname, resetNotifications]);
+  }, [location]);
 
   return (
     <Routes>
-      <Route
-        path="/company/*"
-        element={<Company />}
-      />
+      <Route path="/company/*" element={<Company />} />
       <Route path="/instructor/*" element={<Instructor />} />
-      <Route
-        path="/school/*"
-        element={<School />}
-      />
-      <Route
-        path="/student/*"
-        element={<Student />}
-      />
+      <Route path="/school/*" element={<School />} />
+      <Route path="/student/*" element={<Student />} />
+      <Route path="*" element={<NotFound />} /> {/* Catch-all route for NotFound */}
     </Routes>
   );
 }
@@ -123,30 +101,8 @@ function AppContent() {
       <Route path="/" element={<HomePage />} />
       <Route path="/admin/*" element={<Admin />} /> 
       
-      {/* Thay đổi route này */}
-      <Route path="/company/*" element={
-        <NotificationProvider>
-          <ProtectedRoutes />
-        </NotificationProvider>
-      } />
-      <Route path="/instructor/*" element={
-        <NotificationProvider>
-          <ProtectedRoutes />
-        </NotificationProvider>
-      } />
-      <Route path="/school/*" element={
-        <NotificationProvider>
-          <ProtectedRoutes />
-        </NotificationProvider>
-      } />
-      <Route path="/student/*" element={
-        <NotificationProvider>
-          <ProtectedRoutes />
-        </NotificationProvider>
-      } />
+      <Route path="/*" element={<ProtectedRoutes />} />
       
-      {/* Đặt route cho trang 404 xuống cuối cùng */}
-      <Route path="*" element={<NotFound />} />
     </Routes>
   );
 }
@@ -155,4 +111,4 @@ function App() {
   return <AppContent />;
 }
 
-export default App;
+export default App; 

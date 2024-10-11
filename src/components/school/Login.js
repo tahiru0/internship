@@ -117,7 +117,7 @@ const Login = () => {
 
             const { accessToken, refreshToken } = response.data;
 
-            Cookies.set('schoolAccessToken', accessToken, { expires: 1 / 24 });
+            Cookies.set('accessToken', accessToken, { expires: 1 / 24 });
             Cookies.set('schoolRefreshToken', refreshToken, { expires: 7 });
 
             await checkAuthStatus();

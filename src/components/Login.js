@@ -106,6 +106,7 @@ const Login = () => {
     const { checkAuthStatus } = useStudent();
     const { studentData } = useStudent();
     const [redirectPath, setRedirectPath] = useState('');
+    const [isAuthChecked, setIsAuthChecked] = useState(false);
 
     useEffect(() => {
         const searchParams = new URLSearchParams(location.search);
@@ -137,13 +138,16 @@ const Login = () => {
 
     useEffect(() => {
         const checkAuth = async () => {
-            await checkAuthStatus();
+            if (!isAuthChecked) {
+                await checkAuthStatus();
+                setIsAuthChecked(true);
+            }
             if (studentData) {
                 navigate(redirectPath || '/student/dashboard', { replace: true });
             }
         };
         checkAuth();
-    }, [studentData, checkAuthStatus, navigate, redirectPath]);
+    }, [isAuthChecked, studentData, checkAuthStatus, navigate, redirectPath]);
 
     const handleLogin = async (values) => {
         try {
@@ -160,6 +164,7 @@ const Login = () => {
             Cookies.set('studentRefreshToken', refreshToken, { expires: 7 });
 
             await checkAuthStatus();
+            setIsAuthChecked(false); // Đặt lại để kiểm tra xác thực lần nữa
             message.success('Đăng nhập thành công!');
             navigate(redirectPath || '/student/dashboard', { replace: true });
         } catch (error) {
@@ -284,7 +289,7 @@ const Login = () => {
                                         </Form.Item>
 
                                         <div className="d-flex justify-content-between align-items-center mb-4">
-                                            <Checkbox>Ghi nhớt tôi</Checkbox>
+                                            <Checkbox>Ghi nhớ tôi</Checkbox>
                                             <Link to="/student/forgot-password" style={{ color: '#D93F21', fontSize: '14px' }}>Quên mật khẩu?</Link>
                                         </div>
 
