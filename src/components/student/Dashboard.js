@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { ConfigProvider, Spin } from 'antd';
 import viVN from 'antd/lib/locale/vi_VN';
 import { useStudent } from '../../context/StudentContext';
@@ -14,13 +14,14 @@ const Dashboard = () => {
   const { loading, userData } = useStudent(); // Sử dụng userData thay vì studentData
   const [greeting, setGreeting] = useState(getGreeting());
 
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setGreeting(getGreeting());
-    }, 60000); // Cập nhật mỗi phút
-
-    return () => clearInterval(timer);
+  const updateGreeting = useCallback(() => {
+    setGreeting(getGreeting());
   }, []);
+
+  useEffect(() => {
+    const timer = setInterval(updateGreeting, 60000);
+    return () => clearInterval(timer);
+  }, [updateGreeting]);
 
   return (
     <ConfigProvider locale={viVN}>

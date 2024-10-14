@@ -22,7 +22,7 @@ function StudentHeader({ handleSidenavColor, handleSidenavType, handleFixedNavba
         if (userData) {
             fetchUnreadCount();
         }
-    }, [userData, fetchUnreadCount]);
+    }, [userData]);
 
     useEffect(() => {
         console.log('Current unreadCount in StudentHeader:', unreadCount);

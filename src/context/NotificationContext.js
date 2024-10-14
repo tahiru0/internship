@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import Cookies from 'js-cookie';
 import { EventSourcePolyfill } from 'event-source-polyfill';
@@ -18,48 +18,90 @@ export const useNotification = () => useContext(NotificationContext);
 export const NotificationProvider = ({ children }) => {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [page, setPage] = useState(1);
   const eventSourceRef = React.useRef(null);
   const reconnectTimeoutRef = React.useRef(null);
   const reconnectAttemptsRef = React.useRef(0);
   const MAX_RECONNECT_ATTEMPTS = 5;
+  const LIMIT = 10;
+  const fetchingRef = useRef(false);
+  const [isInitialized, setIsInitialized] = useState(false);
+  const initializationInProgress = useRef(false);
+  const [isUnreadCountInitialized, setIsUnreadCountInitialized] = useState(false);
+  const [isFetching, setIsFetching] = useState(false);
 
-  const fetchUnreadNotifications = useCallback(async () => {
+  const fetchUnreadCount = useCallback(async () => {
+    if (isUnreadCountInitialized) return unreadCount;
+    try {
+      const accessToken = getAccessToken();
+      if (!accessToken) return 0;
+      const response = await axios.get('http://localhost:5000/api/notification/unread-count', {
+        headers: { Authorization: `Bearer ${accessToken}` }
+      });
+      const count = response.data.unreadCount;
+      setUnreadCount(count);
+      setIsUnreadCountInitialized(true);
+      return count;
+    } catch (error) {
+      console.error('Lỗi khi tải số lượng thông báo chưa đọc:', error);
+      return 0;
+    }
+  }, [isUnreadCountInitialized, unreadCount]);
+
+  const fetchUnreadNotifications = useCallback(async (reset = false) => {
+    if (isFetching || (!hasMore && !reset)) return;
+    
+    setIsFetching(true);
+    setLoading(true);
     try {
       const accessToken = getAccessToken();
       if (!accessToken) {
-        
         return [];
       }
-      const response = await axios.get('http://localhost:5000/api/notification/unread', {
+      const currentPage = reset ? 1 : page;
+      const response = await axios.get(`http://localhost:5000/api/notification/unread?page=${currentPage}&limit=${LIMIT}`, {
         headers: { Authorization: `Bearer ${accessToken}` }
       });
-      setNotifications(response.data.notifications);
-      return response.data.notifications;
-    } catch (error) {
-      return [];
-    }
-  }, []);
-
-  const fetchUnreadCount = useCallback(
-    debounce(async () => {
-      try {
-        const accessToken = getAccessToken();
-        if (!accessToken) {
-          return 0;
-        }
-        const response = await axios.get('http://localhost:5000/api/notification/unread-count', {
-          headers: { Authorization: `Bearer ${accessToken}` }
-        });
-        const count = response.data.unreadCount;
-        console.log('Số lượng thông báo chưa đọc:', count);
-        setUnreadCount(count);
-        return count;
-      } catch (error) {
-        return 0;
+      const newNotifications = response.data.notifications;
+      
+      if (reset) {
+        setNotifications(newNotifications);
+      } else {
+        setNotifications(prev => [...prev, ...newNotifications]);
       }
-    }, 1000),
-    []
-  );
+      
+      setHasMore(newNotifications.length === LIMIT && currentPage < response.data.totalPages);
+      setPage(prev => reset ? 2 : prev + 1);
+      return newNotifications;
+    } catch (error) {
+      console.error('Lỗi khi tải thông báo:', error);
+      return [];
+    } finally {
+      setLoading(false);
+      setIsFetching(false);
+    }
+  }, [hasMore, page, isFetching]);
+
+  const initialize = useCallback(async () => {
+    if (isInitialized || initializationInProgress.current) return;
+    
+    initializationInProgress.current = true;
+    setLoading(true);
+    try {
+      await fetchUnreadCount();
+      await fetchUnreadNotifications(true);
+      setIsInitialized(true);
+    } finally {
+      setLoading(false);
+      initializationInProgress.current = false;
+    }
+  }, [fetchUnreadCount, fetchUnreadNotifications]);
+
+  useEffect(() => {
+    initialize();
+  }, [initialize]);
 
   const startNotificationStream = useCallback(() => {
     const accessToken = getAccessToken();
@@ -95,12 +137,11 @@ export const NotificationProvider = ({ children }) => {
               return [data.notification, ...prev];
             }
           });
-          setUnreadCount(prev => {
-            // Kiểm tra xem thông báo mới có đã đọc chưa
-            const isNewUnread = !data.notification.isRead;
-            // Nếu là thông báo mới chưa đọc, tăng số lượng lên 1
-            return isNewUnread ? prev + 1 : prev;
-          });
+          if (data.unreadCount !== undefined) {
+            setUnreadCount(data.unreadCount);
+          } else {
+            setUnreadCount(prev => prev + 1);
+          }
         }
       };
 
@@ -143,17 +184,10 @@ export const NotificationProvider = ({ children }) => {
     };
   }, []);
 
-  useEffect(() => {
-    fetchUnreadNotifications();
-    fetchUnreadCount();
-    const cleanup = startNotificationStream();
-    return cleanup;
-  }, [fetchUnreadNotifications, fetchUnreadCount, startNotificationStream]);
-
   const markNotificationAsRead = async (_id) => {
     if (!_id) {
       console.error('ID thông báo không hợp lệ');
-      return;
+      return null;
     }
     try {
       const accessToken = getAccessToken();
@@ -161,7 +195,6 @@ export const NotificationProvider = ({ children }) => {
         headers: { Authorization: `Bearer ${accessToken}` }
       });
       
-      // Cập nhật số lượng thông báo chưa đọc từ response
       if (response.data && response.data.unreadCount !== undefined) {
         const unreadCount = parseInt(response.data.unreadCount, 10);
         if (!isNaN(unreadCount)) {
@@ -177,7 +210,10 @@ export const NotificationProvider = ({ children }) => {
       setNotifications(prev => prev.map(notif => 
         notif._id === _id ? { ...notif, isRead: true } : notif
       ));
+
+      return response;
     } catch (error) {
+      console.error('Lỗi khi đánh dấu thông báo đã đọc:', error);
       return null;
     }
   };
@@ -185,20 +221,14 @@ export const NotificationProvider = ({ children }) => {
   const markAllNotificationsAsRead = async () => {
     try {
       const accessToken = getAccessToken();
-      const response = await axios.patch(`http://localhost:5000/api/notification/read-all`, {}, {
+      await axios.patch(`http://localhost:5000/api/notification/read-all`, {}, {
         headers: { Authorization: `Bearer ${accessToken}` }
       });
       
-      // Cập nhật số lượng thông báo chưa đọc từ response
-      if (response.data && typeof response.data.unreadCount === 'number') {
-        setUnreadCount(response.data.unreadCount);
-      } else {
-        setUnreadCount(0);
-      }
-      
+      setUnreadCount(0);
       setNotifications(prev => prev.map(notif => ({ ...notif, isRead: true })));
     } catch (error) {
-      return null;
+      console.error('Lỗi khi đánh dấu tất cả thông báo đã đọc:', error);
     }
   };
 
@@ -242,15 +272,22 @@ export const NotificationProvider = ({ children }) => {
   };
 
   const resetNotifications = useCallback(() => {
+    if (fetchingRef.current) return;
     setNotifications([]);
-    setUnreadCount(0);
-  }, []);
+    setPage(1);
+    setHasMore(true);
+    fetchUnreadNotifications(true);
+  }, [fetchUnreadNotifications]);
 
   const value = {
     notifications,
     unreadCount,
     setUnreadCount,
+    loading,
+    hasMore,
     fetchNotifications: fetchUnreadNotifications,
+    initialize,
+    isInitialized,
     markNotificationAsRead,
     markAllNotificationsAsRead,
     deleteNotification,

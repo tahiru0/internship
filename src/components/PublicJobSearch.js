@@ -5,7 +5,7 @@ import axiosInstance from '../utils/axiosInstance';
 import styled from 'styled-components';
 import { useNavigate } from 'react-router-dom';
 import { useMediaQuery } from 'react-responsive';
-import NoProjectsFound from './utils/NoProjectsFound';
+import NoProjectsFound from '../layout/NoProjectsFound';
 import { debounce } from 'lodash';
 
 const { Header, Content } = Layout;

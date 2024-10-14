@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
-import { Menu, List, Typography, Button, Badge, Avatar, Space, Empty } from 'antd';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
+import { Menu, List, Typography, Button, Badge, Space, Empty, Spin } from 'antd';
 import { useNotification } from '../context/NotificationContext';
 import { 
     MdCheckCircle, 
-    MdFolder, 
+    MdWork,
     MdSettings, 
     MdPerson,
     MdNotifications,
@@ -18,44 +18,68 @@ const { Text } = Typography;
 moment.locale('vi');  // Sử dụng tiếng Việt
 
 const NotificationMenu = ({ isMobile, onClose }) => {
+    const [isMenuOpened, setIsMenuOpened] = useState(false);
     const [expandedNotification, setExpandedNotification] = useState(null);
     const { 
         notifications, 
         markNotificationAsRead, 
         markAllNotificationsAsRead, 
         unreadCount,
-        setUnreadCount
+        setUnreadCount,
+        loading,
+        hasMore,
+        fetchNotifications,
+        initialize,
+        isInitialized,
     } = useNotification();
+    const scrollTimeoutRef = useRef(null);
+    const menuRef = useRef(null);
+    const [currentPage, setCurrentPage] = useState(1);
 
-    if (!notifications) {
-        return <div>Đang tải thông báo...</div>;
-    }
+    useEffect(() => {
+        if (!isInitialized && !loading) {
+            initialize();
+        }
+    }, [isInitialized, initialize, loading]);
+
+    const handleScroll = useCallback((event) => {
+        if (scrollTimeoutRef.current) {
+            clearTimeout(scrollTimeoutRef.current);
+        }
+
+        scrollTimeoutRef.current = setTimeout(() => {
+            const target = event.target;
+            const { scrollTop, clientHeight, scrollHeight } = target;
+            if (scrollHeight - scrollTop <= clientHeight + 50 && !loading && hasMore) {
+                fetchNotifications();
+                setCurrentPage(prevPage => prevPage + 1);
+            }
+        }, 200);
+    }, [loading, hasMore, fetchNotifications]);
 
     const handleNotificationClick = async (notification) => {
         if (!notification.isRead) {
             await markNotificationAsRead(notification._id);
-            setUnreadCount(prev => Math.max((prev || 0) - 1, 0));
         }
         setExpandedNotification(expandedNotification === notification._id ? null : notification._id);
     };
 
     const handleMarkAllAsRead = async () => {
         await markAllNotificationsAsRead();
-        setUnreadCount(0);
     };
 
     const getNotificationIcon = (type) => {
         switch (type) {
             case 'task':
-                return { icon: MdCheckCircle, color: '#52c41a' };
+                return { icon: MdCheckCircle, color: '#52c41a', label: 'Nhiệm vụ' };
             case 'project':
-                return { icon: MdFolder, color: '#1890ff' };
+                return { icon: MdWork, color: '#1890ff', label: 'Dự án' };
             case 'system':
-                return { icon: MdSettings, color: '#faad14' };
+                return { icon: MdSettings, color: '#faad14', label: 'Hệ thống' };
             case 'account':
-                return { icon: MdPerson, color: '#722ed1' };
+                return { icon: MdPerson, color: '#722ed1', label: 'Tài khoản' };
             default:
-                return { icon: MdNotifications, color: '#f5222d' };
+                return { icon: MdNotifications, color: '#f5222d', label: 'Thông báo' };
         }
     };
 
@@ -88,7 +112,11 @@ const NotificationMenu = ({ isMobile, onClose }) => {
     };
 
     return (
-        <Menu style={menuStyle}>
+        <Menu 
+            style={menuStyle} 
+            onScroll={handleScroll} 
+            ref={menuRef}
+        >
             <Menu.Item key="header" disabled style={{ position: 'sticky', top: 0, zIndex: 1, backgroundColor: '#fff' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <Text strong>Thông báo</Text>
@@ -136,7 +164,7 @@ const NotificationMenu = ({ isMobile, onClose }) => {
                                 }
                                 title={
                                     <Space style={{ width: '100%', justifyContent: 'space-between' }}>
-                                        <Text strong={!item.isRead}>{item.type}</Text>
+                                        <Text strong={!item.isRead}>{getNotificationIcon(item.type).label}</Text>
                                         <Text type="secondary" style={{ fontSize: '12px' }}>{getRelativeTime(item.createdAt)}</Text>
                                     </Space>
                                 }
@@ -153,6 +181,10 @@ const NotificationMenu = ({ isMobile, onClose }) => {
                     );
                 }}
             />
+            {loading && <Spin />}
+            {!hasMore && notifications.length > 0 && currentPage > 1 && (
+                <div style={{ textAlign: 'center', padding: '10px' }}>Không còn thông báo</div>
+            )}
         </Menu>
     );
 };

@@ -2,13 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { Calendar as BigCalendar, momentLocalizer } from 'react-big-calendar';
 import moment from 'moment';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
-import { Modal, Spin, Empty, message, Card, Row, Col, Typography, Tag, Space, Avatar, Button, Tabs, List } from 'antd';
-import { UserOutlined, ProjectOutlined, ClockCircleOutlined, CheckCircleOutlined } from '@ant-design/icons';
+import { Modal, Spin, Empty, message, Card, Row, Col, Typography, Tag, Space, Avatar, Button, Tabs, List, Form, Input, Upload, Radio, Divider } from 'antd';
+import { UserOutlined, ProjectOutlined, ClockCircleOutlined, CheckCircleOutlined, UploadOutlined } from '@ant-design/icons';
 import axios from 'axios';
 import styled from 'styled-components';
+import MultipleChoice from './task/MultipleChoice';
+import Cookies from 'js-cookie';
 
 const { Title, Text } = Typography;
 const { TabPane } = Tabs;
+const { TextArea } = Input;
 
 const PageContainer = styled.div`
   padding: 24px;
@@ -39,6 +42,11 @@ const Internships = () => {
   const [loading, setLoading] = useState(true);
   const [selectedTask, setSelectedTask] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
+  const [taskModalVisible, setTaskModalVisible] = useState(false);
+  const [currentTask, setCurrentTask] = useState(null);
+  const [taskAnswer, setTaskAnswer] = useState('');
+  const [selectedOptions, setSelectedOptions] = useState([]);
+  const [fileList, setFileList] = useState([]);
 
   useEffect(() => {
     fetchCurrentProject();
@@ -98,9 +106,104 @@ const Internships = () => {
     resource: task,
   }));
 
-  const showTaskDetails = (task) => {
-    setSelectedTask(task);
-    setModalVisible(true);
+  const showTaskDetails = async (task) => {
+    await fetchTaskDetails(task._id);
+    setTaskModalVisible(true);
+  };
+
+  const fetchTaskDetails = async (taskId) => {
+    try {
+      const response = await axios.get(`http://localhost:5000/api/student/tasks/${taskId}`);
+      setCurrentTask(response.data);
+    } catch (error) {
+      message.error('Có lỗi xảy ra khi tải thông tin nhiệm vụ.');
+    }
+  };
+
+  const handleTaskSubmit = async () => {
+    if (!currentTask || !currentTask._id) {
+      message.error('Không thể xác định nhiệm vụ hiện tại');
+      return;
+    }
+
+    try {
+      let data;
+      if (currentTask.taskType === 'multipleChoice') {
+        const unansweredIndex = selectedOptions.findIndex(option => option === null || option === undefined);
+        if (unansweredIndex !== -1) {
+          message.error('Vui lòng trả lời tất cả các câu hỏi trước khi nộp bài.');
+          scrollToUnansweredQuestion(unansweredIndex);
+          return;
+        }
+        data = { answer: selectedOptions };
+      } else if (currentTask.taskType === 'fileUpload') {
+        const formData = new FormData();
+        fileList.forEach(file => {
+          formData.append('file', file.originFileObj);
+        });
+        data = formData;
+      } else {
+        data = { answer: taskAnswer };
+      }
+
+      const accessToken = Cookies.get('accessToken');
+      await axios.post(`http://localhost:5000/api/tasks/${currentTask._id}/submit`, data, {
+        headers: { 
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': currentTask.taskType === 'fileUpload' ? 'multipart/form-data' : 'application/json'
+        }
+      });
+      message.success('Đã nộp bài làm thành công');
+      setTaskModalVisible(false);
+      fetchTasks(); // Cập nhật lại danh sách nhiệm vụ
+    } catch (error) {
+      message.error('Có lỗi xảy ra khi nộp bài làm.');
+    }
+  };
+
+  const renderTaskForm = () => {
+    if (!currentTask) return null;
+
+    switch (currentTask.taskType) {
+      case 'multipleChoice':
+        return (
+          <MultipleChoice
+            questions={currentTask.questions}
+            selectedOptions={selectedOptions}
+            setSelectedOptions={setSelectedOptions}
+            taskName={currentTask.name}
+            taskDescription={currentTask.description}
+          />
+        );
+      case 'essay':
+        return (
+          <TextArea
+            rows={4}
+            value={taskAnswer}
+            onChange={(e) => setTaskAnswer(e.target.value)}
+            placeholder="Nhập câu trả lời của bạn"
+          />
+        );
+      case 'fileUpload':
+        return (
+          <Upload
+            fileList={fileList}
+            onChange={({ fileList }) => setFileList(fileList)}
+            beforeUpload={() => false}
+          >
+            <Button icon={<UploadOutlined />}>Chọn file</Button>
+          </Upload>
+        );
+      default:
+        return (
+          <TextArea
+            rows={4}
+            value={taskAnswer}
+            onChange={(e) => setTaskAnswer(e.target.value)}
+            placeholder="Nhập câu trả lời của bạn"
+          />
+        );
+    }
   };
 
   const getStatusColor = (status) => {
@@ -125,8 +228,8 @@ const Internships = () => {
           onSelectEvent={event => showTaskDetails(event.resource)}
         />
       ) : (
-        <Empty 
-          description="Bạn chưa có nhiệm vụ nào" 
+        <Empty
+          description="Bạn chưa có nhiệm vụ nào"
           style={{ background: 'white', padding: '24px', borderRadius: '8px' }}
         />
       )}
@@ -187,6 +290,15 @@ const Internships = () => {
     </>
   );
 
+  const scrollToUnansweredQuestion = (index) => {
+    if (currentTask.taskType === 'multipleChoice') {
+      const questionElement = document.querySelector(`#question-${index}`);
+      if (questionElement) {
+        questionElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+  };
+
   if (loading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
@@ -227,6 +339,28 @@ const Internships = () => {
               <Button onClick={() => updateTaskStatus(selectedTask._id, 'Completed')} type="primary" icon={<CheckCircleOutlined />}>Hoàn thành</Button>
             </Space>
           </Space>
+        )}
+      </Modal>
+
+      <Modal
+        title={<Title level={4}>{currentTask?.name}</Title>}
+        visible={taskModalVisible}
+        onCancel={() => setTaskModalVisible(false)}
+        footer={[
+          <Button key="cancel" onClick={() => setTaskModalVisible(false)}>
+            Hủy
+          </Button>,
+          <Button key="submit" type="primary" onClick={handleTaskSubmit}>
+            Nộp bài
+          </Button>,
+        ]}
+        width={1200}
+        style={{ top: 20 }}
+      >
+        {currentTask && (
+          <>
+            {renderTaskForm()}
+          </>
         )}
       </Modal>
     </PageContainer>

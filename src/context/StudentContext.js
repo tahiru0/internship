@@ -24,6 +24,9 @@ export const StudentProvider = ({ children }) => {
     const reconnectTimeoutRef = useRef(null);
     const [userData, setUserData] = useState(null);
     const [isAuthChecked, setIsAuthChecked] = useState(false);
+    const [isUserDataFetched, setIsUserDataFetched] = useState(false);
+    const [isDataFetched, setIsDataFetched] = useState(false);
+    const isCheckingAuth = useRef(false);
 
     const logout = useCallback(() => {
         Cookies.remove('accessToken');
@@ -92,6 +95,7 @@ export const StudentProvider = ({ children }) => {
     };
 
     const fetchUserData = useCallback(async () => {
+        if (isUserDataFetched) return userData;
         try {
             const accessToken = Cookies.get('accessToken');
             if (!accessToken) {
@@ -102,15 +106,17 @@ export const StudentProvider = ({ children }) => {
                 headers: { Authorization: `Bearer ${accessToken}` }
             });
             setUserData(response.data.student);
+            setIsUserDataFetched(true);
             return response.data.student;
         } catch (error) {
             console.error('Lỗi khi lấy thông tin người dùng:', error);
             return null;
         }
-    }, []);
+    }, [isUserDataFetched, userData]);
 
     const checkAuthStatus = useCallback(async () => {
-        if (isAuthChecked) return; // Nếu đã kiểm tra xác thực rồi thì không cần kiểm tra lại
+        if (isAuthChecked || isUserDataFetched || isCheckingAuth.current) return;
+        isCheckingAuth.current = true;
         setLoading(true);
         try {
             const accessToken = Cookies.get('accessToken');
@@ -118,6 +124,7 @@ export const StudentProvider = ({ children }) => {
                 setUserData(null);
                 setUserRole(null);
                 setIsAuthChecked(true);
+                setIsUserDataFetched(true);
                 setLoading(false);
                 return;
             }
@@ -125,7 +132,8 @@ export const StudentProvider = ({ children }) => {
             const userData = await fetchUserData();
             if (userData) {
                 setUserData(userData);
-                setUserRole('student'); // Hoặc bạn có thể set role cụ thể nếu có
+                setUserRole('student');
+                setIsUserDataFetched(true);
             } else {
                 logout();
             }
@@ -135,8 +143,9 @@ export const StudentProvider = ({ children }) => {
         } finally {
             setIsAuthChecked(true);
             setLoading(false);
+            isCheckingAuth.current = false;
         }
-    }, [fetchUserData, logout, isAuthChecked]);
+    }, [fetchUserData, logout, isAuthChecked, isUserDataFetched]);
 
     useEffect(() => {
         setupAxiosInterceptors();
@@ -175,7 +184,8 @@ export const StudentProvider = ({ children }) => {
         checkAuthStatus,
         fetchStudentProfile,
         fetchUserData,
-        isAuthChecked // Thêm isAuthChecked vào context
+        isAuthChecked,
+        isUserDataFetched
     };
 
     return (

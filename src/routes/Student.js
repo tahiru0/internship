@@ -38,15 +38,15 @@ const isAuthenticated = () => {
 };
 
 function PrivateRoute({ children }) {
-    const { loading, checkAuthStatus, userData, isAuthChecked } = useStudent();
+    const { loading, checkAuthStatus, userData, isAuthChecked, isUserDataFetched } = useStudent();
     const navigate = useNavigate();
     const location = useLocation();
 
     useEffect(() => {
-        if (!isAuthChecked) {
+        if (!isAuthChecked && !isUserDataFetched) {
             checkAuthStatus();
         }
-    }, [checkAuthStatus, isAuthChecked]);
+    }, [checkAuthStatus, isAuthChecked, isUserDataFetched]);
 
     useEffect(() => {
         if (isAuthChecked && !userData) {

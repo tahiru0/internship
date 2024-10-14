@@ -2,7 +2,6 @@ import React, { createContext, useContext, useEffect, useState, useCallback, use
 import { useNavigate, useLocation } from 'react-router-dom';
 import Cookies from 'js-cookie';
 import axios from 'axios';
-import { EventSourcePolyfill } from 'event-source-polyfill';
 import { debounce } from 'lodash';
 
 const CompanyContext = createContext();
@@ -18,12 +17,8 @@ export const CompanyProvider = ({ children }) => {
     const [refreshAttempts, setRefreshAttempts] = useState(0);
     const navigate = useNavigate();
     const location = useLocation();
-    const [notifications, setNotifications] = useState([]);
-    const [unreadCount, setUnreadCount] = useState(0);
-    const eventSourceRef = useRef(null);
-    const reconnectTimeoutRef = useRef(null);
-    const checkAuthStatusRef = useRef(null);
     const [isAuthChecked, setIsAuthChecked] = useState(false);
+    const checkAuthStatusRef = useRef(null);
 
     const logout = useCallback(() => {
         Cookies.remove('accessToken');
@@ -31,7 +26,7 @@ export const CompanyProvider = ({ children }) => {
         setCompanyData(null);
         setUserRole(null);
         setRefreshAttempts(0);
-        setIsAuthChecked(false); // Reset trạng thái kiểm tra xác thực
+        setIsAuthChecked(false);
         navigate('/company/login');
     }, [navigate]);
 
@@ -90,7 +85,8 @@ export const CompanyProvider = ({ children }) => {
     }, [refreshToken, logout]);
 
     const checkAuthStatus = useCallback(async () => {
-        if (isAuthChecked) return; // Nếu đã kiểm tra xác thực rồi thì không cần kiểm tra lại
+        if (isAuthChecked || checkAuthStatusRef.current) return;
+        checkAuthStatusRef.current = true;
         setLoading(true);
         try {
             let accessToken = Cookies.get('accessToken');
@@ -99,6 +95,7 @@ export const CompanyProvider = ({ children }) => {
                 setUserRole(null);
                 setIsAuthChecked(true);
                 setLoading(false);
+                checkAuthStatusRef.current = false;
                 return;
             }
             
@@ -132,6 +129,7 @@ export const CompanyProvider = ({ children }) => {
         } finally {
             setIsAuthChecked(true);
             setLoading(false);
+            checkAuthStatusRef.current = false;
         }
     }, [logout, refreshAttempts, refreshToken, isAuthChecked]);
 
@@ -140,13 +138,14 @@ export const CompanyProvider = ({ children }) => {
         if (
             location.pathname !== '/company/forgot-password' &&
             !location.pathname.startsWith('/company/forgot-password') &&
-            !companyData
+            !companyData && 
+            !isAuthChecked
         ) {
             checkAuthStatus();
         } else {
             setLoading(false);
         }
-    }, [setupAxiosInterceptors, checkAuthStatus, location.pathname, companyData]);
+    }, [setupAxiosInterceptors, checkAuthStatus, location.pathname, companyData, isAuthChecked]);
 
     const fetchAccounts = useCallback(async (params) => {
         setLoading(true);
@@ -172,7 +171,7 @@ export const CompanyProvider = ({ children }) => {
         logout,
         checkAuthStatus,
         fetchAccounts,
-        isAuthChecked, // Thêm isAuthChecked vào context
+        isAuthChecked,
     };
     
     return (

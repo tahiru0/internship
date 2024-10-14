@@ -1,12 +1,24 @@
 import React, { memo, useState, useEffect, useCallback } from 'react';
-import { Card, Button, Descriptions, Tag, Switch, Divider, Table, Spin, Avatar, Tooltip, Modal, DatePicker, InputNumber, message, Form, Select, Input, Dropdown, Menu, Alert, Checkbox, Rate, Space, Progress, Timeline, Comment, Row, Col, Empty, List, Typography, Popconfirm } from 'antd';
-import { PlusOutlined, UserOutlined, FilePdfOutlined, InfoCircleOutlined,DownloadOutlined, StarOutlined, ClockCircleOutlined, CheckCircleOutlined, ExclamationCircleOutlined, SyncOutlined, MailOutlined, PhoneOutlined, IdcardOutlined, CalendarOutlined, ManOutlined, BankOutlined, ProjectOutlined, UnlockOutlined, LockOutlined, TeamOutlined, BulbOutlined, UserAddOutlined, UnorderedListOutlined, ToolOutlined, DeleteOutlined } from '@ant-design/icons';
+import { Card, Button, Descriptions, Tag, Switch, Divider, Table, Spin, Avatar, Tooltip, Modal, DatePicker, InputNumber, message, Form, Select, Input, Dropdown, Menu, Alert, Checkbox, Rate, Space, Progress, Timeline, Comment, Row, Col, Empty, List, Typography, Popconfirm, Upload } from 'antd';
+import { PlusOutlined, UserOutlined, SearchOutlined, InfoCircleOutlined, DownloadOutlined, StarOutlined, ClockCircleOutlined, CheckCircleOutlined, ExclamationCircleOutlined, SyncOutlined, MailOutlined, PhoneOutlined, IdcardOutlined, CalendarOutlined, ManOutlined, BankOutlined, ProjectOutlined, UnlockOutlined, LockOutlined, TeamOutlined, BulbOutlined, UserAddOutlined, UnorderedListOutlined, ToolOutlined, DeleteOutlined, InboxOutlined, EyeOutlined } from '@ant-design/icons';
 import moment from 'moment';
 import axios from 'axios';
 import Cookies from 'js-cookie';
+import CreateTaskModal from './project/CreateTaskModal';
+import TaskDetailModal from './project/TaskDetailModal';
+import StudentDetailModal from './project/StudentDetailModal';
+import RemoveStudentModal from './project/RemoveStudentModal';
+import ApplicantsModal from './project/ApplicantsModal';
+import MembersListModal from './project/MembersListModal';
+import RecruitingModal from './project/RecruitingModal';
+import ConfirmStatusChangeModal from './project/ConfirmStatusChangeModal';
+import RatingModal from './project/RatingModal';
+import ConfirmCloseRecruitingModal from './project/ConfirmCloseRecruitingModal';
+import { ModalProvider, useModal } from '../../../context/ModalContext';
 
 const { TextArea } = Input;
 const { Option } = Select;
+const { RangePicker } = DatePicker;
 
 const ProjectDetail = memo(({ project, loading, onBack, isMobile, fetchProjects }) => {
   const [applicationEnd, setApplicationEnd] = useState(null);
@@ -36,6 +48,21 @@ const ProjectDetail = memo(({ project, loading, onBack, isMobile, fetchProjects 
   const [studentToRemove, setStudentToRemove] = useState(null);
   const [removeReason, setRemoveReason] = useState('');
   const [membersModalVisible, setMembersModalVisible] = useState(false);
+  const [modalZIndex, setModalZIndex] = useState(1000);
+  const [highestZIndex, setHighestZIndex] = useState(1000);
+  const [taskDetail, setTaskDetail] = useState(null);
+  const [taskDetailLoading, setTaskDetailLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+  const [total, setTotal] = useState(0);
+  const [filterName, setFilterName] = useState('');
+  const [filterAssignedTo, setFilterAssignedTo] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
+  const [filterDeadlineStart, setFilterDeadlineStart] = useState(null);
+  const [filterDeadlineEnd, setFilterDeadlineEnd] = useState(null);
+  const [sortBy, setSortBy] = useState('createdAt');
+  const [sortOrder, setSortOrder] = useState('desc');
+  
 
   useEffect(() => {
     if (project) {
@@ -50,22 +77,45 @@ const ProjectDetail = memo(({ project, loading, onBack, isMobile, fetchProjects 
     }
   }, [project]);
 
-  const fetchTasks = async () => {
-    if (!project || !project.id) return; // Kiểm tra nếu project hoặc project.id là null hoặc undefined
+  const fetchTasks = async (page = 1, pageSize = 10, filters = {}, sorter = {}) => {
+    if (!project || !project.id) {
+      console.error('Project ID is undefined');
+      message.error('Không thể tải danh sách nhiệm vụ. ID dự án không hợp lệ.');
+      return;
+    }
     setTaskLoading(true);
     try {
       const accessToken = Cookies.get('accessToken');
-      const response = await axios.get(`http://localhost:5000/api/mentor/projects/${project.id}/tasks`, {
-        headers: { Authorization: `Bearer ${accessToken}` }
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: pageSize.toString(),
       });
-      setTasks(response.data);
+
+      // Thêm các bộ lọc
+      if (filterName) params.append('name', filterName);
+      if (filterAssignedTo) params.append('assignedTo', filterAssignedTo);
+      if (filterStatus) params.append('status', filterStatus);
+      if (filterDeadlineStart) params.append('deadlineStart', filterDeadlineStart);
+      if (filterDeadlineEnd) params.append('deadlineEnd', filterDeadlineEnd);
+
+      // Thêm sắp xếp
+      if (sorter.field) params.append('sortBy', sorter.field);
+      if (sorter.order) params.append('order', sorter.order === 'ascend' ? 'asc' : 'desc');
+
+      const response = await axios.get(`http://localhost:5000/api/mentor/projects/${project.id}/tasks`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        params: params
+      });
+
+      setTasks(response.data.tasks);
+      setTotal(response.data.total);
+      setPage(response.data.page);
+      setLimit(response.data.limit);
     } catch (error) {
-      const errorMessage = error.response?.data?.message || 'Không thể lấy danh sách task';
-      console.error('Lỗi khi lấy danh sách task:', error);
-      message.error(errorMessage);
-    } finally {
-      setTaskLoading(false);
+      console.error('Error fetching tasks:', error);
+      message.error('Không thể tải danh sách nhiệm vụ');
     }
+    setTaskLoading(false);
   };
 
   const fetchStudentDetail = async (studentId) => {
@@ -110,15 +160,6 @@ const ProjectDetail = memo(({ project, loading, onBack, isMobile, fetchProjects 
                 onClick={() => fetchStudentDetail(memberId)}
                 style={{ cursor: 'pointer' }}
               />
-              <Button
-                type="link"
-                icon={<DeleteOutlined />}
-                onClick={() => {
-                  setStudentToRemove(member);
-                  setRemoveStudentModalVisible(true);
-                }}
-                style={{ marginLeft: 8 }}
-              />
             </Tooltip>
           );
         })}
@@ -129,8 +170,11 @@ const ProjectDetail = memo(({ project, loading, onBack, isMobile, fetchProjects 
   const statusMapping = {
     'Pending': 'Đang chờ',
     'In Progress': 'Đang tiến hành',
-    'Completed': 'Hoàn thành',
-    'Overdue': 'Quá hạn'
+    'Assigned': 'Đã giao',
+    'Submitted': 'Đã nộp',
+    'Evaluated': 'Đã đánh giá',
+    'Overdue': 'Quá hạn',
+    'Completed': 'Hoàn thành'
   };
 
   const getStatusColor = (status) => {
@@ -139,10 +183,16 @@ const ProjectDetail = memo(({ project, loading, onBack, isMobile, fetchProjects 
         return 'orange';
       case 'In Progress':
         return 'blue';
-      case 'Completed':
-        return 'green';
+      case 'Assigned':
+        return 'blue';
+      case 'Submitted':
+        return 'cyan';
+      case 'Evaluated':
+        return 'purple';
       case 'Overdue':
         return 'red';
+      case 'Completed':
+        return 'green';
       default:
         return 'default';
     }
@@ -243,63 +293,123 @@ const ProjectDetail = memo(({ project, loading, onBack, isMobile, fetchProjects 
     }
   };
 
-  const updatedTaskColumns = [
+  const handleViewTaskDetail = (task) => {
+    setViewingTask(task);
+    fetchTaskDetail(task._id);
+  };
+
+  const handleViewStudentDetail = (studentId) => {
+    if (studentId) {
+      fetchStudentDetail(studentId);
+    } else {
+      message.warning('Không thể xem chi tiết. ID sinh viên không hợp lệ.');
+    }
+  };
+
+  const columns = [
     {
-      title: 'Tên task',
+      title: 'Tên nhiệm vụ',
       dataIndex: 'name',
       key: 'name',
+      sorter: true,
+      filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }) => (
+        <div style={{ padding: 8 }}>
+          <Input
+            placeholder="Tìm kiếm tên nhiệm vụ"
+            value={selectedKeys[0]}
+            onChange={e => setSelectedKeys(e.target.value ? [e.target.value] : [])}
+            onPressEnter={() => confirm()}
+            style={{ width: 188, marginBottom: 8, display: 'block' }}
+          />
+          <Button
+            type="primary"
+            onClick={() => confirm()}
+            icon={<SearchOutlined />}
+            size="small"
+            style={{ width: 90, marginRight: 8 }}
+          >
+            Tìm
+          </Button>
+          <Button onClick={() => clearFilters()} size="small" style={{ width: 90 }}>
+            Đặt lại
+          </Button>
+        </div>
+      ),
+      onFilter: (value, record) => record.name.toLowerCase().includes(value.toLowerCase()),
     },
     {
       title: 'Người được giao',
-      dataIndex: 'assignedTo',
+      dataIndex: ['assignedTo', 'name'],
       key: 'assignedTo',
-      render: (assignedTo) => renderMembers([assignedTo]),
+      filters: project && project.members ? project.members.map(member => ({ text: member.name, value: member._id })) : [],
+      filteredValue: filterAssignedTo ? [filterAssignedTo] : null,
+      render: (name, record) => (
+        <Button
+          type="link"
+          onClick={() => handleViewStudentDetail(record.assignedTo._id)}
+        >
+          {name}
+        </Button>
+      ),
     },
     {
       title: 'Trạng thái',
       dataIndex: 'status',
       key: 'status',
-      render: (status, record) => (
-        <Dropdown
-          overlay={
-            <Menu onClick={({ key }) => handleStatusChange(record._id, key, status, record.name)}>
-              {status === 'In Progress' && <Menu.Item key="Completed">Hoàn thành</Menu.Item>}
-            </Menu>
-          }
-        >
-          <Tag color={getStatusColor(status)}>{statusMapping[status] || status}</Tag>
-        </Dropdown>
+      filters: Object.keys(statusMapping).map(status => ({ text: statusMapping[status], value: status })),
+      onFilter: (value, record) => record.status === value,
+      render: (status) => (
+        <Tag color={getStatusColor(status)}>{statusMapping[status] || status}</Tag>
       ),
     },
     {
       title: 'Hạn chót',
       dataIndex: 'deadline',
       key: 'deadline',
-      render: (deadline) => (
-        <Tooltip title={`Hạn chót: ${moment(deadline).format('DD/MM/YYYY HH:mm')}`}>
-          <span>{calculateDeadlineCountdown(deadline)}</span>
-        </Tooltip>
+      sorter: true,
+      render: (deadline) => moment(deadline).format('DD/MM/YYYY HH:mm'),
+      filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }) => (
+        <div style={{ padding: 8 }}>
+          <RangePicker
+            value={selectedKeys[0]}
+            onChange={(dates) => {
+              setSelectedKeys(dates ? [dates] : []);
+            }}
+            onOk={() => confirm()}
+            style={{ marginBottom: 8, display: 'block' }}
+          />
+          <Button
+            type="primary"
+            onClick={() => confirm()}
+            icon={<SearchOutlined />}
+            size="small"
+            style={{ width: 90, marginRight: 8 }}
+          >
+            Lọc
+          </Button>
+          <Button onClick={clearFilters} size="small" style={{ width: 90 }}>
+            Đặt lại
+          </Button>
+        </div>
       ),
+      onFilter: (value, record) => {
+        if (!value || value.length !== 2) return true;
+        const deadlineDate = moment(record.deadline);
+        return deadlineDate.isBetween(value[0], value[1], null, '[]');
+      },
     },
     {
-      title: 'Đánh giá',
-      dataIndex: 'rating',
-      key: 'rating',
-      render: (rating) => rating ? (
-        <Tooltip title={`Điểm: ${rating}/10`}>
-          <span style={{ color: getRatingColor(rating) }}>{rating}/10</span>
-        </Tooltip>
-      ) : 'Chưa đánh giá',
-    },
-    {
-      title: '',
+      title: 'Hành động',
       key: 'action',
       render: (_, record) => (
-        <Space>
-          <Button icon={<InfoCircleOutlined />} onClick={() => setViewingTask(record)} />
-          {record.status === 'Completed' && (
-            <Button icon={<StarOutlined />} onClick={() => handleRateTask(record)} />
-          )}
+        <Space size="middle">
+          <Button
+            type="primary"
+            icon={<EyeOutlined />}
+            onClick={() => handleViewTaskDetail(record)}
+          >
+            Chi tiết
+          </Button>
         </Space>
       ),
     },
@@ -382,20 +492,43 @@ const ProjectDetail = memo(({ project, loading, onBack, isMobile, fetchProjects 
     try {
       const values = await taskForm.validateFields();
       const accessToken = Cookies.get('accessToken');
-      const response = await axios.post(`http://localhost:5000/api/mentor/projects/${project.id}/tasks`, {
-        ...values,
-        deadline: values.deadline.toISOString()
-      }, {
-        headers: { Authorization: `Bearer ${accessToken}` }
+
+      let formData = new FormData();
+      Object.keys(values).forEach(key => {
+        if (key === 'deadline') {
+          formData.append(key, values[key].toISOString());
+        } else if (key === 'file') {
+          if (values[key] && values[key].length > 0) {
+            formData.append(key, values[key][0].originFileObj);
+          }
+        } else if (key === 'questionsText' && values.taskType === 'multipleChoice') {
+          const questions = parseQuestionsText(values[key]);
+          formData.append('questions', JSON.stringify(questions));
+        } else if (key === 'fileRequirements' && values.taskType === 'fileUpload') {
+          formData.append(key, JSON.stringify(values[key]));
+        } else {
+          formData.append(key, values[key]);
+        }
       });
+
+      const response = await axios.post(
+        `http://localhost:5000/api/mentor/projects/${project.id}/tasks`,
+        formData,
+        {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'multipart/form-data'
+          }
+        }
+      );
 
       message.success(response.data.message || 'Đã thêm task mới');
       setTaskModalVisible(false);
       taskForm.resetFields();
       fetchTasks();
     } catch (error) {
-      const errorMessage = error.response?.data?.message || 'Không thể thêm task';
-      console.error('Lỗi khi thêm task:', error);
+      const errorMessage = error.response?.data?.message || 'Không thể thêm task mới';
+      console.error('Lỗi khi thêm task mới:', error);
       message.error(errorMessage);
     }
   };
@@ -482,6 +615,136 @@ const ProjectDetail = memo(({ project, loading, onBack, isMobile, fetchProjects 
     }
   };
 
+  const getNextZIndex = useCallback(() => {
+    setHighestZIndex(prevZIndex => prevZIndex + 1);
+    return highestZIndex + 1;
+  }, [highestZIndex]);
+
+  const fetchTaskDetail = async (taskId) => {
+    setTaskDetailLoading(true);
+    try {
+      const accessToken = Cookies.get('accessToken');
+      const response = await axios.get(`http://localhost:5000/api/mentor/tasks/${taskId}`, {
+        headers: { Authorization: `Bearer ${accessToken}` }
+      });
+      setTaskDetail(response.data);
+      setViewingTask(response.data);  // Cập nhật viewingTask với dữ liệu mới
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || 'Không thể lấy chi tiết task';
+      console.error('Lỗi khi lấy chi tiết task:', error);
+      message.error(errorMessage);
+    } finally {
+      setTaskDetailLoading(false);
+    }
+  };
+
+  const handleTableChange = (pagination, filters, sorter) => {
+    fetchTasks(pagination.current, pagination.pageSize, filters, sorter);
+  };
+
+  const parseQuestionsText = (text) => {
+    const questions = [];
+    const lines = text.split('\n');
+    let currentQuestion = null;
+
+    for (let line of lines) {
+      line = line.trim();
+      if (line === '') {
+        if (currentQuestion) {
+          questions.push(currentQuestion);
+          currentQuestion = null;
+        }
+      } else if (!currentQuestion) {
+        currentQuestion = { question: line, options: [], correctAnswer: null };
+      } else if (line.match(/^[A-Z]\./)) {
+        currentQuestion.options.push(line.substring(2).trim());
+      } else if (line.startsWith('Đáp án:')) {
+        const answer = line.substring(7).trim();
+        currentQuestion.correctAnswer = answer.charCodeAt(0) - 'A'.charCodeAt(0);
+      }
+    }
+
+    if (currentQuestion) {
+      questions.push(currentQuestion);
+    }
+
+    return questions;
+  };
+
+  const FilterSection = () => (
+    <Space wrap>
+      <Input
+        placeholder="Tên nhiệm vụ"
+        value={filterName}
+        onChange={(e) => {
+          setFilterName(e.target.value);
+          fetchTasks(1, limit);
+        }}
+        style={{ width: 200 }}
+      />
+      <Select
+        style={{ width: 200 }}
+        placeholder="Người được giao"
+        value={filterAssignedTo}
+        onChange={(value) => {
+          setFilterAssignedTo(value);
+          fetchTasks(1, limit);
+        }}
+      >
+        <Option value="">Tất cả</Option>
+        {project && project.members && project.members.map(member => (
+          <Option key={member.id} value={member.id}>{member.name}</Option>
+        ))}
+      </Select>
+      <Select
+        style={{ width: 200 }}
+        placeholder="Trạng thái"
+        value={filterStatus}
+        onChange={(value) => {
+          setFilterStatus(value);
+          fetchTasks(1, limit);
+        }}
+      >
+        <Option value="">Tất cả</Option>
+        {Object.keys(statusMapping).map(status => (
+          <Option key={status} value={status}>{statusMapping[status]}</Option>
+        ))}
+      </Select>
+      <RangePicker
+        onChange={(dates) => {
+          setFilterDeadlineStart(dates ? dates[0].format('YYYY-MM-DD') : null);
+          setFilterDeadlineEnd(dates ? dates[1].format('YYYY-MM-DD') : null);
+          fetchTasks(1, limit);
+        }}
+      />
+    </Space>
+  );
+
+  const SortSection = () => (
+    <Space>
+      <Select
+        style={{ width: 200 }}
+        value={sortBy}
+        onChange={setSortBy}
+      >
+        <Option value="createdAt">Ngày tạo</Option>
+        <Option value="deadline">Hạn chót</Option>
+        <Option value="name">Tên nhiệm vụ</Option>
+      </Select>
+      <Select
+        style={{ width: 120 }}
+        value={sortOrder}
+        onChange={setSortOrder}
+      >
+        <Option value="asc">Tăng dần</Option>
+        <Option value="desc">Giảm dần</Option>
+      </Select>
+      <Button type="primary" onClick={() => fetchTasks(1, limit)}>
+        Sắp xếp
+      </Button>
+    </Space>
+  );
+
   if (loading) {
     return <Spin size="large" />;
   }
@@ -491,485 +754,248 @@ const ProjectDetail = memo(({ project, loading, onBack, isMobile, fetchProjects 
   }
 
   return (
-    <Card
-      title={
-        <Space size="large">
-          <Typography.Title level={4} style={{ margin: 0 }}>
-            <ProjectOutlined /> {project.title}
-          </Typography.Title>
-          <Tag color={project.status === 'Open' ? 'green' : 'red'}>
-            {project.status === 'Open' ? <UnlockOutlined /> : <LockOutlined />} {project.status}
-          </Tag>
-        </Space>
-      }
-      extra={
-        <Space>
-          <Button type="primary" icon={<PlusOutlined />} onClick={handleAddTask}>
-            Thêm Task
-          </Button>
-          <Button
-            onClick={() => {
-              setApplicantsModalVisible(true);
-              fetchApplicants();
-            }}
-            icon={<TeamOutlined />}
-          >
-            Ứng viên ({project.applicantsCount})
-          </Button>
-        </Space>
-      }
-    >
-      <Row gutter={[24, 24]}>
-        <Col xs={24} md={12}>
-          <Card title={<><InfoCircleOutlined /> Thông tin dự án</>} size="small">
-            <Descriptions column={1}>
-              <Descriptions.Item label="Mô tả">{project.description}</Descriptions.Item>
-              <Descriptions.Item label="Chuyên ngành">
-                {project.relatedMajors.map(major => (
-                  <Tag key={major.id} color="blue">{major.name}</Tag>
-                ))}
-              </Descriptions.Item>
-              <Descriptions.Item label="Cập nhật">
-                <ClockCircleOutlined /> {moment(project.updatedAt).fromNow()}
-              </Descriptions.Item>
-              <Descriptions.Item label={<><ToolOutlined /> Kỹ năng yêu cầu</>}>
-                {project.requiredSkills && project.requiredSkills.length > 0 ? (
-                  project.requiredSkills.map(skill => (
-                    <Tag key={skill.id} color="green">{skill.name}</Tag>
-                  ))
-                ) : (
-                  <span>Không có kỹ năng yêu cầu cụ thể</span>
-                )}
-              </Descriptions.Item>
-            </Descriptions>
-          </Card>
-        </Col>
-        <Col xs={24} md={12}>
-          <Card title={<><TeamOutlined /> Thành viên dự án</>} size="small" extra={
-            <Button onClick={() => setMembersModalVisible(true)} icon={<UnorderedListOutlined />}>
-              Xem danh sách
+    <ModalProvider>
+      <Card
+        title={
+          <Space size="large">
+            <Typography.Title level={4} style={{ margin: 0 }}>
+              <ProjectOutlined /> {project.title}
+            </Typography.Title>
+            <Tag color={project.status === 'Open' ? 'green' : 'red'}>
+              {project.status === 'Open' ? <UnlockOutlined /> : <LockOutlined />} {project.status}
+            </Tag>
+          </Space>
+        }
+        extra={
+          <Space>
+            <Button type="primary" icon={<PlusOutlined />} onClick={handleAddTask}>
+              Thêm Task
             </Button>
-          }>
-            <Avatar.Group
-              maxCount={5}
-              maxStyle={{ color: '#f56a00', backgroundColor: '#fde3cf' }}
+            <Button
+              onClick={() => {
+                setApplicantsModalVisible(true);
+                fetchApplicants();
+              }}
+              icon={<TeamOutlined />}
             >
-              {project.members.map(member => (
-                <Tooltip key={member.id} title={member.name}>
-                  <Avatar
-                    src={member.avatar}
-                    icon={<UserOutlined />}
-                    onClick={() => fetchStudentDetail(member.id)}
-                    style={{ cursor: 'pointer' }}
-                  />
-                </Tooltip>
-              ))}
-            </Avatar.Group>
-            {project.members.length === 0 && <Empty description="Chưa có thành viên" />}
-          </Card>
-          <Card
-            title={<><BulbOutlined /> Trạng thái tuyển dụng</>}
-            size="small"
-            style={{ marginTop: '16px' }}
-          >
-            <Space direction="vertical" style={{ width: '100%' }}>
-              <Switch
-                checked={isRecruiting}
-                onChange={handleToggleRecruiting}
-                checkedChildren="Đang tuyển"
-                unCheckedChildren="Ngừng tuyển"
-              />
-              {isRecruiting && (
-                <>
-                  <Typography.Text>
-                    <UserAddOutlined /> Số lượng ứng viên tối đa: {maxApplicants}
-                  </Typography.Text>
-                  <Typography.Text>
-                    <CalendarOutlined /> Hạn nộp đơn: {moment(project.applicationEnd).format('DD/MM/YYYY')}
-                  </Typography.Text>
-                </>
-              )}
-            </Space>
-          </Card>
-        </Col>
-      </Row>
-
-      <Divider orientation="left"><UnorderedListOutlined /> Danh sách Task</Divider>
-      <Table
-        columns={updatedTaskColumns}
-        dataSource={tasks}
-        rowKey="_id"
-        pagination={{ pageSize: 5 }}
-        scroll={{ x: 'max-content' }}
-        loading={taskLoading}
-      />
-
-      <Modal
-        title="Thêm Task mới"
-        visible={taskModalVisible}
-        onOk={handleTaskSubmit}
-        onCancel={() => {
-          setTaskModalVisible(false);
-          taskForm.resetFields();
-        }}
+              Ứng viên ({project.applicantsCount})
+            </Button>
+          </Space>
+        }
       >
-        <Form form={taskForm} layout="vertical">
-          <Form.Item
-            name="name"
-            label="Tên task"
-            rules={[{ required: true, message: 'Vui lòng nhập tên task' }]}
-          >
-            <Input />
-          </Form.Item>
-          <Form.Item
-            name="description"
-            label="Mô tả"
-          >
-            <TextArea rows={4} />
-          </Form.Item>
-          <Form.Item
-            name="deadline"
-            label="Hạn chót"
-            rules={[{ required: true, message: 'Vui lòng chọn hạn chót' }]}
-          >
-            <DatePicker style={{ width: '100%' }} />
-          </Form.Item>
-          <Form.Item
-            name="assignedTo"
-            label="Người được giao"
-            rules={[{ required: true, message: 'Vui lòng chọn người được giao' }]}
-          >
-            <Select>
-              {project?.members.map(member => (
-                <Option key={member.id} value={member.id}>{member.name}</Option>
-              ))}
-            </Select>
-          </Form.Item>
-        </Form>
-      </Modal>
-      <TaskDetailModal
-        task={viewingTask}
-        visible={!!viewingTask}
-        onCancel={() => setViewingTask(null)}
-        getStatusColor={getStatusColor}
-        statusMapping={statusMapping}
-        getRatingColor={getRatingColor}
-      />
-      <Modal
-        title="Bật trạng thái tuyển dụng"
-        visible={recruitingModalVisible}
-        onOk={handleRecruitingSubmit}
-        onCancel={() => setRecruitingModalVisible(false)}
-      >
-        <DatePicker
-          style={{ width: '100%', marginBottom: 16 }}
-          placeholder="Chọn ngày kết thúc tuyển dụng"
-          onChange={(date) => setApplicationEnd(date)}
-        />
-        <InputNumber
-          style={{ width: '100%' }}
-          min={1}
-          placeholder="Số lượng ứng viên tối đa"
-          onChange={(value) => setMaxApplicants(value)}
-        />
-        {recruitingError && (
-          <Alert message={recruitingError} type="error" showIcon style={{ marginTop: 16 }} />
-        )}
-      </Modal>
-      <Modal
-        title="Xác nhận cập nhật trạng thái"
-        visible={confirmModalVisible}
-        onOk={handleConfirmStatusChange}
-        onCancel={() => setConfirmModalVisible(false)}
-      >
-        {taskToUpdate && (
-          <p>Bạn có chắc chắn muốn cập nhật trạng thái của task "{taskToUpdate.taskName}" từ "{statusMapping[taskToUpdate.currentStatus] || taskToUpdate.currentStatus}" sang "{statusMapping[taskToUpdate.newStatus] || taskToUpdate.newStatus}"?</p>
-        )}
-        <Checkbox checked={rememberChoice} onChange={handleRememberChoiceChange}>
-          Ghi nhớ lựa chọn của tôi
-        </Checkbox>
-      </Modal>
-      <Modal
-        title="Đánh giá Task"
-        visible={ratingModalVisible}
-        onOk={handleRatingSubmit}
-        onCancel={() => setRatingModalVisible(false)}
-      >
-        <Form layout="vertical">
-          <Form.Item label="Đánh giá">
-            <Rate
-              allowHalf
-              onChange={(value) => setRating(value)}
-              value={rating / 2}
-            />
-            <span className="ant-rate-text">{rating}/10</span>
-          </Form.Item>
-          <Form.Item label="Bình luận">
-            <TextArea rows={4} onChange={(e) => setComment(e.target.value)} value={comment} />
-          </Form.Item>
-        </Form>
-      </Modal>
-      <Modal
-        title={null}
-        visible={studentModalVisible}
-        onCancel={() => setStudentModalVisible(false)}
-        footer={null}
-        width={800}
-        bodyStyle={{ padding: 0 }}
-      >
-        {selectedStudent && (
-          <div style={{
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            padding: '40px',
-            color: 'white'
-          }}>
-            <Row gutter={[24, 24]} align="middle">
-              <Col span={8}>
-                <Avatar size={200} src={selectedStudent.avatar} icon={<UserOutlined />} />
-              </Col>
-              <Col span={16}>
-                <h1 style={{ fontSize: '2.5em', margin: 0 }}>{selectedStudent.name}</h1>
-                <h2 style={{ fontSize: '1.5em', fontWeight: 'normal', margin: '10px 0' }}>{selectedStudent.major}</h2>
-                <p><MailOutlined /> {selectedStudent.email}</p>
-                <p><PhoneOutlined /> {selectedStudent.phoneNumber}</p>
-                <p><IdcardOutlined /> {selectedStudent.studentId}</p>
-                {selectedStudent.cv && (
-                  <p>
-                    <FilePdfOutlined style={{ marginRight: 8 }} />
-                    <a
-                      href={selectedStudent.cv}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        padding: '4px 15px',
-                        fontSize: '14px',
-                        borderRadius: '2px',
-                        color: '#fff',
-                        backgroundColor: '#1890ff',
-                        border: '1px solid #1890ff',
-                        textDecoration: 'none'
-                      }}
-                    >
-                      <DownloadOutlined style={{ marginRight: '8px' }} />
-                      Tải CV
-                    </a>
-                  </p>
-                )}
-              </Col>
-            </Row>
-          </div>
-        )}
-        {selectedStudent && (
-          <div style={{ padding: '40px' }}>
-            <Row gutter={[24, 24]}>
-              <Col span={12}>
-                <Card title="Thông tin cá nhân" bordered={false}>
-                  <p><CalendarOutlined /> Ngày sinh: {moment(selectedStudent.dateOfBirth).format('DD/MM/YYYY')}</p>
-                  <p><ManOutlined /> Giới tính: {selectedStudent.gender}</p>
-                  <p><BankOutlined /> Trường: {selectedStudent.school.name}</p>
-                </Card>
-              </Col>
-              <Col span={12}>
-                <Card title="Kỹ năng" bordered={false}>
-                  {selectedStudent.skills.length > 0 ? (
-                    selectedStudent.skills.map((skill, index) => (
-                      <Tag key={index} color="blue" style={{ margin: '5px' }}>{skill}</Tag>
+        <Row gutter={[24, 24]}>
+          <Col xs={24} md={12}>
+            <Card title={<><InfoCircleOutlined /> Thông tin dự án</>} size="small">
+              <Descriptions column={1}>
+                <Descriptions.Item label="Mô tả">{project.description}</Descriptions.Item>
+                <Descriptions.Item label="Chuyên ngành">
+                  {project.relatedMajors.map(major => (
+                    <Tag key={major.id} color="blue">{major.name}</Tag>
+                  ))}
+                </Descriptions.Item>
+                <Descriptions.Item label="Cập nhật">
+                  <ClockCircleOutlined /> {moment(project.updatedAt).fromNow()}
+                </Descriptions.Item>
+                <Descriptions.Item label={<><ToolOutlined /> Kỹ năng yêu cầu</>}>
+                  {project.requiredSkills && project.requiredSkills.length > 0 ? (
+                    project.requiredSkills.map(skill => (
+                      <Tag key={skill.id} color="green">{skill.name}</Tag>
                     ))
                   ) : (
-                    <Empty description="Chưa có kỹ năng nào được thêm" />
+                    <span>Không có kỹ năng yêu cầu cụ thể</span>
                   )}
-                </Card>
-              </Col>
-            </Row>
-          </div>
-        )}
-      </Modal>
-      <Modal
-        title="Danh sách ứng viên"
-        visible={applicantsModalVisible}
-        onCancel={() => setApplicantsModalVisible(false)}
-        footer={null}
-        width={800}
-      >
-        <List
+                </Descriptions.Item>
+              </Descriptions>
+            </Card>
+          </Col>
+          <Col xs={24} md={12}>
+            <Card title={<><TeamOutlined /> Thành viên dự án</>} size="small" extra={
+              <Button onClick={() => {
+                setMembersModalVisible(true);
+              }} icon={<UnorderedListOutlined />}>
+                Xem danh sách
+              </Button>
+            }>
+              <Avatar.Group
+                maxCount={5}
+                maxStyle={{ color: '#f56a00', backgroundColor: '#fde3cf' }}
+              >
+                {project.members.map(member => (
+                  <Tooltip key={member.id} title={member.name}>
+                    <Avatar
+                      src={member.avatar}
+                      icon={<UserOutlined />}
+                      onClick={() => fetchStudentDetail(member.id)}
+                      style={{ cursor: 'pointer' }}
+                    />
+                  </Tooltip>
+                ))}
+              </Avatar.Group>
+              {project.members.length === 0 && <Empty description="Chưa có thành viên" />}
+            </Card>
+            <Card
+              title={<><BulbOutlined /> Trạng thái tuyển dụng</>}
+              size="small"
+              style={{ marginTop: '16px' }}
+            >
+              <Space direction="vertical" style={{ width: '100%' }}>
+                <Switch
+                  checked={isRecruiting}
+                  onChange={handleToggleRecruiting}
+                  checkedChildren="Đang tuyển"
+                  unCheckedChildren="Ngừng tuyển"
+                />
+                {isRecruiting && (
+                  <>
+                    <Typography.Text>
+                      <UserAddOutlined /> Số lượng ứng viên tối đa: {maxApplicants}
+                    </Typography.Text>
+                    <Typography.Text>
+                      <CalendarOutlined /> Hạn nộp đơn: {moment(project.applicationEnd).format('DD/MM/YYYY')}
+                    </Typography.Text>
+                  </>
+                )}
+              </Space>
+            </Card>
+          </Col>
+        </Row>
+
+        <Divider orientation="left"><UnorderedListOutlined /> Danh sách Task</Divider>
+        <Table
+          columns={columns}
+          dataSource={tasks}
+          rowKey="_id"
+          pagination={{
+            current: page,
+            pageSize: limit,
+            total: total,
+            showSizeChanger: true,
+            showQuickJumper: true,
+            showTotal: (total, range) => `${range[0]}-${range[1]} của ${total} nhiệm vụ`,
+          }}
+          onChange={(pagination, filters, sorter) => {
+            fetchTasks(pagination.current, pagination.pageSize, filters, sorter);
+          }}
+          loading={taskLoading}
+          scroll={{ x: true }}
+        />
+
+        <CreateTaskModal
+          visible={taskModalVisible}
+          onCancel={() => {
+            setTaskModalVisible(false);
+            taskForm.resetFields();
+          }}
+          onSubmit={handleTaskSubmit}
+          form={taskForm}
+          project={project}
+          zIndex={modalZIndex}
+        />
+
+        <TaskDetailModal
+          visible={!!viewingTask}
+          onCancel={() => {
+            setViewingTask(null);
+            setTaskDetail(null);
+          }}
+          task={taskDetail || viewingTask}
+          loading={taskDetailLoading}
+          getStatusColor={getStatusColor}
+          statusMapping={statusMapping}
+          getRatingColor={getRatingColor}
+          zIndex={modalZIndex}
+        />
+
+        <RecruitingModal
+          visible={recruitingModalVisible}
+          onCancel={() => setRecruitingModalVisible(false)}
+          onSubmit={handleRecruitingSubmit}
+          applicationEnd={applicationEnd}
+          setApplicationEnd={setApplicationEnd}
+          maxApplicants={maxApplicants}
+          setMaxApplicants={setMaxApplicants}
+          recruitingError={recruitingError}
+          zIndex={modalZIndex}
+        />
+
+        <ConfirmStatusChangeModal
+          visible={confirmModalVisible}
+          onCancel={() => setConfirmModalVisible(false)}
+          onOk={handleConfirmStatusChange}
+          taskToUpdate={taskToUpdate}
+          statusMapping={statusMapping}
+          rememberChoice={rememberChoice}
+          onRememberChoiceChange={handleRememberChoiceChange}
+          zIndex={modalZIndex}
+        />
+
+        <RatingModal
+          visible={ratingModalVisible}
+          onCancel={() => setRatingModalVisible(false)}
+          onSubmit={handleRatingSubmit}
+          rating={rating}
+          setRating={setRating}
+          comment={comment}
+          setComment={setComment}
+          zIndex={modalZIndex}
+        />
+
+        <StudentDetailModal
+          visible={studentModalVisible}
+          onCancel={() => setStudentModalVisible(false)}
+          student={selectedStudent}
+          zIndex={modalZIndex}
+        />
+
+        <ApplicantsModal
+          visible={applicantsModalVisible}
+          onCancel={() => setApplicantsModalVisible(false)}
+          applicants={applicants}
           loading={applicantsLoading}
-          itemLayout="horizontal"
-          dataSource={applicants}
-          renderItem={applicant => (
-            <List.Item
-              actions={[
-                <Button type="primary" onClick={() => handleApplicantAction(applicant.id, 'accept')}>Chấp nhận</Button>,
-                <Button danger onClick={() => handleApplicantAction(applicant.id, 'reject')}>Từ chối</Button>
-              ]}
-            >
-              <List.Item.Meta
-                avatar={<Avatar src={applicant.avatar} icon={<UserOutlined />} />}
-                title={<a onClick={() => fetchStudentDetail(applicant.id)}>{applicant.name}</a>}
-                description={
-                  <Space direction="vertical">
-                    <span>{applicant.major} - {applicant.school.name}</span>
-                  </Space>
-                }
-              />
-            </List.Item>
-          )}
+          onAccept={(applicantId) => handleApplicantAction(applicantId, 'accept')}
+          onReject={(applicantId) => handleApplicantAction(applicantId, 'reject')}
+          onViewDetail={fetchStudentDetail}
+          zIndex={modalZIndex}
         />
-      </Modal>
-      <Modal
-        title="Xác nhận đóng ứng tuyển"
-        visible={confirmCloseModalVisible}
-        onOk={handleConfirmCloseRecruiting}
-        onCancel={() => setConfirmCloseModalVisible(false)}
-        okText="Xác nhận"
-        cancelText="Hủy"
-      >
-        <p>
-          <ExclamationCircleOutlined style={{ color: '#faad14', marginRight: '8px' }} />
-          Bạn có chắc chắn muốn đóng ứng tuyển cho dự án này?
-        </p>
-        <p>Lưu ý: Tất cả danh sách ứng tuyển hiện tại sẽ bị xóa.</p>
-      </Modal>
-      <Modal
-        title="Xóa sinh viên khỏi dự án"
-        visible={removeStudentModalVisible}
-        onOk={() => {
-          handleRemoveStudent(studentToRemove.id);
-          setRemoveStudentModalVisible(false);
-          setRemoveReason('');
-        }}
-        onCancel={() => {
-          setRemoveStudentModalVisible(false);
-          setRemoveReason('');
-        }}
-      >
-        <p>Bạn có chắc chắn muốn xóa sinh viên {studentToRemove?.name} khỏi dự án?</p>
-        <Input.TextArea
-          placeholder="Nhập lý do xóa sinh viên"
-          value={removeReason}
-          onChange={(e) => setRemoveReason(e.target.value)}
-          rows={4}
+
+        <ConfirmCloseRecruitingModal
+          visible={confirmCloseModalVisible}
+          onCancel={() => setConfirmCloseModalVisible(false)}
+          onConfirm={handleConfirmCloseRecruiting}
+          zIndex={modalZIndex}
         />
-      </Modal>
-      <Modal
-        title="Danh sách thành viên dự án"
-        visible={membersModalVisible}
-        onCancel={() => setMembersModalVisible(false)}
-        footer={null}
-        width={800}
-      >
-        <List
-          itemLayout="horizontal"
-          dataSource={project.members}
-          renderItem={member => (
-            <List.Item
-              actions={[
-                <Button
-                  type="link"
-                  danger
-                  onClick={() => {
-                    setStudentToRemove(member);
-                    setRemoveStudentModalVisible(true);
-                  }}
-                >
-                  Xóa
-                </Button>
-              ]}
-            >
-              <List.Item.Meta
-                avatar={<Avatar src={member.avatar} icon={<UserOutlined />} />}
-                title={<a onClick={() => fetchStudentDetail(member.id)}>{member.name}</a>}
-                description={member.email}
-              />
-            </List.Item>
-          )}
+
+        <RemoveStudentModal
+          visible={removeStudentModalVisible}
+          onCancel={() => {
+            setRemoveStudentModalVisible(false);
+            setRemoveReason('');
+          }}
+          onConfirm={() => {
+            handleRemoveStudent(studentToRemove.id);
+            setRemoveStudentModalVisible(false);
+            setRemoveReason('');
+          }}
+          studentName={studentToRemove?.name}
+          reason={removeReason}
+          onReasonChange={(e) => setRemoveReason(e.target.value)}
+          zIndex={modalZIndex}
         />
-      </Modal>
-    </Card>
+
+        <MembersListModal
+          visible={membersModalVisible}
+          onCancel={() => setMembersModalVisible(false)}
+          members={project.members}
+          onViewDetail={fetchStudentDetail}
+          onRemove={(member) => {
+            setStudentToRemove(member);
+            setRemoveStudentModalVisible(true);
+          }}
+          zIndex={modalZIndex}
+        />
+      </Card>
+    </ModalProvider>
   );
 });
-
-
-const TaskDetailModal = ({ task, visible, onCancel, getStatusColor, statusMapping, getRatingColor }) => {
-  if (!task) return null;
-
-  const getStatusIcon = (status) => {
-    switch (status) {
-      case 'Pending':
-        return <ClockCircleOutlined style={{ color: 'orange' }} />;
-      case 'In Progress':
-        return <SyncOutlined spin style={{ color: 'blue' }} />;
-      case 'Completed':
-        return <CheckCircleOutlined style={{ color: 'green' }} />;
-      case 'Overdue':
-        return <ExclamationCircleOutlined style={{ color: 'red' }} />;
-      default:
-        return null;
-    }
-  };
-
-
-  const getProgressPercent = () => {
-    const total = moment(task.deadline).diff(moment(task.createdAt), 'days');
-    const elapsed = moment().diff(moment(task.createdAt), 'days');
-    return Math.min(Math.round((elapsed / total) * 100), 100);
-  };
-
-
-  return (
-    <Modal
-      title={<span style={{ fontSize: '20px', fontWeight: 'bold' }}>{task.name}</span>}
-      visible={visible}
-      onCancel={onCancel}
-      footer={null}
-      width={700}
-    >
-      <Card>
-        <Descriptions column={1} bordered>
-          <Descriptions.Item label="Trạng thái">
-            <Tag color={getStatusColor(task.status)} icon={getStatusIcon(task.status)}>
-              {statusMapping[task.status] || task.status}
-            </Tag>
-          </Descriptions.Item>
-          <Descriptions.Item label="Mô tả">{task.description}</Descriptions.Item>
-          <Descriptions.Item label="Người được giao">
-            <Avatar src={task.assignedTo.avatar} icon={<UserOutlined />} /> {task.assignedTo.name}
-          </Descriptions.Item>
-          <Descriptions.Item label="Tiến độ">
-            <Progress percent={getProgressPercent()} status={task.status === 'Completed' ? 'success' : 'active'} />
-          </Descriptions.Item>
-        </Descriptions>
-      </Card>
-
-      <Card style={{ marginTop: '20px' }}>
-        <Timeline>
-          <Timeline.Item color="green">Tạo task: {moment(task.createdAt).format('DD/MM/YYYY HH:mm')}</Timeline.Item>
-          <Timeline.Item color="blue">Hạn chót: {moment(task.deadline).format('DD/MM/YYYY HH:mm')}</Timeline.Item>
-          {task.status === 'Completed' && (
-            <Timeline.Item color="green">
-              Hoàn thành: {moment(task.updatedAt).format('DD/MM/YYYY HH:mm')}
-            </Timeline.Item>
-          )}
-        </Timeline>
-      </Card>
-
-      {task.rating && (
-        <Card style={{ marginTop: '20px' }}>
-          <h3>Đánh giá</h3>
-          <Rate disabled defaultValue={task.rating / 2} />
-          <span style={{ marginLeft: '10px', color: getRatingColor(task.rating) }}>{task.rating}/10</span>
-          {task.comment && (
-            <div style={{ marginTop: '10px' }}>
-              <strong>Nhận xét:</strong>
-              <p>{task.comment}</p>
-            </div>
-          )}
-        </Card>
-      )}
-    </Modal>
-  );
-};
-
 
 export default ProjectDetail;

@@ -10,7 +10,7 @@ import { useNotification } from '../../context/NotificationContext';
 const { Text } = Typography;
 
 function CompanyHeader({ handleSidenavColor, handleSidenavType, handleFixedNavbar }) {
-    const { companyData, logout } = useCompany();
+    const { companyData, logout, isAuthChecked } = useCompany();
     const { unreadCount, fetchUnreadCount } = useNotification();
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [settingsVisible, setSettingsVisible] = useState(false);
@@ -19,10 +19,10 @@ function CompanyHeader({ handleSidenavColor, handleSidenavType, handleFixedNavba
     const [notificationDropdownVisible, setNotificationDropdownVisible] = useState(false);
 
     useEffect(() => {
-        if (companyData) {
+        if (companyData && isAuthChecked) {
             fetchUnreadCount();
         }
-    }, [companyData, fetchUnreadCount]);
+    }, [companyData, fetchUnreadCount, isAuthChecked]);
 
     useEffect(() => {
         const handleResize = () => setWindowWidth(window.innerWidth);
