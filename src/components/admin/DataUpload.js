@@ -152,54 +152,86 @@ const DataUpload = () => {
       const sheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[sheetName];
       
+      // Lấy tất cả các cột, kể cả khi không có dữ liệu
+      const range = XLSX.utils.decode_range(worksheet['!ref']);
+      const columns = [];
+      for (let C = range.s.c; C <= range.e.c; ++C) {
+        const cell = worksheet[XLSX.utils.encode_cell({r:0, c:C})];
+        columns.push(cell ? cell.v : undefined);
+      }
+      
       // Chuyển đổi dữ liệu Excel thành JSON
       const jsonData = XLSX.utils.sheet_to_json(worksheet, {
         raw: false,
         dateNF: 'dd/mm/yyyy',
+        header: 1,
+        defval: ''
       });
 
       // Xử lý lại các trường ngày tháng và số điện thoại
-      const processedData = jsonData.map(row => {
-        const newRow = {...row};
-        Object.keys(newRow).forEach(key => {
-          const value = newRow[key];
-          if (typeof value === 'string') {
-            // Xử lý ngày tháng
-            const parsedDate = moment(value, ['DD/MM/YYYY', 'D/M/YYYY', 'YYYY-MM-DD', 'YYYY-MM-DD HH:mm:ss'], true);
-            if (parsedDate.isValid()) {
-              newRow[key] = parsedDate.toDate();
-            } else if (key.toLowerCase().includes('phone') || key.toLowerCase().includes('sdt') || key.toLowerCase().includes('điện thoại')) {
-              // Xử lý số điện thoại
-              newRow[key] = value.replace(/^'/, ''); // Loại bỏ dấu ' ở đầu nếu có
-              if (!newRow[key].startsWith('0') && !newRow[key].startsWith('+84')) {
-                newRow[key] = '0' + newRow[key];
+      const processedData = jsonData.slice(1).map(row => {
+        const newRow = {};
+        columns.forEach((col, index) => {
+          if (col) {
+            const value = row[index];
+            if (typeof value === 'string') {
+              // Xử lý ngày tháng
+              const parsedDate = moment(value, ['DD/MM/YYYY', 'D/M/YYYY', 'YYYY-MM-DD', 'YYYY-MM-DD HH:mm:ss'], true);
+              if (parsedDate.isValid()) {
+                newRow[col] = parsedDate.toDate();
+              } else if (col.toLowerCase().includes('phone') || col.toLowerCase().includes('sdt') || col.toLowerCase().includes('điện thoại')) {
+                // Xử lý số điện thoại
+                newRow[col] = value.replace(/^'/, ''); // Loại bỏ dấu ' ở đầu nếu có
+                if (!newRow[col].startsWith('0') && !newRow[col].startsWith('+84')) {
+                  newRow[col] = '0' + newRow[col];
+                }
+              } else {
+                newRow[col] = value;
               }
+            } else if (value instanceof Date) {
+              // Nếu đã là Date, giữ nguyên
+              newRow[col] = value;
+            } else {
+              newRow[col] = value;
             }
-          } else if (value instanceof Date) {
-            // Nếu đã là Date, giữ nguyên
-            newRow[key] = value;
           }
         });
         return newRow;
       });
 
       setPreviewData(processedData.slice(0, 5)); // Chỉ hiển thị 5 dòng đầu tiên
-      
-      const columns = Object.keys(processedData[0] || {});
-      setExcelColumns(columns);
+      setExcelColumns(columns.filter(Boolean));
 
       // Tự động điền ánh xạ cột
       const mappingFields = getMappingFields(currentType);
       const newMapping = {};
+      
+      // Tạo một bản sao của mảng columns để có thể xóa các cột đã được ánh xạ
+      let remainingColumns = [...columns];
+
       Object.entries(mappingFields).forEach(([key, value]) => {
-        const matchingColumn = columns.find(col => 
-          col.toLowerCase().replace(/\s+/g, '') === value.vi.toLowerCase().replace(/\s+/g, '') ||
-          col.toLowerCase().replace(/\s+/g, '') === value.en.toLowerCase().replace(/\s+/g, '')
-        );
-        if (matchingColumn) {
-          newMapping[key] = matchingColumn;
+        const matchingColumnIndex = remainingColumns.findIndex(col => {
+          if (!col) return false;
+          const normalizedCol = col.toLowerCase().replace(/[_\s]+/g, '');
+          const normalizedVi = value.vi.toLowerCase().replace(/[_\s]+/g, '');
+          const normalizedEn = value.en.toLowerCase().replace(/[_\s]+/g, '');
+          const normalizedKey = key.toLowerCase().replace(/[_\s]+/g, '');
+          
+          return normalizedCol === normalizedVi || 
+                 normalizedCol === normalizedEn || 
+                 normalizedCol === normalizedKey ||
+                 normalizedCol.includes(normalizedVi) ||
+                 normalizedCol.includes(normalizedEn) ||
+                 normalizedCol.includes(normalizedKey);
+        });
+
+        if (matchingColumnIndex !== -1) {
+          newMapping[key] = remainingColumns[matchingColumnIndex];
+          // Xóa cột đã được ánh xạ để tránh ánh xạ trùng lặp
+          remainingColumns.splice(matchingColumnIndex, 1);
         }
       });
+
       form.setFieldsValue({ mapping: newMapping });
     };
     reader.readAsBinaryString(file);
@@ -400,7 +432,7 @@ const DataUpload = () => {
         <Title level={4}>Các bước tải lên:</Title>
         <Paragraph>
           <ol>
-            <li>Chọn file Excel chứa dữ liệu cần tải lên.</li>
+            <li>Chọn file Excel chứa dữ liệu cn tải lên.</li>
             <li>Ánh xạ các cột trong file Excel với các cột trong hệ thống.</li>
             <li>Nhấn "Xem trước dữ liệu" để kiểm tra.</li>
             <li>Nhấn "Tải lên" để hoàn tất quá trình.</li>
