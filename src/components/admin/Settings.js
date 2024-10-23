@@ -31,6 +31,8 @@ const Settings = () => {
   const [isMaintenanceWarningVisible, setIsMaintenanceWarningVisible] = useState(false);
   const [undoTimer, setUndoTimer] = useState(null);
   const [notificationKey, setNotificationKey] = useState(null);
+  const [isPasswordModalVisible, setIsPasswordModalVisible] = useState(false);
+  const [isAnalysisModalVisible, setIsAnalysisModalVisible] = useState(false);
 
   moment.locale('vi'); // Đặt ngôn ngữ cho moment là tiếng Việt
 
@@ -144,31 +146,42 @@ const Settings = () => {
     }
     setLoading(true);
     try {
+      const response = await axiosInstance.post('/admin/analyze-backup', {
+        backupFileName: restoreFileName,
+        password: restorePassword
+      });
+      setAnalysisResult(response.data.analysis);
+    } catch (error) {
+      message.error(error.response?.data?.message || 'Không thể phân tích bản sao lưu');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRestore = async () => {
+    setLoading(true);
+    try {
       const response = await axiosInstance.post('/admin/restore-backup', {
         backupFileName: restoreFileName,
         password: restorePassword
       });
       
-      console.log('API Response:', response); // Log để kiểm tra
-
       if (response.data && response.data.success) {
-        setIsRestoreModalVisible(false);
-        setRestorePassword('');
         message.success(response.data.message || 'Khôi phục sao lưu thành công');
         
         if (response.data.canUndo && response.data.undoExpiresIn) {
-          setTimeout(() => {
-            showUndoNotification(response.data.undoExpiresIn);
-          }, 100); // Delay nhỏ để đảm bảo message.success đã hiển thị
+          showUndoNotification(response.data.undoExpiresIn);
         }
       } else {
         throw new Error(response.data?.message || 'Khôi phục sao lưu không thành công');
       }
     } catch (error) {
-      console.error('Error in handleRestoreModalOk:', error);
       message.error(error.message || 'Không thể khôi phục bản sao lưu');
     } finally {
       setLoading(false);
+      setIsAnalysisModalVisible(false);
+      setRestorePassword('');
+      setAnalysisResult(null);
     }
   };
 
@@ -379,14 +392,9 @@ const Settings = () => {
       title: 'Hành động',
       key: 'action',
       render: (_, record) => (
-        <Space>
-          <Button onClick={() => showAnalyzeModal(record.name)} icon={<FileSearchOutlined />}>
-            Phân tích
-          </Button>
-          <Button onClick={() => showRestoreModal(record.name)} icon={<DatabaseOutlined />}>
-            Khôi phục
-          </Button>
-        </Space>
+        <Button onClick={() => showRestoreModal(record.name)} icon={<DatabaseOutlined />}>
+          Khôi phục
+        </Button>
       ),
     },
   ];
@@ -489,31 +497,76 @@ const Settings = () => {
     </Space>
   );
 
+  const showPasswordModal = (fileName) => {
+    if (!maintenanceMode.isActive) {
+      setIsMaintenanceWarningVisible(true);
+    } else {
+      setRestoreFileName(fileName);
+      setIsPasswordModalVisible(true);
+    }
+  };
+
+  const handlePasswordSubmit = async () => {
+    if (!restorePassword) {
+      message.error('Vui lòng nhập mật khẩu sao lưu');
+      return;
+    }
+    setLoading(true);
+    try {
+      const response = await axiosInstance.post('/admin/analyze-backup', {
+        backupFileName: restoreFileName,
+        password: restorePassword
+      });
+      setAnalysisResult(response.data.analysis);
+      setIsPasswordModalVisible(false);
+      setIsAnalysisModalVisible(true);
+    } catch (error) {
+      message.error(error.response?.data?.message || 'Không thể phân tích bản sao lưu');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const renderAnalysisResult = () => {
     if (!analysisResult) return null;
 
-    const collections = Object.keys(analysisResult);
+    const changedCollections = Object.entries(analysisResult).filter(
+      ([_, value]) => value.toBeAdded > 0 || value.toBeDeleted > 0
+    );
+
+    if (changedCollections.length === 0) {
+      return <p>Không có thay đổi nào được phát hiện.</p>;
+    }
+
     return (
-      <Row gutter={[16, 16]}>
-        {collections.map(collection => (
-          <Col span={8} key={collection}>
-            <Card title={collection.charAt(0).toUpperCase() + collection.slice(1)}>
-              <Statistic title="Trong bản sao lưu" value={analysisResult[collection].inBackup} />
-              <Statistic title="Hiện tại" value={analysisResult[collection].current} />
-              <Statistic 
-                title="Sẽ thêm" 
-                value={analysisResult[collection].toBeAdded} 
-                valueStyle={{ color: '#3f8600' }}
-              />
-              <Statistic 
-                title="Sẽ xóa" 
-                value={analysisResult[collection].toBeDeleted} 
-                valueStyle={{ color: '#cf1322' }}
-              />
-            </Card>
-          </Col>
-        ))}
-      </Row>
+      <Table
+        dataSource={changedCollections.map(([key, value]) => ({
+          key,
+          collection: key,
+          ...value
+        }))}
+        columns={[
+          {
+            title: 'Bộ sưu tập',
+            dataIndex: 'collection',
+            key: 'collection',
+          },
+          {
+            title: 'Sẽ thêm',
+            dataIndex: 'toBeAdded',
+            key: 'toBeAdded',
+            render: (value) => <span style={{ color: '#3f8600' }}>{value}</span>,
+          },
+          {
+            title: 'Sẽ xóa',
+            dataIndex: 'toBeDeleted',
+            key: 'toBeDeleted',
+            render: (value) => <span style={{ color: '#cf1322' }}>{value}</span>,
+          },
+        ]}
+        pagination={false}
+        size="small"
+      />
     );
   };
 
@@ -574,16 +627,31 @@ const Settings = () => {
       <Modal
         title="Khôi phục bản sao lưu"
         visible={isRestoreModalVisible}
-        onOk={handleRestoreModalOk}
-        onCancel={handleRestoreModalCancel}
+        onOk={analysisResult ? handleRestore : handleRestoreModalOk}
+        onCancel={() => {
+          setIsRestoreModalVisible(false);
+          setRestorePassword('');
+          setAnalysisResult(null);
+        }}
+        okText={analysisResult ? "Khôi phục" : "Phân tích"}
+        cancelText="Hủy"
         confirmLoading={loading}
       >
-        <p>Bạn đang khôi phục bản sao lưu: {restoreFileName}</p>
-        <Input.Password
-          placeholder="Nhập mật khẩu sao lưu"
-          value={restorePassword}
-          onChange={(e) => setRestorePassword(e.target.value)}
-        />
+        {!analysisResult ? (
+          <>
+            <p>Bạn đang khôi phục bản sao lưu: {restoreFileName}</p>
+            <Input.Password
+              placeholder="Nhập mật khẩu sao lưu"
+              value={restorePassword}
+              onChange={(e) => setRestorePassword(e.target.value)}
+            />
+          </>
+        ) : (
+          <>
+            <p>Kết quả phân tích bản sao lưu:</p>
+            {renderAnalysisResult()}
+          </>
+        )}
       </Modal>
 
       <Modal
@@ -608,6 +676,39 @@ const Settings = () => {
         onCancel={() => setAnalysisResult(null)}
         width={1000}
       >
+        {renderAnalysisResult()}
+      </Modal>
+
+      <Modal
+        title="Nhập mật khẩu sao lưu"
+        visible={isPasswordModalVisible}
+        onOk={handlePasswordSubmit}
+        onCancel={() => {
+          setIsPasswordModalVisible(false);
+          setRestorePassword('');
+        }}
+        okText="Xác nhận"
+        cancelText="Hủy"
+        confirmLoading={loading}
+      >
+        <p>Bạn đang khôi phục bản sao lưu: {restoreFileName}</p>
+        <Input.Password
+          placeholder="Nhập mật khẩu sao lưu"
+          value={restorePassword}
+          onChange={(e) => setRestorePassword(e.target.value)}
+        />
+      </Modal>
+
+      <Modal
+        title="Phân tích bản sao lưu"
+        visible={isAnalysisModalVisible}
+        onOk={handleRestore}
+        onCancel={() => setIsAnalysisModalVisible(false)}
+        okText="Khôi phục"
+        cancelText="Hủy"
+        confirmLoading={loading}
+      >
+        <p>Những thay đổi:</p>
         {renderAnalysisResult()}
       </Modal>
       <ToastContainer />

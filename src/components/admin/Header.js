@@ -1,50 +1,32 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useContext } from 'react';
 import { LogoutOutlined, ToolOutlined } from '@ant-design/icons';
 import { Avatar, Dropdown, Menu, Button, message } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { useAuthorization } from '../../routes/RequireAdminAuth';
-import { MaintenanceContext } from '../../context/MaintenanceContext'; // Tạo context này
+import { MaintenanceContext } from '../../context/MaintenanceContext';
+import Cookies from 'js-cookie';
 
 function AdminHeader() {
-    const { user, axiosInstance } = useAuthorization();
+    const { user } = useAuthorization();
     const navigate = useNavigate();
     const { maintenanceMode, setMaintenanceMode } = useContext(MaintenanceContext);
 
-    useEffect(() => {
-        fetchMaintenanceStatus();
-    }, []);
-
-    const fetchMaintenanceStatus = async () => {
-        try {
-            const response = await axiosInstance.get('/admin/maintenance');
-            setMaintenanceMode(response.data.config || { isActive: false, message: '' });
-        } catch (error) {
-            console.error('Lỗi khi lấy trạng thái bảo trì:', error);
-        }
+    const handleLogout = () => {
+        // Xóa tất cả các token
+        Cookies.remove('adminAccessToken');
+        Cookies.remove('adminRefreshToken');
+        // Chuyển hướng về trang đăng nhập
+        navigate('/admin/login', { replace: true });
+        message.success('Đã đăng xuất thành công');
     };
 
-    const handleLogout = async () => {
-        try {
-            await axiosInstance.post('/auth/logout');
-            navigate('/admin/login', { replace: true });
-        } catch (error) {
-            console.error('Lỗi khi đăng xuất:', error);
-        }
-    };
-
-    const toggleMaintenance = async () => {
-        try {
-            const response = await axiosInstance.post('/admin/maintenance', { 
-                isActive: !maintenanceMode.isActive,
-                message: maintenanceMode.message || ''
-            });
-            const newMaintenanceMode = response.data.config || { isActive: false, message: '' };
-            setMaintenanceMode(newMaintenanceMode);
-            message.success(`Bảo trì hệ thống đã được ${newMaintenanceMode.isActive ? 'bật' : 'tắt'}`);
-        } catch (error) {
-            console.error('Lỗi khi thay đổi trạng thái bảo trì:', error);
-            message.error(error.response?.data?.message || 'Không thể thay đổi trạng thái bảo trì');
-        }
+    const toggleMaintenance = () => {
+        const newMaintenanceMode = {
+            isActive: !maintenanceMode.isActive,
+            message: maintenanceMode.message || 'Hệ thống đang trong chế độ bảo trì'
+        };
+        setMaintenanceMode(newMaintenanceMode);
+        message.success(`Bảo trì hệ thống đã được ${newMaintenanceMode.isActive ? 'bật' : 'tắt'}`);
     };
 
     const userMenu = (

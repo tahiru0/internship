@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Tabs, Form, Upload, Button, message, Input, Space, Table, Modal, Typography, Select, Avatar } from 'antd';
-import { UploadOutlined, InfoCircleOutlined, DownloadOutlined } from '@ant-design/icons';
-import { useAuthorization } from '../../routes/RequireAdminAuth';
+import { Upload, message, Button, Table, Modal, Form, Select, Space, Tabs, Typography, Card, Row, Col, Avatar } from 'antd';
+import { InboxOutlined, InfoCircleOutlined, FileExcelOutlined, DownloadOutlined } from '@ant-design/icons';
 import * as XLSX from 'xlsx';
 import moment from 'moment';
 import axios from 'axios';
+import { useAuthorization } from '../../routes/RequireAdminAuth';
 
-const { TabPane } = Tabs;
-const { Title, Paragraph, Text } = Typography;
+const { Dragger } = Upload;
 const { Option } = Select;
+const { Title, Paragraph, Text } = Typography;
+const { TabPane } = Tabs;
 
 const SchoolSelect = ({ onSelect, initialValue }) => {
   const [schools, setSchools] = useState([]);
@@ -66,7 +67,6 @@ const SchoolSelect = ({ onSelect, initialValue }) => {
     </Select>
   );
 };
-
 const DataUpload = () => {
   const [loading, setLoading] = useState(false);
   const [file, setFile] = useState(null);
@@ -252,15 +252,17 @@ const DataUpload = () => {
   };
 
   const uploadProps = {
-    beforeUpload: (file) => {
-      const isExcel = file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || file.type === 'application/vnd.ms-excel';
-      if (!isExcel) {
-        message.error('Bạn chỉ có thể tải lên file Excel!');
-      }
-      return false; // Ngăn chặn tự động tải lên
-    },
+    name: 'file',
+    multiple: false,
+    accept: '.xlsx, .xls',
+    beforeUpload: () => false,
     onChange: handleFileChange,
-    maxCount: 1,
+    onDrop(e) {
+      console.log('Dropped files', e.dataTransfer.files);
+      if (e.dataTransfer.files.length > 0) {
+        handleFileChange({ file: e.dataTransfer.files[0] });
+      }
+    },
   };
 
   const handleMappingChange = (field, value) => {
@@ -279,96 +281,110 @@ const DataUpload = () => {
 
     return (
       <Form form={form} onFinish={handleUpload} layout="vertical">
-        <Space direction="vertical" size="large" style={{ width: '100%' }}>
-          <Form.Item
-            name="file"
-            rules={[{ required: true, message: 'Vui lòng chọn file Excel' }]}
-          >
-            <Upload {...uploadProps}>
-              <Button icon={<UploadOutlined />}>Chọn file Excel</Button>
-            </Upload>
-          </Form.Item>
-          {type === 'students' && (
+        <Card>
+          <Space direction="vertical" size="large" style={{ width: '100%' }}>
             <Form.Item
-              name="schoolId"
-              label="Trường đại học"
-              rules={[{ required: true, message: 'Vui lòng chọn trường đại học' }]}
+              name="file"
+              rules={[{ required: true, message: 'Vui lòng chọn file Excel' }]}
             >
-              <SchoolSelect
-                onSelect={(value) => form.setFieldsValue({ schoolId: value })}
-                initialValue={form.getFieldValue('schoolId')}
-              />
+              <Dragger {...uploadProps}>
+                <p className="ant-upload-drag-icon">
+                  <InboxOutlined />
+                </p>
+                <p className="ant-upload-text">Nhấp hoặc kéo file vào khu vực này để tải lên</p>
+                <p className="ant-upload-hint">
+                  Hỗ trợ tải lên một file Excel (.xlsx, .xls)
+                </p>
+              </Dragger>
             </Form.Item>
-          )}
-          <Form.Item
-            name="mapping"
-            label="Ánh xạ cột"
-            rules={[{ required: true, message: 'Vui lòng ánh xạ các cột' }]}
-          >
-            <Table 
-              dataSource={Object.entries(mappingFields).map(([key, value]) => ({
-                key,
-                field: value.vi,
-                fieldEn: value.en,
-                required: requiredFields.includes(key),
-              }))}
-              columns={[
-                {
-                  title: 'Trường dữ liệu',
-                  dataIndex: 'field',
-                  key: 'field',
-                  render: (text, record) => (
-                    <span>
-                      {text} ({record.fieldEn})
-                      {record.required && <span style={{ color: 'red' }}> *</span>}
-                    </span>
-                  ),
-                },
-                {
-                  title: 'Cột trong Excel',
-                  dataIndex: 'key',
-                  key: 'mapping',
-                  render: (text, record) => (
-                    <Form.Item
-                      name={['mapping', record.key]}
-                      noStyle
-                      rules={[
-                        {
-                          required: record.required,
-                          message: `Vui lòng chọn cột cho ${record.field}`,
-                        },
-                      ]}
-                    >
-                      <Select
-                        style={{ width: 200 }}
-                        placeholder="Chọn cột"
-                        onChange={(value) => handleMappingChange(record.key, value)}
-                      >
-                        {excelColumns.filter(col => 
-                          !Object.values(mappingValues).includes(col) || 
-                          mappingValues[record.key] === col
-                        ).map(col => (
-                          <Option key={col} value={col}>{col}</Option>
-                        ))}
-                      </Select>
-                    </Form.Item>
-                  ),
-                },
-              ]}
-              pagination={false}
-            />
-          </Form.Item>
-          <Form.Item>
-            <Space>
-              <Button onClick={() => setIsPreviewVisible(true)} icon={<InfoCircleOutlined />}>
-                Xem trước dữ liệu
-              </Button>
-              <Button type="primary" htmlType="submit" loading={loading}>
-                Tải lên
-              </Button>
-            </Space>
-          </Form.Item>
-        </Space>
+            {type === 'students' && (
+              <Form.Item
+                name="schoolId"
+                label="Trường đại học"
+                rules={[{ required: true, message: 'Vui lòng chọn trường đại học' }]}
+              >
+                <SchoolSelect
+                  onSelect={(value) => form.setFieldsValue({ schoolId: value })}
+                  initialValue={form.getFieldValue('schoolId')}
+                />
+              </Form.Item>
+            )}
+            {file && (
+              <>
+                <Title level={4}>Ánh xạ cột</Title>
+                <Form.Item
+                  name="mapping"
+                  rules={[{ required: true, message: 'Vui lòng ánh xạ các cột' }]}
+                >
+                  <Table 
+                    dataSource={Object.entries(mappingFields).map(([key, value]) => ({
+                      key,
+                      field: value.vi,
+                      fieldEn: value.en,
+                      required: requiredFields.includes(key),
+                    }))}
+                    columns={[
+                      {
+                        title: 'Trường dữ liệu',
+                        dataIndex: 'field',
+                        key: 'field',
+                        render: (text, record) => (
+                          <span>
+                            {text} ({record.fieldEn})
+                            {record.required && <span style={{ color: 'red' }}> *</span>}
+                          </span>
+                        ),
+                      },
+                      {
+                        title: 'Cột trong Excel',
+                        dataIndex: 'key',
+                        key: 'mapping',
+                        render: (text, record) => (
+                          <Form.Item
+                            name={['mapping', record.key]}
+                            noStyle
+                            rules={[
+                              {
+                                required: record.required,
+                                message: `Vui lòng chọn cột cho ${record.field}`,
+                              },
+                            ]}
+                          >
+                            <Select
+                              style={{ width: '100%' }}
+                              placeholder="Chọn cột"
+                              onChange={(value) => handleMappingChange(record.key, value)}
+                            >
+                              {excelColumns.filter(col => 
+                                !Object.values(mappingValues).includes(col) || 
+                                mappingValues[record.key] === col
+                              ).map(col => (
+                                <Option key={col} value={col}>{col}</Option>
+                              ))}
+                            </Select>
+                          </Form.Item>
+                        ),
+                      },
+                    ]}
+                    pagination={false}
+                  />
+                </Form.Item>
+                <Row gutter={16}>
+                  <Col>
+                    <Button onClick={() => setIsPreviewVisible(true)} icon={<FileExcelOutlined />}>
+                      Xem trước dữ liệu
+                    </Button>
+                  </Col>
+                  <Col>
+                    <Button type="primary" htmlType="submit" loading={loading}>
+                      Tải lên
+                    </Button>
+                  </Col>
+                </Row>
+              </>
+            )}
+          </Space>
+        </Card>
       </Form>
     );
   };
@@ -500,39 +516,10 @@ const DataUpload = () => {
     );
   };
 
-  return (
-    <div>
-      <Space align="center" style={{ marginBottom: 16 }}>
-        <Title level={2}>Tải lên dữ liệu</Title>
-        <Button
-          icon={<InfoCircleOutlined />}
-          onClick={() => setIsInstructionsVisible(true)}
-          type="text"
-        />
-      </Space>
-      <Tabs 
-        defaultActiveKey="1" 
-        onChange={(key) => {
-          setCurrentType(key === '1' ? 'students' : key === '2' ? 'schools' : key === '3' ? 'companies' : 'projects');
-          form.resetFields();
-        }}
-      >
-        <TabPane tab="Sinh viên" key="1">
-          {renderUploadSection('students')}
-        </TabPane>
-        <TabPane tab="Trường học" key="2">
-          {renderUploadSection('schools')}
-        </TabPane>
-        <TabPane tab="Công ty" key="3">
-          {renderUploadSection('companies')}
-        </TabPane>
-        <TabPane tab="Dự án" key="4">
-          {renderUploadSection('projects')}
-        </TabPane>
-      </Tabs>
+  const renderPreviewModal = () => {
+    if (!previewData || previewData.length === 0) return null;
 
-      {renderInstructionsModal()}
-
+    return (
       <Modal
         title="Xem trước dữ liệu"
         visible={isPreviewVisible}
@@ -552,7 +539,45 @@ const DataUpload = () => {
           scroll={{ x: true }} 
         />
       </Modal>
+    );
+  };
 
+  return (
+    <div>
+      <Space align="center" style={{ marginBottom: 16 }}>
+        <Title level={2}>Tải lên dữ liệu</Title>
+        <Button
+          icon={<InfoCircleOutlined />}
+          onClick={() => setIsInstructionsVisible(true)}
+          type="text"
+        />
+      </Space>
+      <Tabs 
+        defaultActiveKey="1" 
+        onChange={(key) => {
+          setCurrentType(key === '1' ? 'students' : key === '2' ? 'schools' : key === '3' ? 'companies' : 'projects');
+          form.resetFields();
+          setFile(null);
+          setPreviewData([]);
+          setExcelColumns([]);
+        }}
+      >
+        <TabPane tab="Sinh viên" key="1">
+          {renderUploadSection('students')}
+        </TabPane>
+        <TabPane tab="Trường học" key="2">
+          {renderUploadSection('schools')}
+        </TabPane>
+        <TabPane tab="Công ty" key="3">
+          {renderUploadSection('companies')}
+        </TabPane>
+        <TabPane tab="Dự án" key="4">
+          {renderUploadSection('projects')}
+        </TabPane>
+      </Tabs>
+
+      {renderInstructionsModal()}
+      {renderPreviewModal()}
       {renderResultModal()}
     </div>
   );
