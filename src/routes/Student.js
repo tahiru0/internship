@@ -17,6 +17,7 @@ import Applications from '../components/student/Applications';
 import Settings from '../components/student/Settings';
 import { NotificationProvider } from '../context/NotificationContext'; // Import NotificationProvider
 import { debounce } from 'lodash';
+import axios from 'axios';
 
 const delayedRequest = (func, delay = 1000) => {
     return debounce(func, delay, { leading: true, trailing: false });
@@ -37,10 +38,11 @@ const isAuthenticated = () => {
     return Boolean(Cookies.get('accessToken'));
 };
 
+
+
 function PrivateRoute({ children }) {
     const { loading, checkAuthStatus, userData, isAuthChecked, isUserDataFetched } = useStudent();
     const navigate = useNavigate();
-    const location = useLocation();
 
     useEffect(() => {
         if (!isAuthChecked && !isUserDataFetched) {
@@ -50,9 +52,9 @@ function PrivateRoute({ children }) {
 
     useEffect(() => {
         if (isAuthChecked && !userData) {
-            navigate('/login', { replace: true, state: { from: location } });
+            navigate('/login', { replace: true });
         }
-    }, [isAuthChecked, userData, navigate, location]);
+    }, [isAuthChecked, userData, navigate]);
 
     useEffect(() => {
         if (loading) {
@@ -61,10 +63,6 @@ function PrivateRoute({ children }) {
             NProgress.done();
         }
     }, [loading]);
-
-    if (!isAuthChecked || loading) {
-        return <Spin size="large" />;
-    }
 
     return userData ? <NotificationProvider>{children}</NotificationProvider> : null;
 }
@@ -104,9 +102,6 @@ function ProtectedRoutes() {
 
     const navItems = getNavItems();
 
-    if (!isDataLoaded) {
-        return <Spin size="large" />;
-    }
 
     return (
         <Main navItems={navItems} RightComponent={StudentHeader} logout={logout}>

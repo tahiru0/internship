@@ -27,7 +27,7 @@ const AccountManagement = () => {
     sortBy: null,
     order: null,
   });
-  const { companyData } = useCompany();
+  const { companyData, axiosInstance } = useCompany();
   const isMobileView = useMediaQuery({ maxWidth: 767 }); // Define isMobileView
 
   useEffect(() => {
@@ -47,7 +47,6 @@ const AccountManagement = () => {
   const fetchAccounts = useCallback(async (page = pagination.current, pageSize = pagination.pageSize) => {
     setLoading(true);
     try {
-      const accessToken = Cookies.get('accessToken');
       const queryParams = new URLSearchParams({
         page: page.toString(),
         limit: pageSize.toString(),
@@ -67,9 +66,7 @@ const AccountManagement = () => {
         queryParams.append('order', filters.order);
       }
 
-      const response = await axios.get(`http://localhost:5000/api/company/accounts?${queryParams.toString()}`, {
-        headers: { Authorization: `Bearer ${accessToken}` }
-      });
+      const response = await axiosInstance.get(`/company/accounts?${queryParams.toString()}`);
       if (response.data && Array.isArray(response.data.data)) {
         setAccounts(response.data.data);
         setPagination({
@@ -87,7 +84,7 @@ const AccountManagement = () => {
     } finally {
       setLoading(false);
     }
-  }, [filters, pagination.current, pagination.pageSize]);
+  }, [filters, pagination.current, pagination.pageSize, axiosInstance]);
 
   useEffect(() => {
     fetchAccounts();

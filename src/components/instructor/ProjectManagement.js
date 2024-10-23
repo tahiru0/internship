@@ -79,7 +79,7 @@ const ProjectManagement = () => {
             render: (text, record) => (
                 <Space>
                     <Avatar.Group size="small" maxCount={3}>
-                        {record.members.map((member, index) => (
+                        {record.members && record.members.map((member, index) => (
                             <Avatar key={index} src={member} />
                         ))}
                     </Avatar.Group>
@@ -191,7 +191,7 @@ const ProjectManagement = () => {
                         <TabPane tab="Tổng Quan" key="1">
                             <h3>{currentProject.projectName}</h3>
                             <Avatar.Group size="large">
-                                {currentProject.members.map((member, index) => (
+                                {currentProject.members && currentProject.members.map((member, index) => (
                                     <Avatar key={index} src={member} />
                                 ))}
                             </Avatar.Group>

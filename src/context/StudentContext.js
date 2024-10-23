@@ -4,6 +4,7 @@ import Cookies from 'js-cookie';
 import axios from 'axios';
 import { EventSourcePolyfill } from 'event-source-polyfill';
 import { debounce } from 'lodash';
+import { useNotification } from './NotificationContext';
 
 const StudentContext = createContext();
 
@@ -27,6 +28,7 @@ export const StudentProvider = ({ children }) => {
     const [isUserDataFetched, setIsUserDataFetched] = useState(false);
     const [isDataFetched, setIsDataFetched] = useState(false);
     const isCheckingAuth = useRef(false);
+    const { resetNotifications, reloadNotifications } = useNotification() || {};
 
     const logout = useCallback(() => {
         Cookies.remove('accessToken');
@@ -36,9 +38,12 @@ export const StudentProvider = ({ children }) => {
         setUserRole(null);
         setRefreshAttempts(0);
         setLoading(false);
-        setIsAuthChecked(false); // Reset trạng thái kiểm tra xác thực
+        setIsAuthChecked(false);
+        if (resetNotifications) {
+            resetNotifications();
+        }
         navigate('/login');
-    }, [navigate]);
+    }, [navigate, resetNotifications]);
 
     const refreshToken = async () => {
         const refreshToken = Cookies.get('studentRefreshToken');
@@ -80,13 +85,17 @@ export const StudentProvider = ({ children }) => {
                 const originalRequest = error.config;
                 if (error.response && error.response.status === 401 && !originalRequest._retry) {
                     originalRequest._retry = true;
-                    const newTokens = await refreshToken();
-                    if (newTokens) {
-                        axios.defaults.headers.common['Authorization'] = `Bearer ${newTokens.accessToken}`;
-                        originalRequest.headers['Authorization'] = `Bearer ${newTokens.accessToken}`;
-                        return axios(originalRequest);
-                    } else {
+                    try {
+                        const newTokens = await refreshToken();
+                        if (newTokens) {
+                            axios.defaults.headers.common['Authorization'] = `Bearer ${newTokens.accessToken}`;
+                            originalRequest.headers['Authorization'] = `Bearer ${newTokens.accessToken}`;
+                            return axios(originalRequest);
+                        }
+                    } catch (refreshError) {
+                        console.error('Không thể làm mới token:', refreshError);
                         logout();
+                        return Promise.reject(refreshError);
                     }
                 }
                 return Promise.reject(error);
@@ -99,20 +108,26 @@ export const StudentProvider = ({ children }) => {
         try {
             const accessToken = Cookies.get('accessToken');
             if (!accessToken) {
-                console.log('Không có accessToken, bỏ qua việc fetch thông tin người dùng');
-                return null;
+                console.log('Không có accessToken, thử refresh token');
+                const newTokens = await refreshToken();
+                if (!newTokens) {
+                    console.error('Không thể refresh token');
+                    logout();
+                    return;
+                }
             }
             const response = await axios.get('http://localhost:5000/api/student/me', {
-                headers: { Authorization: `Bearer ${accessToken}` }
+                headers: { Authorization: `Bearer ${Cookies.get('accessToken')}` }
             });
             setUserData(response.data.student);
             setIsUserDataFetched(true);
             return response.data.student;
         } catch (error) {
             console.error('Lỗi khi lấy thông tin người dùng:', error);
+            logout();
             return null;
         }
-    }, [isUserDataFetched, userData]);
+    }, [isUserDataFetched, userData, refreshToken, logout]);
 
     const checkAuthStatus = useCallback(async () => {
         if (isAuthChecked || isUserDataFetched || isCheckingAuth.current) return;
@@ -134,8 +149,11 @@ export const StudentProvider = ({ children }) => {
                 setUserData(userData);
                 setUserRole('student');
                 setIsUserDataFetched(true);
+                if (reloadNotifications && typeof reloadNotifications === 'function') {
+                    reloadNotifications();
+                }
             } else {
-                logout();
+                throw new Error('Không thể lấy thông tin người dùng');
             }
         } catch (error) {
             console.error('Lỗi khi kiểm tra trạng thái xác thực:', error);
@@ -145,7 +163,7 @@ export const StudentProvider = ({ children }) => {
             setLoading(false);
             isCheckingAuth.current = false;
         }
-    }, [fetchUserData, logout, isAuthChecked, isUserDataFetched]);
+    }, [fetchUserData, logout, isAuthChecked, isUserDataFetched, reloadNotifications]);
 
     useEffect(() => {
         setupAxiosInterceptors();

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { Table, Button, Modal, Form, Input, DatePicker, Select, message, Space, Avatar, Row, Col, Upload, Progress, Steps, Statistic, Tabs, Badge } from 'antd';
-import { UploadOutlined, DownloadOutlined, CheckOutlined, CloseOutlined } from '@ant-design/icons';
+import { Table, Button, Modal, Form, Input, DatePicker, Select, message, Space, Avatar, Row, Col, Upload, Progress, Steps, Statistic, Tabs, Badge, Tooltip } from 'antd';
+import { UploadOutlined, DownloadOutlined, CheckOutlined, CloseOutlined, EyeOutlined, EditOutlined } from '@ant-design/icons';
 import { useSchool } from '../../context/SchoolContext';
 import moment from 'moment';
 import debounce from 'lodash/debounce';
@@ -72,9 +72,19 @@ function StudentManagement() {
     const [errorColumns, setErrorColumns] = useState([]);
     const [uploadStep, setUploadStep] = useState('upload'); // 'upload', 'preview', 'result'
     const [uploadFile, setUploadFile] = useState(null);
-    const [activeTab, setActiveTab] = useState('pending');
+    const [activeTab, setActiveTab] = useState('approved');
     const [pendingCount, setPendingCount] = useState(0);
     const [cachedMajors, setCachedMajors] = useState({});
+    const [passwordModalVisible, setPasswordModalVisible] = useState(false);
+    const [passwordTemplate, setPasswordTemplate] = useState('');
+    const [passwordPreview, setPasswordPreview] = useState('');
+    const [majorLoading, setMajorLoading] = useState(false);
+    const [majorPage, setMajorPage] = useState(1);
+    const [hasMoreMajors, setHasMoreMajors] = useState(true);
+
+    useEffect(() => {
+        fetchStudents();
+    }, [activeTab, filters, pagination.current, pagination.pageSize]);
 
     const fetchStudents = useCallback(async () => {
         if (loading) return; // Prevent multiple requests while loading
@@ -126,23 +136,24 @@ function StudentManagement() {
         fetchMajors();
     }, []);
 
-    const fetchMajors = async (search = '') => {
-        if (cachedMajors[search]) {
-            setMajors(cachedMajors[search]);
-            return;
-        }
+    const fetchMajors = async (page = 1, search = '') => {
+        setMajorLoading(true);
         try {
             const response = await api.get('/school/majors', {
-                params: { search },
+                params: { page, limit: 10, search }
             });
-            setMajors(response.data);
-            setCachedMajors(prev => ({ ...prev, [search]: response.data }));
+            const newMajors = response.data.majors;
+            setMajors(prevMajors => (page === 1 ? newMajors : [...prevMajors, ...newMajors]));
+            setHasMoreMajors(page < response.data.totalPages);
+            setMajorPage(page);
         } catch (error) {
-            message.error('Lỗi khi lấy danh sách ngành học');
+            message.error( error.response?.data?.message || error.message);
+        } finally {
+            setMajorLoading(false);
         }
     };
 
-    const debouncedFetchMajors = debounce(fetchMajors, 300);
+    const debouncedFetchMajors = debounce((search) => fetchMajors(1, search), 300);
 
     const handleTableChange = useCallback((newPagination, _, sorter) => {
         setPagination(newPagination);
@@ -443,6 +454,7 @@ function StudentManagement() {
             dataIndex: 'stt',
             key: 'stt',
             width: 70,
+            fixed: 'left',
             render: (text, record, index) => {
                 const pageSize = pagination.pageSize;
                 const currentPage = pagination.current;
@@ -453,38 +465,35 @@ function StudentManagement() {
             title: 'Avatar',
             dataIndex: 'avatar',
             key: 'avatar',
+            width: 80,
             render: (avatar, record) => (
                 <Avatar src={avatar} alt={`Avatar của ${record.name}`} />
             ),
-            editable: true,
-            editor: TextEditor,
         },
         {
             title: 'Tên',
             dataIndex: 'name',
             key: 'name',
+            width: 150,
             sorter: true,
-            editable: true,
-            editor: TextEditor,
         },
         {
             title: 'Mã sinh viên',
             dataIndex: 'studentId',
             key: 'studentId',
-            editable: true,
-            editor: TextEditor,
+            width: 120,
         },
         {
             title: 'Ngành học',
             dataIndex: ['major', 'name'],
             key: 'major',
-            editable: true,
-            editor: TextEditor,
+            width: 150,
         },
         {
             title: 'Trạng thái',
             dataIndex: 'isApproved',
             key: 'isApproved',
+            width: 120,
             render: (isApproved) => (
                 <span style={{ color: isApproved ? 'green' : 'red' }}>
                     {isApproved ? 'Đã xác nhận' : 'Chưa xác nhận'}
@@ -494,18 +503,31 @@ function StudentManagement() {
         {
             title: 'Hành động',
             key: 'action',
+            fixed: 'right',
+            width: 100,
             render: (_, record) => (
-                <Space>
-                    <Button onClick={() => handleEdit(record)}>Chỉnh sửa</Button>
+                <Space size="middle">
+                    <Tooltip title="Chỉnh sửa">
+                        <Button
+                            type="text"
+                            icon={<EditOutlined />}
+                            onClick={() => handleEdit(record)}
+                        />
+                    </Tooltip>
                     {!record.isApproved && (
-                        <Button type="primary" icon={<CheckOutlined />} onClick={() => handleApprove(record._id)}>
-                            Xác nhận
-                        </Button>
+                        <Tooltip title="Xác nhận">
+                            <Button
+                                type="text"
+                                icon={<CheckOutlined />}
+                                onClick={() => handleApprove(record._id)}
+                                style={{ color: 'green' }}
+                            />
+                        </Tooltip>
                     )}
                 </Space>
             ),
         },
-    ], [handleEdit, handleApprove]);
+    ], [handleEdit, handleApprove, pagination]);
 
     // Định nghĩa lại cấu trúc cột cho DataGrid
     const issueColumns = [
@@ -519,10 +541,61 @@ function StudentManagement() {
         { key: 'issue', name: 'Vấn đề', width: 300 }
     ];
 
+    useEffect(() => {
+        fetchPasswordTemplate();
+    }, []);
+
+    const fetchPasswordTemplate = async () => {
+        try {
+            const response = await api.get('/school/student-api-config');
+            const config = response.data;
+            if (config.studentApiConfig && config.studentApiConfig.passwordRule) {
+                setPasswordTemplate(config.studentApiConfig.passwordRule.template || '');
+                // Gọi hàm handlePasswordTemplateChange để cập nhật preview
+                handlePasswordTemplateChange(config.studentApiConfig.passwordRule.template || '');
+            }
+        } catch (error) {
+            console.error('Lỗi khi lấy mẫu mật khẩu:', error);
+            message.error('Không thể tải mẫu mật khẩu');
+        }
+    };
+
+    const handlePasswordTemplateChange = async (value) => {
+        setPasswordTemplate(value);
+        try {
+            const response = await api.post('/school/review-password-rule', {
+                passwordRule: { template: value },
+                dateOfBirth: '1995-12-31' // Ví dụ ngày sinh
+            });
+            setPasswordPreview(response.data.password);
+        } catch (error) {
+            console.error('Lỗi khi xem trước mật khẩu:', error);
+            setPasswordPreview('Lỗi khi tạo mật khẩu mẫu');
+        }
+    };
+
+    const savePasswordTemplate = async () => {
+        try {
+            await api.put('/school/update-password-rule', {
+                passwordRule: { template: passwordTemplate }
+            });
+            message.success('Đã lưu mẫu mật khẩu thành công');
+            setPasswordModalVisible(false);
+        } catch (error) {
+            console.error('Lỗi khi lưu mẫu mật khẩu:', error);
+            message.error('Lỗi khi lưu mẫu mật khẩu');
+        }
+    };
+
+    // Thêm hàm này để chuyển đổi ID ngành học thành tên ngành học
+    const getMajorName = (majorId) => {
+        const major = majors.find(m => m._id === majorId);
+        return major ? major.name : '';
+    };
+
     return (
         <div>
             <Tabs activeKey={activeTab} onChange={setActiveTab}>
-
                 <Tabs.TabPane tab="Đã xác nhận" key="approved" />
                 <Tabs.TabPane
                     tab={
@@ -534,15 +607,15 @@ function StudentManagement() {
                 />
             </Tabs>
 
-            <Row gutter={16} style={{ marginBottom: 16 }}>
-                <Col span={8}>
+            <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+                <Col xs={24} sm={24} md={8} lg={8} xl={8}>
                     <Input
                         placeholder="Tìm kiếm theo tên hoặc mã sinh viên"
                         value={filters.search}
                         onChange={(e) => handleFilterChange(e.target.value, 'search')}
                     />
                 </Col>
-                <Col span={8}>
+                <Col xs={24} sm={24} md={8} lg={8} xl={8}>
                     <Select
                         showSearch
                         style={{ width: '100%' }}
@@ -561,21 +634,32 @@ function StudentManagement() {
                         ))}
                     </Select>
                 </Col>
-                <Col span={8}>
-                    <Button type="primary" onClick={() => setUploadModalVisible(true)}>
-                        Tải lên file Excel
-                    </Button>
+                <Col xs={24} sm={24} md={8} lg={8} xl={8}>
+                    <Space wrap>
+                        <Button type="primary" onClick={() => setUploadModalVisible(true)}>
+                            Tải lên file Excel
+                        </Button>
+                        <Button 
+                            icon={<EyeOutlined />} 
+                            onClick={() => setPasswordModalVisible(true)}
+                        >
+                            Cấu hình mẫu mật khẩu
+                        </Button>
+                    </Space>
                 </Col>
             </Row>
 
-            <Table
-                columns={columns}
-                dataSource={students}
-                loading={loading}
-                rowKey="_id"
-                pagination={pagination}
-                onChange={handleTableChange}
-            />
+            <div style={{ overflowX: 'auto' }}>
+                <Table
+                    columns={columns}
+                    dataSource={students}
+                    loading={loading}
+                    rowKey="_id"
+                    pagination={pagination}
+                    onChange={handleTableChange}
+                    scroll={{ x: 1000 }}
+                />
+            </div>
 
             <Modal
                 title="Chỉnh sửa thông tin sinh viên"
@@ -583,7 +667,15 @@ function StudentManagement() {
                 onCancel={() => setModalVisible(false)}
                 footer={null}
             >
-                <Form form={form} onFinish={handleUpdate}>
+                <Form 
+                    form={form} 
+                    onFinish={handleUpdate}
+                    initialValues={{
+                        ...editingStudent,
+                        dateOfBirth: editingStudent?.dateOfBirth ? moment(editingStudent.dateOfBirth) : null,
+                        major: editingStudent?.major?._id
+                    }}
+                >
                     <Form.Item name="name" label="Tên" rules={[{ required: true }]}>
                         <Input />
                     </Form.Item>
@@ -600,9 +692,16 @@ function StudentManagement() {
                         <Select
                             showSearch
                             placeholder="Chọn ngành học"
+                            optionFilterProp="children"
                             onSearch={debouncedFetchMajors}
                             filterOption={false}
-                            notFoundContent={null}
+                            loading={majorLoading}
+                            onPopupScroll={(event) => {
+                                const target = event.target;
+                                if (target.scrollTop + target.offsetHeight === target.scrollHeight && !majorLoading && hasMoreMajors) {
+                                    fetchMajors(majorPage + 1);
+                                }
+                            }}
                         >
                             {majors.map((major) => (
                                 <Option key={major._id} value={major._id}>
@@ -731,6 +830,23 @@ function StudentManagement() {
                 )}
 
                 {uploading && <Progress percent={uploadProgress} style={{ marginTop: 20 }} />}
+            </Modal>
+
+            <Modal
+                title="Cấu hình mẫu mật khẩu"
+                visible={passwordModalVisible}
+                onOk={savePasswordTemplate}
+                onCancel={() => setPasswordModalVisible(false)}
+            >
+                <Input.TextArea
+                    value={passwordTemplate}
+                    onChange={(e) => handlePasswordTemplateChange(e.target.value)}
+                    placeholder="Nhập mẫu mật khẩu (ví dụ: SV${ngaysinh})"
+                    rows={4}
+                />
+                <div style={{ marginTop: 16 }}>
+                    <strong>Xem trước mật khẩu:</strong> {passwordPreview}
+                </div>
             </Modal>
         </div>
     );

@@ -99,9 +99,6 @@ export const NotificationProvider = ({ children }) => {
     }
   }, [fetchUnreadCount, fetchUnreadNotifications]);
 
-  useEffect(() => {
-    initialize();
-  }, [initialize]);
 
   const startNotificationStream = useCallback(() => {
     const accessToken = getAccessToken();
@@ -183,6 +180,11 @@ export const NotificationProvider = ({ children }) => {
       }
     };
   }, []);
+  useEffect(() => {
+    initialize();
+    startNotificationStream();
+  }, [initialize, startNotificationStream]);
+
 
   const markNotificationAsRead = async (_id) => {
     if (!_id) {
@@ -271,13 +273,28 @@ export const NotificationProvider = ({ children }) => {
     }
   };
 
+  const reloadNotifications = useCallback(async () => {
+    setLoading(true);
+    try {
+      await fetchUnreadCount();
+      await fetchUnreadNotifications(true);
+      startNotificationStream();
+    } catch (error) {
+      console.error('Lỗi khi tải lại thông báo:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [fetchUnreadCount, fetchUnreadNotifications, startNotificationStream]);
+
   const resetNotifications = useCallback(() => {
-    if (fetchingRef.current) return;
     setNotifications([]);
+    setUnreadCount(0);
     setPage(1);
     setHasMore(true);
-    fetchUnreadNotifications(true);
-  }, [fetchUnreadNotifications]);
+    setIsInitialized(false);
+    setIsUnreadCountInitialized(false);
+  }, []);
+
 
   const value = {
     notifications,
@@ -293,7 +310,8 @@ export const NotificationProvider = ({ children }) => {
     deleteNotification,
     restoreNotification,
     fetchUnreadCount,
-    resetNotifications
+    resetNotifications,
+    reloadNotifications,
   };
 
   return (

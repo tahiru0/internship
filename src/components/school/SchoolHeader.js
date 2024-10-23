@@ -38,9 +38,23 @@ function SchoolHeader({ handleSidenavColor, handleSidenavType, handleFixedNavbar
 
     const userName = schoolData?.account?.name || '';
     const userEmail = schoolData?.account?.email || '';
-    const userRole = schoolData?.account?.role?.name || ''; // Thay đổi ở đây
+    const userRole = schoolData?.account?.role || '';
     const schoolName = schoolData?.school?.name || '';
     const schoolLogo = schoolData?.school?.logo || '';
+    const userAvatar = schoolData?.account?.avatar || '';
+
+    // Thêm hàm việt hóa role
+    const getVietnameseRole = (role) => {
+        switch (role) {
+            case 'faculty-head':
+                return 'Trưởng khoa';
+            case 'admin':
+                return 'Quản trị viên';
+            // Thêm các role khác nếu cần
+            default:
+                return role; // Trả về role gốc nếu không có bản dịch
+        }
+    };
 
     const showModal = () => {
         setIsModalVisible(true);
@@ -92,7 +106,7 @@ function SchoolHeader({ handleSidenavColor, handleSidenavType, handleFixedNavbar
                 {schoolLogo && (
                     <img
                         src={schoolLogo}
-                        alt="School Logo"
+                        alt="Logo trường"
                         style={{ width: '20px', height: 'auto', borderRadius: '8px', marginRight: '10px' }}
                     />
                 )}
@@ -100,7 +114,7 @@ function SchoolHeader({ handleSidenavColor, handleSidenavType, handleFixedNavbar
             </Menu.Item>
             <Menu.Divider />
             <Menu.Item key="1" disabled>
-                <Text strong>{userName} ({userRole})</Text>
+                <Text strong>{userName} ({getVietnameseRole(userRole)})</Text>
             </Menu.Item>
             <Menu.Item key="2" disabled>
                 <Text type="secondary">{userEmail}</Text>
@@ -139,7 +153,15 @@ function SchoolHeader({ handleSidenavColor, handleSidenavType, handleFixedNavbar
                 </Badge>
                 <SearchOutlined style={iconStyle} onClick={showModal} />
                 <Dropdown overlay={userMenu} trigger={['click']}>
-                    <UserOutlined style={iconStyle} />
+                    {userAvatar ? (
+                        <img
+                            src={userAvatar}
+                            alt="User Avatar"
+                            style={{ ...iconStyle, width: '32px', height: '32px', borderRadius: '50%' }}
+                        />
+                    ) : (
+                        <UserOutlined style={iconStyle} />
+                    )}
                 </Dropdown>
             </div>
             <Modal

@@ -83,12 +83,15 @@ const Login = () => {
     const location = useLocation();
     const { checkAuthStatus } = useCompany();
     const [isLoading, setIsLoading] = useState(false);
+    const [initialEmail, setInitialEmail] = useState('');
+    const [rememberMe, setRememberMe] = useState(false);
 
     useEffect(() => {
         const searchParams = new URLSearchParams(location.search);
         const companyIdFromUrl = searchParams.get('companyId');
         const errorMessage = searchParams.get('error');
         const messageFromUrl = searchParams.get('message');
+        const emailFromUrl = searchParams.get('email');
 
         if (errorMessage) {
             message.error(decodeURIComponent(errorMessage));
@@ -104,6 +107,11 @@ const Login = () => {
             Cookies.set('selectedCompany', companyIdFromUrl, { expires: 7 });
         } else if (companyId) {
             form.setFieldsValue({ companyId });
+        }
+
+        if (emailFromUrl) {
+            setInitialEmail(decodeURIComponent(emailFromUrl));
+            form.setFieldsValue({ email: decodeURIComponent(emailFromUrl) });
         }
     }, [location.search, form, companyId]);
 
@@ -121,7 +129,9 @@ const Login = () => {
             const { accessToken, refreshToken } = response.data;
 
             Cookies.set('accessToken', accessToken, { expires: 1 / 24 });
-            Cookies.set('refreshToken', refreshToken, { expires: 7 });
+            if (rememberMe) {
+                Cookies.set('refreshToken', refreshToken, { expires: 30 });
+              }
 
             await checkAuthStatus();
             setIsAuthChecked(false);
@@ -180,7 +190,7 @@ const Login = () => {
                             <h5 className="text-center mb-4">Đăng nhập vào tài khoản doanh nghiệp</h5>
 
                             <Formik
-                                initialValues={{ companyId: companyId, email: '', password: '' }}
+                                initialValues={{ companyId: companyId, email: initialEmail, password: '' }}
                                 validationSchema={validationSchema}
                                 onSubmit={handleLogin}
                             >
@@ -198,7 +208,7 @@ const Login = () => {
                                         onFinish={handleSubmit}
                                         autoComplete="off"
                                         layout="vertical"
-                                        initialValues={{ companyId: '' }}
+                                        initialValues={{ companyId: '', email: initialEmail }}
                                     >
                                         <Form.Item
                                             name="companyId"
@@ -226,6 +236,7 @@ const Login = () => {
                                                     handleChange(e);
                                                     setFieldValue('email', e.target.value);
                                                 }}
+                                                value={values.email}
                                             />
                                         </Form.Item>
 
@@ -246,7 +257,7 @@ const Login = () => {
                                         </Form.Item>
 
                                         <div className="d-flex justify-content-between align-items-center mb-4">
-                                            <Checkbox>Ghi nhớ tôi</Checkbox>
+                                            <Checkbox onChange={(e) => setRememberMe(e.target.checked)}>Ghi nhớ tôi</Checkbox>
                                             <Link to="/company/forgot-password" style={{ color: '#D93F21', fontSize: '14px' }}>Quên mật khẩu?</Link>
                                         </div>
 

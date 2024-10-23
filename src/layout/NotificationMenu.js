@@ -31,6 +31,7 @@ const NotificationMenu = ({ isMobile, onClose }) => {
         fetchNotifications,
         initialize,
         isInitialized,
+        startNotificationStream,
     } = useNotification();
     const scrollTimeoutRef = useRef(null);
     const menuRef = useRef(null);
@@ -38,9 +39,10 @@ const NotificationMenu = ({ isMobile, onClose }) => {
 
     useEffect(() => {
         if (!isInitialized && !loading) {
-            initialize();
+          initialize();
+          startNotificationStream();
         }
-    }, [isInitialized, initialize, loading]);
+      }, [isInitialized, initialize, loading, startNotificationStream]);
 
     const handleScroll = useCallback((event) => {
         if (scrollTimeoutRef.current) {

@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, Suspense, lazy } from 'react';
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import Main from '../layout/Main';
 import Dashboard from '../components/school/Dashboard';
 import NotFound from '../common/Notfound';
-import { FaTachometerAlt, FaUserGraduate, FaChalkboardTeacher, FaProjectDiagram } from 'react-icons/fa';
+import { FaTachometerAlt, FaUserGraduate, FaChalkboardTeacher, FaProjectDiagram, FaUniversity } from 'react-icons/fa';
 import { Spin } from 'antd';
 import SchoolHeader from '../components/school/SchoolHeader';
 import { SchoolProvider, useSchool } from '../context/SchoolContext';
@@ -11,21 +11,42 @@ import { NotificationProvider } from '../context/NotificationContext';
 import Cookies from 'js-cookie';
 import NProgress from 'nprogress';
 import 'nprogress/nprogress.css';
-import StudentManagement from '../components/school/StudentManagement';
-import ApiConfig from '../components/school/ApiConfig';
 import { debounce } from 'lodash';
+import FullScreenLoader from '../common/FullScreenLoader';
+import FacultyManagement from '../components/school/FacultyManagement';
+
+// Import StudentManagement component cho admin
+import AdminStudentManagement from '../components/school/StudentManagement';
+// Import StudentManagement component cho trưởng khoa
+import FacultyHeadStudentManagement from '../components/school/faculty-head/StudentManagement';
 
 const delayedRequest = (func, delay = 1000) => {
     return debounce(func, delay, { leading: true, trailing: false });
 };
 
 const getNavItems = (userRole) => {
-    const items = [
+    const commonItems = [
         { key: "1", to: "/school/dashboard", label: "Dashboard", icon: <FaTachometerAlt /> },
-        { key: "2", to: "/school/students", label: "Quản lý sinh viên", icon: <FaUserGraduate /> },
-        { key: "3", to: "/school/api-config", label: "Cấu hình API", icon: <FaProjectDiagram /> },
     ];
-    return items;
+
+    const adminItems = [
+        { key: "2", to: "/school/students", label: "Quản lý sinh viên", icon: <FaUserGraduate /> },
+        { key: "3", to: "/school/faculties", label: "Quản lý khoa", icon: <FaUniversity /> },
+        // Thêm các mục menu khác cho admin nếu cần
+    ];
+
+    const facultyHeadItems = [
+        { key: "2", to: "/school/students", label: "Quản lý sinh viên", icon: <FaUserGraduate /> },
+        // Thêm các mục menu khác cho trưởng khoa nếu cần
+    ];
+
+    if (userRole === 'admin') {
+        return [...commonItems, ...adminItems];
+    } else if (userRole === 'faculty-head') {
+        return [...commonItems, ...facultyHeadItems];
+    }
+
+    return commonItems;
 };
 
 const isAuthenticated = () => {
@@ -48,19 +69,11 @@ function PrivateRoute({ children }) {
         }
     }, [isAuthChecked, schoolData, navigate]);
 
-    useEffect(() => {
-        if (loading) {
-            NProgress.start();
-        } else {
-            NProgress.done();
-        }
-    }, [loading]);
-
-    if (!isAuthChecked || loading) {
+    if (loading) {
         return <Spin size="large" />;
     }
 
-    return children;
+    return schoolData ? children : null;
 }
 
 function School() {
@@ -104,15 +117,32 @@ function ProtectedRoutes() {
 
     return (
         <NotificationProvider>
-            <Main navItems={navItems} RightComponent={SchoolHeader} logout={logout}>
-                <Routes>
-                    <Route path="/" element={<Navigate to="/school/dashboard" replace />} />
-                    <Route path="/dashboard" element={<Dashboard />} />
-                    <Route path="/students" element={<StudentManagement />} />
-                    <Route path="/api-config" element={<ApiConfig />} />
-                    <Route path="*" element={<NotFound homeLink={"/school/dashboard"} />} />
-                </Routes>
-            </Main>
+            <Suspense fallback={<FullScreenLoader />}>
+                <Main navItems={navItems} RightComponent={SchoolHeader} logout={logout}>
+                    <Routes>
+                        <Route path="/" element={<Navigate to="/school/dashboard" replace />} />
+                        <Route path="/dashboard" element={
+                            <Suspense fallback={<FullScreenLoader />}>
+                                <Dashboard />
+                            </Suspense>
+                        } />
+                        {userRole === 'admin' && (
+                            <>
+                                <Route path="/students" element={<AdminStudentManagement />} />
+                                <Route path="/faculties" element={
+                                    <Suspense fallback={<FullScreenLoader />}>
+                                        <FacultyManagement />
+                                    </Suspense>
+                                } />
+                            </>
+                        )}
+                        {userRole === 'faculty-head' && (
+                            <Route path="/students" element={<FacultyHeadStudentManagement />} />
+                        )}
+                        <Route path="*" element={<NotFound homeLink={"/school/dashboard"} />} />
+                    </Routes>
+                </Main>
+            </Suspense>
         </NotificationProvider>
     );
 }

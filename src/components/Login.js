@@ -107,6 +107,7 @@ const Login = () => {
     const { studentData } = useStudent();
     const [redirectPath, setRedirectPath] = useState('');
     const [isAuthChecked, setIsAuthChecked] = useState(false);
+    const [rememberMe, setRememberMe] = useState(false);
 
     useEffect(() => {
         const searchParams = new URLSearchParams(location.search);
@@ -127,7 +128,7 @@ const Login = () => {
             setSchoolId(schoolIdFromUrl);
             form.setFieldsValue({ schoolId: schoolIdFromUrl });
             Cookies.set('selectedSchool', schoolIdFromUrl, { expires: 7 });
-        } else if (!form.getFieldValue('schoolId')) { // Chỉ điền từ cookie nếu trường không có giá trị
+        } else if (!form.getFieldValue('schoolId')) {
             form.setFieldsValue({ schoolId });
         }
 
@@ -164,9 +165,7 @@ const Login = () => {
             Cookies.set('studentRefreshToken', refreshToken, { expires: 7 });
 
             await checkAuthStatus();
-            setIsAuthChecked(false); // Đặt lại để kiểm tra xác thực lần nữa
-            message.success('Đăng nhập thành công!');
-            navigate(redirectPath || '/student/dashboard', { replace: true });
+            navigate(redirectPath || '/student/dashboard');
         } catch (error) {
             console.error('Lỗi đăng nhập:', error);
             if (error.response && error.response.data) {
@@ -289,7 +288,7 @@ const Login = () => {
                                         </Form.Item>
 
                                         <div className="d-flex justify-content-between align-items-center mb-4">
-                                            <Checkbox>Ghi nhớ tôi</Checkbox>
+                                            <Checkbox onChange={(e) => setRememberMe(e.target.checked)}>Ghi nhớ tôi</Checkbox>
                                             <Link to="/student/forgot-password" style={{ color: '#D93F21', fontSize: '14px' }}>Quên mật khẩu?</Link>
                                         </div>
 

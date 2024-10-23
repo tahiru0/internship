@@ -1,12 +1,9 @@
 import React, { useState, useEffect, createContext, useContext } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { message, Skeleton } from 'antd';
-import { Layout, Menu } from 'antd';
-import { UserOutlined, FileOutlined } from '@ant-design/icons';
+import { message } from 'antd';
+import FullScreenLoader from '../common/FullScreenLoader';
 import Cookies from 'js-cookie';
-
-const { Header, Content, Sider } = Layout;
 
 const AuthorizationContext = createContext(null);
 
@@ -16,21 +13,12 @@ const RequireAdminAuth = ({ children }) => {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
 
-  useEffect(() => {
-    const storedToken = Cookies.get('adminAccessToken');
-    if (storedToken) {
-      setToken(storedToken);
-    } else {
-      navigate('/admin/login', { replace: true });
-    }
-    setLoading(false);
-  }, [navigate]);
-
   const handleAuthError = (error) => {
-    console.error('Auth error:', error);
+    console.error('Lỗi xác thực:', error);
     Cookies.remove('adminAccessToken');
     Cookies.remove('adminRefreshToken');
     setToken(null);
+    setUser(null);
     navigate('/admin/login', { replace: true });
     message.error('Phiên đăng nhập không hợp lệ. Vui lòng đăng nhập lại.');
   };
@@ -47,14 +35,13 @@ const RequireAdminAuth = ({ children }) => {
       Cookies.set('adminAccessToken', accessToken, { expires: 1/24 });
       Cookies.set('adminRefreshToken', newRefreshToken, { expires: 7 });
       setToken(accessToken);
+      setUser(user);
       
-      // Cập nhật axiosInstance với token mới
       axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
       
       return { accessToken, refreshToken: newRefreshToken, user };
     } catch (error) {
       console.error('Lỗi khi làm mới token:', error);
-      handleAuthError(error);
       return null;
     }
   };
@@ -89,9 +76,11 @@ const RequireAdminAuth = ({ children }) => {
             axiosInstance.defaults.headers['Authorization'] = `Bearer ${newTokens.accessToken}`;
             originalRequest.headers['Authorization'] = `Bearer ${newTokens.accessToken}`;
             return axiosInstance(originalRequest);
+          } else {
+            handleAuthError(error);
           }
         } catch (refreshError) {
-          return Promise.reject(refreshError);
+          handleAuthError(refreshError);
         }
       }
       return Promise.reject(error);
@@ -103,15 +92,22 @@ const RequireAdminAuth = ({ children }) => {
       const storedToken = Cookies.get('adminAccessToken');
       if (storedToken) {
         setToken(storedToken);
+        setLoading(false);
       } else {
-        const newTokens = await refreshToken();
-        if (newTokens) {
-          setToken(newTokens.accessToken);
-        } else {
-          navigate('/admin/login', { replace: true });
+        try {
+          const newTokens = await refreshToken();
+          if (newTokens) {
+            setToken(newTokens.accessToken);
+            setUser(newTokens.user);
+          } else {
+            handleAuthError(new Error('Không thể làm mới token'));
+          }
+        } catch (error) {
+          handleAuthError(error);
+        } finally {
+          setLoading(false);
         }
       }
-      setLoading(false);
     };
 
     checkAndRefreshToken();
@@ -126,30 +122,7 @@ const RequireAdminAuth = ({ children }) => {
   }, [token]);
 
   if (loading) {
-    return (
-      <Layout style={{ minHeight: '100vh' }}>
-        <Sider width={256} style={{ background: '#fff' }}>
-          <Menu mode="inline" defaultSelectedKeys={['1']}>
-            <Menu.Item key="1" icon={<UserOutlined />}>
-              User
-            </Menu.Item>
-            <Menu.Item key="2" icon={<FileOutlined />}>
-              Files
-            </Menu.Item>
-          </Menu>
-        </Sider>
-        <Layout>
-          <Header style={{ padding: '0 16px', background: '#fff' }}>
-            <Skeleton.Input style={{ width: 200 }} active />
-          </Header>
-          <Content style={{ padding: '16px', margin: '16px', background: '#fff' }}>
-            <Skeleton active paragraph={{ rows: 4 }} />
-            <Skeleton active paragraph={{ rows: 4 }} />
-            <Skeleton active paragraph={{ rows: 4 }} />
-          </Content>
-        </Layout>
-      </Layout>
-    );
+    return <FullScreenLoader />;
   }
 
   if (!token) {

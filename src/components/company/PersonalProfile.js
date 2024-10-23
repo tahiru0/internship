@@ -1,16 +1,22 @@
-import React, { useState, useEffect } from 'react';
-import { Card, Avatar, Form, Input, Button, message, Upload } from 'antd';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Card, Avatar, Form, Input, Button, message, Upload, Modal } from 'antd';
 import { UserOutlined, UploadOutlined, MailOutlined, HomeOutlined, PhoneOutlined } from '@ant-design/icons';
 import { useCompany } from '../../context/CompanyContext';
 import axios from 'axios';
 import Cookies from 'js-cookie';
+import Cropper from 'react-easy-crop';
 
 const PersonalProfile = () => {
   const [form] = Form.useForm();
-  const { companyData, setCompanyData, checkAuthStatus } = useCompany();
+  const { companyData, checkAuthStatus } = useCompany();
   const [loading, setLoading] = useState(false);
   const [fieldErrors, setFieldErrors] = useState({});
   const [avatar, setAvatar] = useState('');
+  const [avatarFile, setAvatarFile] = useState(null);
+  const [isCropModalVisible, setIsCropModalVisible] = useState(false);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [imageSrc, setImageSrc] = useState(null);
 
   useEffect(() => {
     if (companyData) {
@@ -24,14 +30,94 @@ const PersonalProfile = () => {
     }
   }, [companyData, form]);
 
+  useEffect(() => {
+    return () => {
+      if (avatar && avatar.startsWith('blob:')) {
+        URL.revokeObjectURL(avatar);
+      }
+    };
+  }, [avatar]);
+
+  const handleAvatarChange = (info) => {
+    const file = info.file.originFileObj || info.file;
+    if (file) {
+      if (file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          setImageSrc(e.target.result);
+          setCrop({ x: 0, y: 0 });
+          setIsCropModalVisible(true);
+        };
+        reader.readAsDataURL(file);
+      } else {
+        message.error('Vui lòng chọn một tệp hình ảnh hợp lệ.');
+      }
+    }
+  };
+
+  const handleCropComplete = useCallback((croppedArea, croppedAreaPixels) => {
+    console.log('Cropped area:', croppedArea);
+    console.log('Cropped area pixels:', croppedAreaPixels);
+  }, []);
+
+  const handleCropConfirm = useCallback(() => {
+    if (imageSrc) {
+      const image = new Image();
+      image.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = 300; // Kích thước cố định cho avatar
+        canvas.height = 300;
+        const ctx = canvas.getContext('2d');
+        const aspectRatio = image.width / image.height;
+        let drawWidth = canvas.width;
+        let drawHeight = canvas.height;
+        let drawX = 0;
+        let drawY = 0;
+        if (aspectRatio > 1) {
+          drawWidth = canvas.height * aspectRatio;
+          drawX = (canvas.width - drawWidth) / 2;
+        } else if (aspectRatio < 1) {
+          drawHeight = canvas.width / aspectRatio;
+          drawY = (canvas.height - drawHeight) / 2;
+        }
+        ctx.drawImage(image, drawX, drawY, drawWidth, drawHeight);
+        canvas.toBlob((blob) => {
+          const newFile = new File([blob], 'avatar.png', { type: 'image/png' });
+          setAvatarFile(newFile);
+          setAvatar(URL.createObjectURL(blob));
+          setIsCropModalVisible(false);
+        }, 'image/png');
+      };
+      image.src = imageSrc;
+    } else {
+      setIsCropModalVisible(false);
+    }
+  }, [imageSrc]);
+
   const onFinish = async (values) => {
     setLoading(true);
     setFieldErrors({});
     try {
       const accessToken = Cookies.get('accessToken');
+      if (avatarFile) {
+        const avatarFormData = new FormData();
+        avatarFormData.append('avatar', avatarFile, 'avatar.png');
+        await axios.put('http://localhost:5000/api/company/account/avatar', avatarFormData, {
+          headers: { 
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'multipart/form-data'
+          }
+        });
+      }
+
+      // Sau đó gửi các thông tin khác
       const response = await axios.put('http://localhost:5000/api/company/account', values, {
-        headers: { Authorization: `Bearer ${accessToken}` }
+        headers: { 
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        }
       });
+
       if (response.data) {
         await checkAuthStatus();
         message.success(response.data.message || 'Cập nhật thông tin thành công');
@@ -65,12 +151,10 @@ const PersonalProfile = () => {
               />
               <div className="mt-3">
                 <Upload
+                  accept="image/*"
                   beforeUpload={() => false}
-                  onChange={(info) => {
-                    if (info.file.status !== 'removed') {
-                      setAvatar(URL.createObjectURL(info.file.originFileObj));
-                    }
-                  }}
+                  onChange={(info) => handleAvatarChange(info)}
+                  showUploadList={false}
                 >
                   <Button icon={<UploadOutlined />}>Thay đổi ảnh đại diện</Button>
                 </Upload>
@@ -145,6 +229,34 @@ const PersonalProfile = () => {
           </div>
         </div>
       </div>
+      <Modal
+        visible={isCropModalVisible}
+        onOk={handleCropConfirm}
+        onCancel={() => setIsCropModalVisible(false)}
+        title="Cắt ảnh đại diện"
+        width={600}
+        footer={[
+          <Button key="back" onClick={() => setIsCropModalVisible(false)}>
+            Hủy
+          </Button>,
+          <Button key="submit" type="primary" onClick={handleCropConfirm}>
+            Cập nhật ảnh đại diện
+          </Button>,
+        ]}
+      >
+        {imageSrc && (
+          <div style={{ position: 'relative', width: '100%', height: 400 }}>
+            <Cropper
+              image={imageSrc}
+              crop={crop}
+              zoom={zoom}
+              aspect={1}
+              onCropChange={setCrop}
+              onZoomChange={setZoom}
+            />
+          </div>
+        )}
+      </Modal>
     </Card>
   );
 };

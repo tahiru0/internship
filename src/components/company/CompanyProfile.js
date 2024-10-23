@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Container, Row, Col, Card, Button, Tab, Nav, Pagination, Modal, Form } from 'react-bootstrap';
 import { Avatar, Input, message } from 'antd';
 import { FaImage, FaVideo } from 'react-icons/fa';
@@ -14,6 +14,7 @@ const CompanyProfile = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [showModal, setShowModal] = useState(false);
     const postsPerPage = 5;
+    const [previewImage, setPreviewImage] = useState(null);
 
     // Generate 20 random posts
     const [allPosts, setAllPosts] = useState(Array.from({ length: 20 }, (_, index) => ({
@@ -119,6 +120,32 @@ const CompanyProfile = () => {
         initialValues: postInitialValues,
     });
 
+    const handleImageUpload = (event) => {
+        const file = event.target.files[0];
+        if (file) {
+            if (file.type.startsWith('image/')) {
+                try {
+                    const objectUrl = URL.createObjectURL(file);
+                    setPreviewImage(objectUrl);
+                } catch (error) {
+                    console.error('Lỗi khi tạo URL cho ảnh:', error);
+                    message.error('Không thể tải lên ảnh. Vui lòng thử lại.');
+                }
+            } else {
+                message.error('Vui lòng chọn một tệp hình ảnh hợp lệ.');
+            }
+        }
+    };
+
+    // Đảm bảo xóa URL đối tượng khi component bị hủy
+    useEffect(() => {
+        return () => {
+            if (previewImage) {
+                URL.revokeObjectURL(previewImage);
+            }
+        };
+    }, [previewImage]);
+
     return (
         <Container>
             <Card className="mb-4">
@@ -206,6 +233,21 @@ const CompanyProfile = () => {
                                     <Card.Body>
                                         <Card.Title>Thông tin công ty</Card.Title>
                                         {companyForm}
+                                        <Form.Group controlId="formFile" className="mb-3">
+                                            <Form.Label>Tải lên logo công ty</Form.Label>
+                                            <Form.Control 
+                                                type="file" 
+                                                onChange={handleImageUpload} 
+                                                accept="image/*"
+                                            />
+                                        </Form.Group>
+                                        {previewImage && (
+                                            <img 
+                                                src={previewImage} 
+                                                alt="Logo preview" 
+                                                style={{ maxWidth: '100%', marginTop: '10px' }} 
+                                            />
+                                        )}
                                     </Card.Body>
                                 </Card>
                             </Col>

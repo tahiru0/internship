@@ -1,13 +1,18 @@
-import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Cookies from 'js-cookie';
 import axios from 'axios';
 import { debounce } from 'lodash';
+import { useNotification } from './NotificationContext';
 
 const CompanyContext = createContext();
 
 export const useCompany = () => {
     return useContext(CompanyContext);
+};
+
+const hasToken = () => {
+    return !!Cookies.get('accessToken');
 };
 
 export const CompanyProvider = ({ children }) => {
@@ -19,6 +24,9 @@ export const CompanyProvider = ({ children }) => {
     const location = useLocation();
     const [isAuthChecked, setIsAuthChecked] = useState(false);
     const checkAuthStatusRef = useRef(null);
+    const [authState, setAuthState] = useState(hasToken() ? 'checking' : 'unauthenticated');
+    const [isRedirecting, setIsRedirecting] = useState(false);
+    const { resetNotifications, reloadNotifications } = useNotification() || {};
 
     const logout = useCallback(() => {
         Cookies.remove('accessToken');
@@ -27,8 +35,12 @@ export const CompanyProvider = ({ children }) => {
         setUserRole(null);
         setRefreshAttempts(0);
         setIsAuthChecked(false);
+        setAuthState('unauthenticated');
+        if (resetNotifications) {
+            resetNotifications();
+        }
         navigate('/company/login');
-    }, [navigate]);
+    }, [navigate, resetNotifications]);
 
     const refreshToken = useCallback(async () => {
         const refreshToken = Cookies.get('refreshToken');
@@ -42,10 +54,12 @@ export const CompanyProvider = ({ children }) => {
             Cookies.set('accessToken', accessToken, { expires: 1/24 });
             Cookies.set('refreshToken', newRefreshToken, { expires: 7 });
             setRefreshAttempts(0);
+            setAuthState('authenticated');
             return { accessToken, refreshToken: newRefreshToken };
         } catch (error) {
             console.error('Lỗi khi làm mới token:', error);
             setRefreshAttempts(prev => prev + 1);
+            setAuthState('unauthenticated');
             return null;
         }
     }, []);
@@ -76,7 +90,8 @@ export const CompanyProvider = ({ children }) => {
                         originalRequest.headers['Authorization'] = `Bearer ${newTokens.accessToken}`;
                         return axios(originalRequest);
                     } else {
-                        logout();
+                        window.location.replace('/company/login');
+                        return Promise.reject(error);
                     }
                 }
                 return Promise.reject(error);
@@ -85,67 +100,54 @@ export const CompanyProvider = ({ children }) => {
     }, [refreshToken, logout]);
 
     const checkAuthStatus = useCallback(async () => {
-        if (isAuthChecked || checkAuthStatusRef.current) return;
-        checkAuthStatusRef.current = true;
-        setLoading(true);
+        if (authState !== 'checking') return;
+        
+        const accessToken = Cookies.get('accessToken');
+        const refreshTokenExists = Cookies.get('refreshToken');
+        
+        if (!accessToken && !refreshTokenExists) {
+            setAuthState('unauthenticated');
+            setLoading(false);
+            setIsAuthChecked(true);
+            return;
+        }
+
         try {
-            let accessToken = Cookies.get('accessToken');
-            if (!accessToken) {
-                setCompanyData(null);
-                setUserRole(null);
-                setIsAuthChecked(true);
-                setLoading(false);
-                checkAuthStatusRef.current = false;
-                return;
-            }
-            
-            try {
-                const response = await axios.get('http://localhost:5000/api/company/me', {
-                    headers: { Authorization: `Bearer ${accessToken}` }
-                });
-                setCompanyData(response.data);
-                setUserRole(response.data.account.role);
-                setRefreshAttempts(0);
-            } catch (error) {
-                if (refreshAttempts < 1) {
-                    console.log('Access token không hợp lệ, đang thử refresh...');
-                    const newTokens = await refreshToken();
-                    if (newTokens) {
-                        const response = await axios.get('http://localhost:5000/api/company/me', {
-                            headers: { Authorization: `Bearer ${newTokens.accessToken}` }
-                        });
-                        setCompanyData(response.data);
-                        setUserRole(response.data.account.role);
-                    } else {
-                        throw new Error('Không thể refresh token');
-                    }
+            let currentAccessToken = accessToken;
+            if (!currentAccessToken && refreshTokenExists) {
+                const newTokens = await refreshToken();
+                if (newTokens) {
+                    currentAccessToken = newTokens.accessToken;
                 } else {
-                    throw new Error('Đã thử refresh token nhưng không thành công');
+                    logout();
                 }
+            }
+
+            const response = await axios.get('http://localhost:5000/api/company/me', {
+                headers: { Authorization: `Bearer ${currentAccessToken}` }
+            });
+            setCompanyData(response.data);
+            setUserRole(response.data.account.role);
+            setAuthState('authenticated');
+            if (reloadNotifications) {
+                reloadNotifications();
             }
         } catch (error) {
             console.error('Lỗi khi kiểm tra trạng thái xác thực:', error);
-            logout();
+            setCompanyData(null);
+            setUserRole(null);
+            setAuthState('unauthenticated');
         } finally {
-            setIsAuthChecked(true);
             setLoading(false);
-            checkAuthStatusRef.current = false;
+            setIsAuthChecked(true);
         }
-    }, [logout, refreshAttempts, refreshToken, isAuthChecked]);
+    }, [authState, reloadNotifications, refreshToken]);
 
     useEffect(() => {
-        setupAxiosInterceptors();
-        if (
-            location.pathname !== '/company/forgot-password' &&
-            !location.pathname.startsWith('/company/forgot-password') &&
-            !companyData && 
-            !isAuthChecked
-        ) {
+        if (authState === 'checking') {
             checkAuthStatus();
-        } else {
-            setLoading(false);
         }
-    }, [setupAxiosInterceptors, checkAuthStatus, location.pathname, companyData, isAuthChecked]);
+    }, [authState, checkAuthStatus]);
 
     const fetchAccounts = useCallback(async (params) => {
         setLoading(true);
@@ -164,6 +166,8 @@ export const CompanyProvider = ({ children }) => {
         }
     }, []);
 
+    const axiosInstance = useMemo(() => createAxiosInstance(refreshToken, logout), [refreshToken, logout]);
+
     const value = {
         companyData,
         loading,
@@ -171,7 +175,12 @@ export const CompanyProvider = ({ children }) => {
         logout,
         checkAuthStatus,
         fetchAccounts,
+        authState,
+        axiosInstance,
         isAuthChecked,
+        isRedirecting,
+        setIsRedirecting,
+        refreshToken,
     };
     
     return (
@@ -179,4 +188,45 @@ export const CompanyProvider = ({ children }) => {
             {children}
         </CompanyContext.Provider>
     );
+};
+
+const createAxiosInstance = (refreshToken, logout) => {
+    const instance = axios.create({
+        baseURL: 'http://localhost:5000/api',
+    });
+
+    instance.interceptors.request.use(
+        (config) => {
+            const accessToken = Cookies.get('accessToken');
+            if (accessToken) {
+                config.headers['Authorization'] = `Bearer ${accessToken}`;
+            }
+            return config;
+        },
+        (error) => Promise.reject(error)
+    );
+
+    instance.interceptors.response.use(
+        (response) => response,
+        async (error) => {
+            const originalRequest = error.config;
+            if (error.response && error.response.status === 401 && !originalRequest._retry) {
+                originalRequest._retry = true;
+                try {
+                    const newTokens = await refreshToken();
+                    if (newTokens) {
+                        instance.defaults.headers.common['Authorization'] = `Bearer ${newTokens.accessToken}`;
+                        originalRequest.headers['Authorization'] = `Bearer ${newTokens.accessToken}`;
+                        return instance(originalRequest);
+                    }
+                } catch (refreshError) {
+                    logout();
+                    return Promise.reject(refreshError);
+                }
+            }
+            return Promise.reject(error);
+        }
+    );
+
+    return instance;
 };

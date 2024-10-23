@@ -1,21 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { Form, Input, Button, message, Card, Typography, Steps } from 'antd';
-import { MailOutlined, LockOutlined } from '@ant-design/icons';
+import { Form, Input, Button, message, Card, Typography, Steps, Space } from 'antd';
+import { MailOutlined, LockOutlined, SafetyOutlined } from '@ant-design/icons';
 import axios from 'axios';
-import { useNavigate, useParams, useLocation } from 'react-router-dom';
+import { useNavigate, useParams, Link } from 'react-router-dom';
 
-const { Title } = Typography;
+const { Title, Paragraph } = Typography;
 const { Step } = Steps;
 
 const ForgotPassword = () => {
   const [loading, setLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const navigate = useNavigate();
-  const location = useLocation();
   const { resetToken } = useParams();
 
   useEffect(() => {
-    setLoading(false);
     if (resetToken) {
       setCurrentStep(2);
     } else {
@@ -26,7 +24,7 @@ const ForgotPassword = () => {
   const onForgotPassword = async (values) => {
     setLoading(true);
     try {
-      const response = await axios.post('http://localhost:5000/api/company/forgot-password', values);
+      const response = await axios.post('http://localhost:5000/api/auth/forgot-password/company', values);
       message.success(response.data.message || 'Kiểm tra email của bạn');
       setCurrentStep(1);
     } catch (error) {
@@ -44,11 +42,10 @@ const ForgotPassword = () => {
   const onResetPassword = async (values) => {
     setLoading(true);
     try {
-      const response = await axios.post(`http://localhost:5000/api/company/reset-password/${resetToken}`, {
+      const response = await axios.post(`http://localhost:5000/api/auth/reset-password/company/${resetToken}`, {
         password: values.password
       });
       message.success(response.data.message || 'Đặt lại mật khẩu thành công');
-      // Đợi một chút trước khi chuyển hướng
       setTimeout(() => {
         navigate('/company/login');
       }, 2000);
@@ -89,11 +86,7 @@ const ForgotPassword = () => {
   );
 
   const renderResetPasswordForm = () => (
-    <Form
-      name="reset_password"
-      onFinish={onResetPassword}
-      layout="vertical"
-    >
+    <Form name="reset_password" onFinish={onResetPassword} layout="vertical">
       <Form.Item
         name="password"
         rules={[
@@ -155,26 +148,46 @@ const ForgotPassword = () => {
       minHeight: '100vh', 
       display: 'flex', 
       alignItems: 'center', 
-      justifyContent: 'center' 
+      justifyContent: 'center',
+      padding: '20px'
     }}>
       <Card 
         style={{ 
-          maxWidth: 400, 
+          maxWidth: 450,
           width: '100%', 
-          boxShadow: '0 4px 8px rgba(0,0,0,0.1)' 
+          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+          borderRadius: '8px'
         }}
       >
-        <Title level={2} style={{ textAlign: 'center', marginBottom: 30 }}>
-          {currentStep === 2 ? 'Đặt lại mật khẩu' : 'Quên mật khẩu'}
-        </Title>
-        {currentStep < 2 && (
-          <Steps current={currentStep} style={{ marginBottom: 30 }}>
-            {steps.map(item => (
-              <Step key={item.title} title={item.title} />
-            ))}
-          </Steps>
-        )}
-        <div>{currentStep === 2 ? renderResetPasswordForm() : steps[currentStep].content}</div>
+        <Space direction="vertical" size="large" style={{ width: '100%' }}>
+          <div style={{ textAlign: 'center' }}>
+            <SafetyOutlined style={{ fontSize: '48px', color: '#1890ff' }} />
+            <Title level={2} style={{ marginTop: '16px', marginBottom: '8px' }}>
+              {currentStep === 2 ? 'Đặt lại mật khẩu' : 'Quên mật khẩu'}
+            </Title>
+            <Paragraph type="secondary">
+              {currentStep === 0 && "Nhập email của bạn để nhận hướng dẫn đặt lại mật khẩu."}
+              {currentStep === 1 && "Chúng tôi đã gửi hướng dẫn đến email của bạn."}
+              {currentStep === 2 && "Nhập mật khẩu mới để đặt lại tài khoản của bạn."}
+            </Paragraph>
+          </div>
+
+          {currentStep < 2 && (
+            <Steps current={currentStep} style={{ marginBottom: '24px' }}>
+              {steps.map(item => (
+                <Step key={item.title} title={item.title} />
+              ))}
+            </Steps>
+          )}
+
+          <div>{steps[currentStep].content}</div>
+
+          {currentStep === 0 && (
+            <Paragraph type="secondary" style={{ textAlign: 'center', marginTop: '16px' }}>
+              Nhớ mật khẩu? <Link to="/company/login">Đăng nhập</Link>
+            </Paragraph>
+          )}
+        </Space>
       </Card>
     </div>
   );

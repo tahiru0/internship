@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import Cookies from 'js-cookie';
 import axios from 'axios';
 import { debounce } from 'lodash';
+import { useNotification } from './NotificationContext';
 
 const SchoolContext = createContext();
 
@@ -19,6 +20,7 @@ export const SchoolProvider = ({ children }) => {
     const navigate = useNavigate();
     const location = useLocation();
     const isCheckingAuth = useRef(false);
+    const { resetNotifications, reloadNotifications } = useNotification() || {};
 
     const logout = useCallback(() => {
         Cookies.remove('accessToken');
@@ -27,8 +29,11 @@ export const SchoolProvider = ({ children }) => {
         setUserRole(null);
         setRefreshAttempts(0);
         setIsAuthChecked(false);
+        if (resetNotifications) {
+            resetNotifications();
+        }
         navigate('/school/login');
-    }, [navigate]);
+    }, [navigate, resetNotifications]);
 
     const refreshToken = async () => {
         const refreshToken = Cookies.get('schoolRefreshToken');
@@ -93,33 +98,18 @@ export const SchoolProvider = ({ children }) => {
             setSchoolData(response.data);
             setUserRole(response.data.account.role);
             setRefreshAttempts(0);
-        } catch (error) {
-            if (refreshAttempts < 1) {
-                console.log('Access token không hợp lệ, đang thử refresh...');
-                const newTokens = await refreshToken();
-                if (newTokens) {
-                    try {
-                        const response = await api.get('/school/me');
-                        setSchoolData(response.data);
-                        setUserRole(response.data.account.role);
-                    } catch (innerError) {
-                        console.error('Lỗi khi lấy thông tin người dùng sau khi refresh token:', innerError);
-                        logout();
-                    }
-                } else {
-                    console.error('Không thể refresh token');
-                    logout();
-                }
-            } else {
-                console.error('Đã thử refresh token nhưng không thành công');
-                logout();
+            if (reloadNotifications) {
+                reloadNotifications();
             }
+        } catch (error) {
+            console.error('Lỗi khi kiểm tra trạng thái xác thực:', error);
+            logout();
         } finally {
             setIsAuthChecked(true);
             setLoading(false);
             isCheckingAuth.current = false;
         }
-    }, 300), [refreshAttempts, logout, api, refreshToken]);
+    }, 300), [logout, api, reloadNotifications]);
 
     useEffect(() => {
         if (location.pathname !== '/school/forgot-password' && !location.pathname.startsWith('/school/forgot-password')) {

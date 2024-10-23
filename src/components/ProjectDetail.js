@@ -99,7 +99,7 @@ const ProjectDetail = ({ isLoggedIn, studentData, appliedProjects, updateApplied
       });
       message.success('Ứng tuyển thành công!');
       setProject(prevProject => ({ ...prevProject, hasApplied: true }));
-      
+
       if (updateAppliedProjects) {
         updateAppliedProjects({
           _id: project._id,
@@ -130,7 +130,7 @@ const ProjectDetail = ({ isLoggedIn, studentData, appliedProjects, updateApplied
       });
       message.success('Đã hủy ứng tuyển thành công');
       setProject(prevProject => ({ ...prevProject, hasApplied: false }));
-      
+
       if (updateAppliedProjects) {
         updateAppliedProjects({
           _id: project._id,
@@ -224,11 +224,15 @@ const ProjectDetail = ({ isLoggedIn, studentData, appliedProjects, updateApplied
                 {project.requiredSkills && project.requiredSkills.length > 0 && (
                   <div>
                     <Title level={4}>Kỹ năng yêu cầu</Title>
-                    <Space wrap>
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))',
+                      gap: '8px'
+                    }}>
                       {project.requiredSkills.map((skill, index) => (
-                        <Tag key={index} color="cyan">{skill}</Tag>
+                        <Tag key={index} color="cyan" style={{ margin: 0, textAlign: 'center' }}>{skill}</Tag>
                       ))}
-                    </Space>
+                    </div>
                   </div>
                 )}
 

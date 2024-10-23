@@ -1,6 +1,13 @@
 import React from 'react';
 import { Menu } from 'antd';
 import { NavLink, useLocation } from 'react-router-dom';
+import styled from 'styled-components';
+
+const StyledMenu = styled(Menu)`
+  .ant-menu-title-content {
+    display: block;
+  }
+`;
 
 function Sidenav({ color, navItems, isOpen }) {
   const { pathname } = useLocation();
@@ -13,9 +20,9 @@ function Sidenav({ color, navItems, isOpen }) {
         <h2 style={{ color: '#060270', marginLeft: '10px' }} className='d-inline'>Internship</h2>
       </div>
       <hr />
-      <Menu theme='light' mode='inline'>
+      <StyledMenu theme='light' mode='inline'>
         {navItems.map(({ key, to, label, icon }) => (
-          <Menu.Item key={key}>
+          <Menu.Item key={key} >
             <NavLink to={to}>
               <span
                 className='icon'
@@ -31,7 +38,7 @@ function Sidenav({ color, navItems, isOpen }) {
             </NavLink>
           </Menu.Item>
         ))}
-      </Menu>
+      </StyledMenu>
     </>
   );
 }

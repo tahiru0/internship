@@ -1,10 +1,11 @@
 import React, { useState, useLayoutEffect, useEffect, useRef, useMemo, useCallback } from 'react';
-import { Card, List, Avatar, Input, Select, message, Spin, Button, Tag, Descriptions, Switch, Modal, DatePicker, InputNumber, Popconfirm, Tooltip, Table, Form, Space, Divider } from 'antd';
+import { Card, List, Avatar, Input, Select, message, Skeleton, Button, Tag, Descriptions, Switch, Modal, DatePicker, InputNumber, Popconfirm, Tooltip, Table, Form, Space, Divider } from 'antd';
 import { SearchOutlined, MenuFoldOutlined, MenuUnfoldOutlined, LeftOutlined, UserOutlined, PlusOutlined } from '@ant-design/icons';
 import axios from 'axios';
 import moment from 'moment';
 import { debounce } from 'lodash';
 import Cookies from 'js-cookie';
+import { useCompany } from '../../../context/CompanyContext';
 import ProjectDetail from './ProjectDetail';
 
 const { Option } = Select;
@@ -31,6 +32,7 @@ const MentorProjectManagement = () => {
   const listRef = useRef(null);
   const resizeTimeout = useRef(null);
   const [size, setSize] = useState({ width: window.innerWidth, height: window.innerHeight });
+  const { axiosInstance } = useCompany();
 
   const handleResize = useCallback(() => {
     if (resizeTimeout.current) {
@@ -77,8 +79,7 @@ const MentorProjectManagement = () => {
     setLoading(true);
     try {
       const accessToken = Cookies.get('accessToken');
-      const response = await axios.get('http://localhost:5000/api/mentor/projects', {
-        headers: { Authorization: `Bearer ${accessToken}` },
+      const response = await axiosInstance.get('/mentor/projects', {
         params: {
           page: pageNum,
           limit: 10,
@@ -149,9 +150,7 @@ const MentorProjectManagement = () => {
     setProjectDetailLoading(true);
     try {
       const accessToken = Cookies.get('accessToken');
-      const response = await axios.get(`http://localhost:5000/api/mentor/projects/${projectId}`, {
-        headers: { Authorization: `Bearer ${accessToken}` }
-      });
+      const response = await axiosInstance.get(`/mentor/projects/${projectId}`);
       setSelectedProject(response.data);
       // Cập nhật project trong danh sách projects
       setProjects(prevProjects => 
@@ -202,13 +201,11 @@ const MentorProjectManagement = () => {
       if (!selectedProject || !selectedProject.id) {
         throw new Error('Không có dự án nào được chọn');
       }
-      const response = await axios.post(`http://localhost:5000/api/mentor/projects/${selectedProject.id}/tasks`, {
+      const response = await axiosInstance.post(`/mentor/projects/${selectedProject.id}/tasks`, {
         name: values.title,
         description: values.description,
         deadline: values.deadline,
         assignedTo: values.assignee
-      }, {
-        headers: { Authorization: `Bearer ${accessToken}` }
       });
 
       const newTask = response.data.task;
@@ -333,6 +330,19 @@ const MentorProjectManagement = () => {
     }
   };
 
+  const renderSkills = (skills) => {
+    if (!skills || !Array.isArray(skills) || skills.length === 0) {
+      return null;
+    }
+    return (
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+        {skills.map(skill => (
+          <Tag key={skill} color="blue" style={{ margin: '2px 0' }}>{skill}</Tag>
+        ))}
+      </div>
+    );
+  };
+
   return (
     <div style={{ 
       display: 'flex', 
@@ -378,7 +388,6 @@ const MentorProjectManagement = () => {
               style={{
                 cursor: 'pointer',
                 padding: collapsed && !isMobile ? '10px 0' : '10px',
-                backgroundColor: 'transparent',
                 borderRadius: selectedProject?.id === project.id ? '8px' : '0',
                 boxShadow: selectedProject?.id === project.id ? '0 2px 8px rgba(0, 0, 0, 0.15)' : 'none',
                 backgroundColor: selectedProject?.id === project.id ? '#ffffff' : 'transparent'
@@ -412,6 +421,7 @@ const MentorProjectManagement = () => {
                   description={
                     <>
                       {renderMembers(project.members)}
+                      {renderSkills(project.requiredSkills || [])}
                     </>
                   }
                 />

@@ -81,6 +81,7 @@ const Login = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const { checkAuthStatus } = useSchool();
+    const [rememberMe, setRememberMe] = useState(false);
 
     useEffect(() => {
         const searchParams = new URLSearchParams(location.search);
@@ -118,8 +119,10 @@ const Login = () => {
             const { accessToken, refreshToken } = response.data;
 
             Cookies.set('accessToken', accessToken, { expires: 1 / 24 });
-            Cookies.set('schoolRefreshToken', refreshToken, { expires: 7 });
-
+            if (rememberMe) {
+                Cookies.set('schoolRefreshToken', refreshToken, { expires: 30 });
+              }
+            
             await checkAuthStatus();
             message.success('Đăng nhập thành công!');
             navigate('/school/dashboard');
@@ -244,7 +247,7 @@ const Login = () => {
                                         </Form.Item>
 
                                         <div className="d-flex justify-content-between align-items-center mb-4">
-                                            <Checkbox>Ghi nhớ tôi</Checkbox>
+                                            <Checkbox onChange={(e) => setRememberMe(e.target.checked)}>Ghi nhớ tôi</Checkbox>
                                             <Link to="/school/forgot-password" style={{ color: '#D93F21', fontSize: '14px' }}>Quên mật khẩu?</Link>
                                         </div>
 

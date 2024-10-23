@@ -277,7 +277,7 @@ const ProjectDetail = memo(({ project, loading, onBack, isMobile, fetchProjects 
   const handleRatingSubmit = async () => {
     try {
       const accessToken = Cookies.get('accessToken');
-      const response = await axios.post(`http://localhost:5000/api/mentor/tasks/${ratingTask._id}/rate`, {
+      const response = await axios.post(`http://localhost:5000/api/mentor/tasks/${ratingTask._id}/evaluate`, {
         rating: Math.round(rating * 2),
         comment
       }, {
@@ -904,6 +904,7 @@ const ProjectDetail = memo(({ project, loading, onBack, isMobile, fetchProjects 
           statusMapping={statusMapping}
           getRatingColor={getRatingColor}
           zIndex={modalZIndex}
+          onRate={handleRateTask}  // Thêm dòng này
         />
 
         <RecruitingModal
@@ -938,6 +939,7 @@ const ProjectDetail = memo(({ project, loading, onBack, isMobile, fetchProjects 
           comment={comment}
           setComment={setComment}
           zIndex={modalZIndex}
+          taskType={ratingTask?.taskType} 
         />
 
         <StudentDetailModal

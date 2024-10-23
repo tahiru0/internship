@@ -50,8 +50,14 @@ const Applications = () => {
       const response = await axios.get('http://localhost:5000/api/student/applied-projects');
       setAppliedProjects(response.data);
     } catch (error) {
-      if (error.response && error.response.data && error.response.data.error) {
-        message.error(error.response.data.error);
+      if (error.response && error.response.data) {
+        if (error.response.data.error) {
+          message.error(error.response.data.error);
+        } else if (error.response.data.message) {
+          message.error(error.response.data.message);
+        } else {
+          message.error('Có lỗi xảy ra khi tải danh sách đơn ứng tuyển.');
+        }
       } else {
         message.error('Có lỗi xảy ra khi tải danh sách đơn ứng tuyển.');
       }
