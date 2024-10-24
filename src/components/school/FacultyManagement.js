@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Button, Modal, Form, Input, Select, message, Space, Popconfirm, Avatar, Tag } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, UserOutlined, BookOutlined, CloseCircleOutlined } from '@ant-design/icons';
+import { Table, Button, Modal, Form, Input, Select, message, Space, Popconfirm, Avatar, Tag, Tooltip } from 'antd';
+import { PlusOutlined, EditOutlined, DeleteOutlined, UserOutlined, BookOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import { useSchool } from '../../context/SchoolContext';
 import debounce from 'lodash/debounce';
 
@@ -19,6 +19,8 @@ const FacultyManagement = () => {
     const [majorsFetching, setMajorsFetching] = useState(false);
     const [majorsPage, setMajorsPage] = useState(1);
     const [majorsHasMore, setMajorsHasMore] = useState(true);
+    const [infoModalVisible, setInfoModalVisible] = useState(false);
+    const [isEditing, setIsEditing] = useState(false);
 
     useEffect(() => {
         fetchFaculties();
@@ -80,12 +82,14 @@ const FacultyManagement = () => {
 
     const handleCreate = () => {
         setEditingFacultyId(null);
+        setIsEditing(false);
         form.resetFields();
         setModalVisible(true);
     };
 
     const handleEdit = async (facultyId) => {
         setEditingFacultyId(facultyId);
+        setIsEditing(true);
         const details = await fetchFacultyDetails(facultyId);
         if (details) {
             // Thêm các ngành học của khoa vào danh sách majors nếu chưa có
@@ -143,25 +147,38 @@ const FacultyManagement = () => {
     const handleSubmit = async (values) => {
         setSubmitLoading(true);
         try {
-            const formattedMajors = values.majors.map(majorId => {
-                const major = majors.find(m => m._id === majorId);
-                return major && major._id.startsWith('new-') ? { name: major.name } : majorId;
-            });
+            if (isEditing) {
+                // Giữ nguyên code xử lý cập nhật khoa
+                const formattedMajors = values.majors.map(majorId => {
+                    const major = majors.find(m => m._id === majorId);
+                    return major && major._id.startsWith('new-') ? { name: major.name } : majorId;
+                });
 
-            const dataToSubmit = {
-                ...values,
-                majors: formattedMajors,
-            };
+                const dataToSubmit = {
+                    ...values,
+                    majors: formattedMajors,
+                    facultyHeadId: values.facultyHeadId || null
+                };
 
-            if (editingFacultyId) {
                 await api.put(`/school/faculties/${editingFacultyId}`, dataToSubmit);
                 message.success('Cập nhật thông tin khoa thành công');
             } else {
-                await api.post('/school/create-faculty', dataToSubmit);
+                // Xử lý tạo khoa mới theo API mới
+                const dataToSubmit = {
+                    facultyName: values.name,
+                    facultyDescription: values.description,
+                    majors: values.majors.map(majorId => {
+                        const major = majors.find(m => m._id === majorId);
+                        return major ? major.name : majorId;
+                    })
+                };
+
+                const response = await api.post('/school/create-faculty', dataToSubmit);
                 message.success('Tạo khoa mới thành công');
+                console.log('Khoa mới được tạo:', response.data.faculty);
             }
             setModalVisible(false);
-            fetchFaculties();
+            await fetchFaculties();
         } catch (error) {
             message.error(error.response?.data?.message || error.message);
         } finally {
@@ -222,6 +239,10 @@ const FacultyManagement = () => {
         },
     ];
 
+    const showInfoModal = () => {
+        setInfoModalVisible(true);
+    };
+
     return (
         <div>
             <Button
@@ -239,23 +260,35 @@ const FacultyManagement = () => {
                 loading={loading}
             />
             <Modal
-                title={editingFacultyId ? "Chỉnh sửa thông tin khoa" : "Thêm khoa mới"}
+                title={isEditing ? "Chỉnh sửa thông tin khoa" : "Thêm khoa mới"}
                 visible={modalVisible}
                 onCancel={() => {
                     setModalVisible(false);
                     setEditingFacultyId(null);
+                    setIsEditing(false);
                     form.resetFields();
                 }}
                 footer={null}
             >
                 <Form form={form} onFinish={handleSubmit} layout="vertical">
-                    <Form.Item name="name" label="Tên khoa" rules={[{ required: true }]}>
+                    <Form.Item 
+                        name="name" 
+                        label="Tên khoa"
+                        rules={[{ required: true, message: 'Vui lòng nhập tên khoa' }]}
+                    >
                         <Input />
                     </Form.Item>
-                    <Form.Item name="description" label="Mô tả" rules={[{ required: true }]}>
+                    <Form.Item 
+                        name="description" 
+                        label="Mô tả khoa"
+                    >
                         <Input.TextArea />
                     </Form.Item>
-                    <Form.Item name="majors" label="Ngành học">
+                    <Form.Item 
+                        name="majors" 
+                        label="Ngành học"
+                        rules={[{ required: true, message: 'Vui lòng chọn ít nhất một ngành học' }]}
+                    >
                         <Select 
                             mode="tags" 
                             style={{ width: '100%' }} 
@@ -293,30 +326,57 @@ const FacultyManagement = () => {
                             ))}
                         </Select>
                     </Form.Item>
-                    <Form.Item name="facultyHeadId" label="Trưởng khoa">
-                        <Select
-                            style={{ width: '100%' }}
-                            placeholder="Chọn trưởng khoa"
-                            allowClear
+                    {isEditing && (
+                        <Form.Item 
+                            name="facultyHeadId" 
+                            label={
+                                <Space>
+                                    Trưởng khoa
+                                    <Tooltip title="Xem hướng dẫn">
+                                        <InfoCircleOutlined onClick={showInfoModal} style={{ cursor: 'pointer' }} />
+                                    </Tooltip>
+                                </Space>
+                            }
                         >
-                            {facultyDetails?.head && (
-                                <Option key={facultyDetails.head._id} value={facultyDetails.head._id}>
-                                    {facultyDetails.head.name} (Trưởng khoa)
-                                </Option>
-                            )}
-                            {facultyDetails?.staff?.map(staff => (
-                                <Option key={staff._id} value={staff._id}>
-                                    {staff.name} (Giáo vụ khoa)
-                                </Option>
-                            ))}
-                        </Select>
-                    </Form.Item>
+                            <Select
+                                style={{ width: '100%' }}
+                                placeholder="Chọn trưởng khoa"
+                                allowClear
+                            >
+                                {facultyDetails?.head && (
+                                    <Option key={facultyDetails.head._id} value={facultyDetails.head._id}>
+                                        {facultyDetails.head.name} (Trưởng khoa hiện tại)
+                                    </Option>
+                                )}
+                                {facultyDetails?.staff?.map(staff => (
+                                    <Option key={staff._id} value={staff._id}>
+                                        {staff.name} (Giáo vụ khoa)
+                                    </Option>
+                                ))}
+                            </Select>
+                        </Form.Item>
+                    )}
                     <Form.Item>
                         <Button type="primary" htmlType="submit" loading={submitLoading}>
-                            {editingFacultyId ? "Cập nhật" : "Tạo mới"}
+                            {isEditing ? 'Cập nhật' : 'Tạo mới'}
                         </Button>
                     </Form.Item>
                 </Form>
+            </Modal>
+
+            <Modal
+                title="Hướng dẫn quản lý trưởng khoa"
+                visible={infoModalVisible}
+                onCancel={() => setInfoModalVisible(false)}
+                footer={[
+                    <Button key="close" onClick={() => setInfoModalVisible(false)}>
+                        Đóng
+                    </Button>
+                ]}
+            >
+                <p>1. Để xóa trưởng khoa hiện tại: Chọn mục "Chọn trưởng khoa" và nhấn vào biểu tượng "x" để xóa lựa chọn. Sau đó lưu thay đổi.</p>
+                <p>2. Để thay đổi trưởng khoa: Chọn một giáo vụ khoa từ danh sách để đặt làm trưởng khoa mới.</p>
+                <p>3. Nếu không có trưởng khoa được chọn, hệ thống sẽ tự động đặt giá trị là null.</p>
             </Modal>
         </div>
     );

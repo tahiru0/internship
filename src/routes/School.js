@@ -3,7 +3,7 @@ import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import Main from '../layout/Main';
 import Dashboard from '../components/school/Dashboard';
 import NotFound from '../common/Notfound';
-import { FaTachometerAlt, FaUserGraduate, FaChalkboardTeacher, FaProjectDiagram, FaUniversity } from 'react-icons/fa';
+import { FaTachometerAlt, FaUserGraduate, FaChalkboardTeacher, FaProjectDiagram, FaUniversity, FaUserCog } from 'react-icons/fa';
 import { Spin } from 'antd';
 import SchoolHeader from '../components/school/SchoolHeader';
 import { SchoolProvider, useSchool } from '../context/SchoolContext';
@@ -14,6 +14,7 @@ import 'nprogress/nprogress.css';
 import { debounce } from 'lodash';
 import FullScreenLoader from '../common/FullScreenLoader';
 import FacultyManagement from '../components/school/FacultyManagement';
+import AccountManagement from '../components/school/AccountManagement';
 
 // Import StudentManagement component cho admin
 import AdminStudentManagement from '../components/school/StudentManagement';
@@ -32,6 +33,7 @@ const getNavItems = (userRole) => {
     const adminItems = [
         { key: "2", to: "/school/students", label: "Quản lý sinh viên", icon: <FaUserGraduate /> },
         { key: "3", to: "/school/faculties", label: "Quản lý khoa", icon: <FaUniversity /> },
+        { key: "4", to: "/school/accounts", label: "Quản lý tài khoản", icon: <FaUserCog /> },
         // Thêm các mục menu khác cho admin nếu cần
     ];
 
@@ -132,6 +134,11 @@ function ProtectedRoutes() {
                                 <Route path="/faculties" element={
                                     <Suspense fallback={<FullScreenLoader />}>
                                         <FacultyManagement />
+                                    </Suspense>
+                                } />
+                                <Route path="/accounts" element={
+                                    <Suspense fallback={<FullScreenLoader />}>
+                                        <AccountManagement />
                                     </Suspense>
                                 } />
                             </>
