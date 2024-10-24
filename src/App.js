@@ -67,27 +67,29 @@ function ProtectedRoutes() {
 function AppContent() {
   const { maintenanceMode, setMaintenanceMode } = useContext(MaintenanceContext);
   const location = useLocation();
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const checkMaintenanceStatus = async () => {
       try {
-        const response = await axios.get('http://localhost:5000/api/health-check');
+        const response = await axios.get('http://localhost:5000/api/health-check', { timeout: 5000 });
         setMaintenanceMode({
           isActive: false,
           message: ''
         });
       } catch (error) {
-        if (error.response && error.response.status === 503) {
-          setMaintenanceMode({
-            isActive: true,
-            message: error.response.data.message || 'Hệ thống đang trong chế độ bảo trì'
-          });
-        }
+        // Xử lý tất cả các loại lỗi như là chế độ bảo trì
+        setMaintenanceMode({
+          isActive: true,
+          message: error.response?.data?.message || 'Hệ thống đang gặp sự cố, vui lòng thử lại sau'
+        });
+      } finally {
+        setIsLoading(false);
       }
     };
 
     checkMaintenanceStatus();
-  }, [location, setMaintenanceMode]); // Thêm location vào dependencies
+  }, [location, setMaintenanceMode]);
 
   const isAdminRoute = location.pathname.startsWith('/admin');
 

@@ -206,6 +206,8 @@ const PublicJobSearch = ({ studentData, isLoggedIn }) => {
         major: studentData.major._id
       }));
       setIsRecommended(true);
+      // Thêm dòng này để cập nhật giá trị hiển thị của Select
+      setMajorSearchValue(studentData.major.name);
     }
   }, [isLoggedIn, studentData]);
 
@@ -326,10 +328,14 @@ const PublicJobSearch = ({ studentData, isLoggedIn }) => {
   };
 
   const removeFilter = (filterType) => {
-    setFilters({ ...filters, [filterType]: filterType === 'skills' ? [] : '' });
+    setFilters(prevFilters => ({
+      ...prevFilters,
+      [filterType]: filterType === 'skills' ? [] : ''
+    }));
     setPagination({ ...pagination, current: 1 });
     if (filterType === 'major') {
       setIsRecommended(false);
+      setMajorSearchValue(''); // Thêm dòng này để reset giá trị hiển thị của Select
     }
   };
 
@@ -349,12 +355,27 @@ const PublicJobSearch = ({ studentData, isLoggedIn }) => {
   };
 
   const handleMajorClick = (majorId) => {
-    setFilters(prevFilters => ({
-      ...prevFilters,
-      major: prevFilters.major === majorId ? '' : majorId
-    }));
-    setPagination({ ...pagination, current: 1 });
-    setIsRecommended(majorId === studentData?.major?._id);
+    const selectedMajor = majors.find(major => major._id === majorId);
+    if (selectedMajor) {
+      setFilters(prevFilters => {
+        const newMajor = prevFilters.major === majorId ? '' : majorId;
+        
+        // Cập nhật majorSearchValue
+        if (newMajor) {
+          setMajorSearchValue(selectedMajor.name);
+        } else {
+          setMajorSearchValue('');
+        }
+
+        return {
+          ...prevFilters,
+          major: newMajor
+        };
+      });
+      
+      setPagination({ ...pagination, current: 1 });
+      setIsRecommended(majorId === studentData?.major?._id);
+    }
   };
 
   const renderFilterTags = () => (
@@ -411,9 +432,9 @@ const PublicJobSearch = ({ studentData, isLoggedIn }) => {
     }
   };
 
-  const handleMajorSelect = (value) => {
+  const handleMajorSelect = (value, option) => {
     handleFilterChange(value, 'major');
-    setMajorSearchValue('');
+    setMajorSearchValue(option.children);
     setFilteredMajors(majors);
   };
 
