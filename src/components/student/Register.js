@@ -124,8 +124,9 @@ const MajorSelect = ({ onSelect, initialValue }) => {
       onChange={onSelect}
       value={initialValue}
       loading={loading}
-      className="bootstrap-select w-100" // Thêm class w-100 vào đây
+      className="bootstrap-select w-100"
     >
+      <Option value="" disabled>Chọn ngành học</Option>
       {majors.map((major) => (
         <Option key={major._id} value={major._id}>
           {major.name}
