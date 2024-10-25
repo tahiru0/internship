@@ -24,6 +24,7 @@ const School = () => {
   });
   const [sortField, setSortField] = useState('createdAt');
   const [sortOrder, setSortOrder] = useState('');
+  const [loadingSchools, setLoadingSchools] = useState({});
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -64,12 +65,27 @@ const School = () => {
   };
 
   const toggleActiveStatus = async (record) => {
+    setLoadingSchools(prev => ({ ...prev, [record._id]: true }));
     try {
-      await axiosInstance.put(`/admin/schools/${record._id}`, { isActive: !record.isActive });
-      message.success(`Trạng thái trường học đã được cập nhật thành ${!record.isActive ? 'Hoạt động' : 'Không hoạt động'}`);
-      fetchData();
+      const response = await axiosInstance.put(`/admin/schools/${record._id}`, { isActive: !record.isActive });
+      
+      if (response.data && response.data.updatedFields) {
+        setSchools(prevSchools => prevSchools.map(school => 
+          school._id === record._id ? { ...school, ...response.data.updatedFields } : school
+        ));
+        
+        message.success(response.data.message || 'Cập nhật trạng thái trường học thành công');
+      } else {
+        throw new Error('Phản hồi không hợp lệ từ server');
+      }
     } catch (error) {
-      message.error('Không thể cập nhật trạng thái trường học');
+      message.error(error.response?.data?.message || 'Không thể cập nhật trạng thái trường học');
+      // Khôi phục trạng thái ban đầu nếu có lỗi
+      setSchools(prevSchools => prevSchools.map(school => 
+        school._id === record._id ? { ...school, isActive: record.isActive } : school
+      ));
+    } finally {
+      setLoadingSchools(prev => ({ ...prev, [record._id]: false }));
     }
   };
 
@@ -129,7 +145,9 @@ const School = () => {
           checked={record.isActive} 
           onChange={() => toggleActiveStatus(record)} 
           checkedChildren="Active" 
-          unCheckedChildren="Inactive" 
+          unCheckedChildren="Inactive"
+          loading={loadingSchools[record._id]}
+          disabled={loadingSchools[record._id]}
         />
       ),
     },
@@ -301,7 +319,7 @@ const EditSchoolForm = ({ initialValues, onSubmit }) => {
   ];
 
   const handleSubmit = (values) => {
-    // Chỉ gửi các trường được phép chỉnh sửa
+    // Ch gửi các trường được phép chỉnh sửa
     const filteredValues = Object.keys(values)
       .filter(key => allowedFields.includes(key))
       .reduce((obj, key) => {

@@ -95,6 +95,46 @@ const SchoolSelect = ({ onSelect, initialValue }) => {
     );
 };
 
+const MajorSelect = ({ onSelect, initialValue }) => {
+  const [majors, setMajors] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    fetchMajors();
+  }, []);
+
+  const fetchMajors = async () => {
+    setLoading(true);
+    try {
+      const response = await axiosInstance.get('/guest/majors');
+      setMajors(response.data);
+    } catch (error) {
+      console.error('Lỗi khi lấy danh sách ngành học:', error);
+      message.error('Không thể lấy danh sách ngành học');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Select
+      showSearch
+      placeholder="Chọn ngành học"
+      optionFilterProp="children"
+      onChange={onSelect}
+      value={initialValue}
+      loading={loading}
+      className="bootstrap-select w-100" // Thêm class w-100 vào đây
+    >
+      {majors.map((major) => (
+        <Option key={major._id} value={major._id}>
+          {major.name}
+        </Option>
+      ))}
+    </Select>
+  );
+};
+
 const Register = () => {
     const navigate = useNavigate();
     const [registrationSuccess, setRegistrationSuccess] = useState(false);
@@ -146,7 +186,7 @@ const Register = () => {
     return (
         <Container fluid className="d-flex justify-content-center align-items-center min-vh-100" style={{ background: 'linear-gradient(135deg, #E6F3FF 0%, #B5D8FF 100%)' }}>
             <Row className="justify-content-center w-100">
-                <Col md={8} lg={6} className="bg-white p-4 p-md-5 rounded shadow">
+                <Col md={10} lg={8} className="bg-white p-4 p-md-5 rounded shadow">
                     <div className="d-flex justify-content-start mb-4" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>
                         <img src="/logo.png" height="50" alt="Logo" />
                         <h2 className="ms-2" style={{ color: '#060270' }}>Internship</h2>
@@ -161,6 +201,7 @@ const Register = () => {
                             confirmPassword: '',
                             studentId: '',
                             schoolId: schoolId,
+                            majorId: '',
                             agreeTerms: false,
                             confirmInfo: false,
                         }}
@@ -171,6 +212,7 @@ const Register = () => {
                             confirmPassword: Yup.string().oneOf([Yup.ref('password'), null], 'Mật khẩu không khớp').required('Xác nhận mật khẩu là bắt buộc'),
                             studentId: Yup.string().required('Mã số sinh viên là bắt buộc'),
                             schoolId: Yup.string().required('Vui lòng chọn trường'),
+                            majorId: Yup.string().required('Vui lòng chọn ngành học'),
                             agreeTerms: Yup.boolean().oneOf([true], 'Bạn phải đồng ý với Điều khoản dịch vụ'),
                             confirmInfo: Yup.boolean().oneOf([true], 'Bạn phải cam đoan rằng thông tin là chính xác'),
                         })}
@@ -224,6 +266,15 @@ const Register = () => {
                                                 initialValue={values.schoolId}
                                             />
                                             <ErrorMessage name="schoolId" component="div" className="text-danger mt-1" />
+                                        </BootstrapForm.Floating>
+                                    </Col>
+                                    <Col md={12} className="mb-3"> {/* Thêm class mb-3 ở đây */}
+                                        <BootstrapForm.Floating>
+                                            <MajorSelect
+                                                onSelect={(value) => setFieldValue('majorId', value)}
+                                                initialValue={values.majorId}
+                                            />
+                                            <ErrorMessage name="majorId" component="div" className="text-danger mt-1" />
                                         </BootstrapForm.Floating>
                                     </Col>
                                     <Col md={12}>
@@ -283,6 +334,12 @@ const Register = () => {
                     border-color: #86b7fe !important;
                     outline: 0;
                     box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+                }
+                .bootstrap-select.w-100 {
+                    width: 100% !important;
+                }
+                .bootstrap-select.w-100 .ant-select-selector {
+                    width: 100% !important;
                 }
             `}</style>
         </Container>

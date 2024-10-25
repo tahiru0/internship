@@ -115,10 +115,10 @@ const Settings = () => {
   };
 
   const showRestoreModal = (fileName) => {
+    setRestoreFileName(fileName); // Lưu tên file ngay khi hiển thị modal
     if (!maintenanceMode.isActive) {
       setIsMaintenanceWarningVisible(true);
     } else {
-      setRestoreFileName(fileName);
       setIsRestoreModalVisible(true);
     }
   };
