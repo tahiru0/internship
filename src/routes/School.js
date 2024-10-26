@@ -3,7 +3,7 @@ import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import Main from '../layout/Main';
 import Dashboard from '../components/school/Dashboard';
 import NotFound from '../common/Notfound';
-import { FaTachometerAlt, FaUserGraduate, FaChalkboardTeacher, FaProjectDiagram, FaUniversity, FaUserCog } from 'react-icons/fa';
+import { FaTachometerAlt, FaUserGraduate, FaUniversity, FaUserCog } from 'react-icons/fa';
 import { Spin } from 'antd';
 import SchoolHeader from '../components/school/SchoolHeader';
 import { SchoolProvider, useSchool } from '../context/SchoolContext';
@@ -34,12 +34,10 @@ const getNavItems = (userRole) => {
         { key: "2", to: "/school/students", label: "Quản lý sinh viên", icon: <FaUserGraduate /> },
         { key: "3", to: "/school/faculties", label: "Quản lý khoa", icon: <FaUniversity /> },
         { key: "4", to: "/school/accounts", label: "Quản lý tài khoản", icon: <FaUserCog /> },
-        // Thêm các mục menu khác cho admin nếu cần
     ];
 
     const facultyHeadItems = [
         { key: "2", to: "/school/students", label: "Quản lý sinh viên", icon: <FaUserGraduate /> },
-        // Thêm các mục menu khác cho trưởng khoa nếu cần
     ];
 
     if (userRole === 'admin') {

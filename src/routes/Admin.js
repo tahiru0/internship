@@ -15,8 +15,9 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import FullScreenLoader from '../common/FullScreenLoader';
 import { UploadOutlined } from '@ant-design/icons';
 import DataUpload from '../components/admin/DataUpload';
-import Settings from '../components/admin/Settings';
 import AdminHeader from '../components/admin/Header';
+import Backup from '../components/admin/Backup';
+import { FaDatabase } from 'react-icons/fa';
 
 const navItems = [
   { key: "1", to: "/admin/dashboard", label: "Dashboard", icon: <FaTachometerAlt /> },
@@ -24,7 +25,7 @@ const navItems = [
   { key: "3", to: "/admin/school", label: "Trường đại học", icon: <FaUniversity /> },
   { key: "6", to: "/admin/email", label: "Email", icon: <FaEnvelope /> },
   { key: "8", to: "/admin/data-upload", label: "Tải lên dữ liệu", icon: <UploadOutlined /> },
-  { key: "9", to: "/admin/settings", label: "Cấu hình", icon: <FaCog /> },
+  { key: "10", to: "/admin/backup", label: "Sao lưu", icon: <FaDatabase /> },
 ];
 
 function Admin() {
@@ -44,7 +45,7 @@ function Admin() {
                 <Route path="/notifications" element={<NotificationManager />} />
                 <Route path="/email" element={<Email />} /> 
                 <Route path="/data-upload" element={<DataUpload />} />
-                <Route path="/settings" element={<Settings />} />
+                <Route path="/backup" element={<Backup />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </Main>

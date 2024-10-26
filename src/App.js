@@ -16,7 +16,6 @@ const Company = lazy(() => import('./routes/Company'));
 const Instructor = lazy(() => import('./routes/Instructor'));
 const School = lazy(() => import('./routes/School'));
 const Register = lazy(() => import('./components/company/Register'));
-const SchoolRegister = lazy(() => import('./components/school/Register'));
 const StudentRegister = lazy(() => import('./components/student/Register'));
 const CompanyLogin = lazy(() => import('./components/company/Login'));
 const SchoolLogin = lazy(() => import('./components/school/Login'));
@@ -27,6 +26,7 @@ const ProjectDetail = lazy(() => import('./components/ProjectDetail'));
 const AppLayout = lazy(() => import('./components/AppLayout'));
 const NotFound = lazy(() => import('./components/NotFound'));
 const MaintenancePage = lazy(() => import('./components/MaintenancePage'));
+const CompanyActivate = lazy(() => import('./components/company/Activate'));
 
 function ProtectedRoutes() {
   const location = useLocation();
@@ -129,7 +129,6 @@ function AppContent() {
           } 
         />
         <Route path="/company/register/*" element={<Register/>}/>
-        <Route path="/school/register/*" element={<SchoolRegister/>}/>
         <Route path="/student/register/*" element={<StudentRegister/>}/>
         <Route path="/company/forgot-password" element={<ForgotPassword />} />
         <Route path="/company/reset-password/:resetToken" element={<ForgotPassword />} />
@@ -145,7 +144,7 @@ function AppContent() {
         } />
         <Route path="/" element={<HomePage />} />
         <Route path="/admin/*" element={<Admin />} /> 
-        
+        <Route path="/company/activate/:token" element={<CompanyActivate />} />
         <Route path="/*" element={<ProtectedRoutes />} />
       </Routes>
     </Suspense>
