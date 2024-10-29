@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Button, Modal, Form, Input, Select, message, Dropdown, Menu, DatePicker, Avatar, Descriptions, Tag, Typography } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, MoreOutlined, UserOutlined } from '@ant-design/icons';
+import { Table, Button, Modal, Form, Input, Select, message, Space, Avatar, DatePicker, Tag, Descriptions, Typography, Dropdown, Menu, Row, Col } from 'antd';
+import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, UserOutlined, EllipsisOutlined } from '@ant-design/icons';
 import { useSchool } from '../../context/SchoolContext';
 import moment from 'moment';
 import styled from 'styled-components';
@@ -19,7 +19,7 @@ const StyledTag = styled(Tag)`
 `;
 
 const AccountManagement = () => {
-    const { api } = useSchool();
+    const { api, userRole, schoolData } = useSchool();
     const [accounts, setAccounts] = useState([]);
     const [loading, setLoading] = useState(false);
     const [modalVisible, setModalVisible] = useState(false);
@@ -70,23 +70,43 @@ const AccountManagement = () => {
     };
 
     const handleCreate = () => {
+        if (userRole !== 'admin' && userRole !== 'faculty-head') {
+            message.error('Bạn không có quyền tạo tài khoản mới');
+            return;
+        }
         setEditingAccountId(null);
         form.resetFields();
         setModalVisible(true);
     };
 
-    const handleEdit = (record) => {
-        setEditingAccountId(record._id);
-        form.setFieldsValue({
-            ...record,
-            dateOfBirth: record.dateOfBirth ? moment(record.dateOfBirth) : null,
-            role: record.role?.name,
-            faculty: record.role?.faculty?._id
-        });
-        setModalVisible(true);
+    const handleEdit = async (record) => {
+        if (userRole === 'admin' ||
+            (userRole === 'faculty-head') ||
+            record._id === schoolData.account._id) {
+            setEditingAccountId(record._id);
+            try {
+                const response = await api.get(`/school/accounts/${record._id}`);
+                const accountData = response.data;
+                form.setFieldsValue({
+                    name: accountData.name,
+                    email: accountData.email,
+                    role: accountData.role.name,
+                    faculty: accountData.role.faculty?._id,
+                    isActive: accountData.isActive,
+                    // Thêm các trường khác nếu cần
+                });
+                setModalVisible(true);
+            } catch (error) {
+                message.error('Lỗi khi lấy thông tin tài khoản: ' + error.response?.data?.message || error.message);
+            }
+        }
     };
 
     const handleDelete = async (id) => {
+        if (userRole !== 'admin') {
+            message.error('Chỉ admin mới có quyền xóa tài khoản');
+            return;
+        }
         try {
             await api.delete(`/school/accounts/${id}`);
             message.success('Xóa tài khoản thành công');
@@ -98,14 +118,18 @@ const AccountManagement = () => {
 
     const handleSubmit = async (values) => {
         try {
-            const data = {
-                ...values,
-                role: {
+            let data = { ...values };
+            
+            if (userRole === 'admin') {
+                data.role = {
                     name: values.role,
                     faculty: values.faculty
-                },
-                dateOfBirth: values.dateOfBirth ? values.dateOfBirth.format('YYYY-MM-DD') : null
-            };
+                };
+            } else {
+                // Nếu không phải admin, giữ nguyên role và faculty
+                const currentAccount = await api.get(`/school/accounts/${editingAccountId}`);
+                data.role = currentAccount.data.role;
+            }
 
             if (editingAccountId) {
                 await api.put(`/school/accounts/${editingAccountId}`, data);
@@ -136,10 +160,10 @@ const AccountManagement = () => {
     };
 
     const columns = [
-        { 
-            title: 'Tên', 
-            dataIndex: 'name', 
-            key: 'name', 
+        {
+            title: 'Tên',
+            dataIndex: 'name',
+            key: 'name',
             width: 150,
             render: (text, record) => (
                 <span>
@@ -149,28 +173,29 @@ const AccountManagement = () => {
             )
         },
         { title: 'Email', dataIndex: 'email', key: 'email', width: 200 },
-        { 
-            title: 'Vai trò', 
-            dataIndex: ['role', 'name'], 
-            key: 'role', 
+        {
+            title: 'Vai trò',
+            dataIndex: 'role',
+            key: 'role',
             width: 120,
             render: (role) => {
                 if (!role) return 'N/A';
-                let color = role.includes('admin') ? 'gold' : role.includes('head') ? 'green' : 'blue';
-                return <StyledTag color={color}>{role.charAt(0).toUpperCase() + role.slice(1).replace('-', ' ')}</StyledTag>;
+                let color = role === 'admin' ? 'gold' : role === 'faculty-head' ? 'green' : 'blue';
+                let displayRole = role === 'admin' ? 'Admin' : role === 'faculty-head' ? 'Trưởng khoa' : 'Nhân viên khoa';
+                return <StyledTag color={color}>{displayRole}</StyledTag>;
             }
         },
-        { 
-            title: 'Khoa', 
-            dataIndex: ['role', 'faculty', 'name'], 
-            key: 'faculty', 
+        {
+            title: 'Khoa',
+            dataIndex: ['faculty', 'name'],
+            key: 'faculty',
             width: 150,
-            render: (text, record) => record.role?.faculty?.name || 'N/A'
+            render: (text) => text || 'N/A'
         },
-        { 
-            title: 'Trạng thái', 
-            dataIndex: 'isActive', 
-            key: 'isActive', 
+        {
+            title: 'Trạng thái',
+            dataIndex: 'isActive',
+            key: 'isActive',
             width: 120,
             render: (isActive) => (
                 <StyledTag color={isActive ? 'green' : 'red'}>
@@ -181,23 +206,30 @@ const AccountManagement = () => {
         {
             title: 'Hành động',
             key: 'action',
-            fixed: 'right',
-            width: 100,
             render: (_, record) => (
-                <Dropdown overlay={
-                    <Menu>
-                        <Menu.Item key="1" onClick={() => handleViewDetail(record._id)} icon={<EyeOutlined />}>
-                            Chi tiết
-                        </Menu.Item>
-                        <Menu.Item key="2" onClick={() => handleEdit(record)} icon={<EditOutlined />}>
-                            Sửa
-                        </Menu.Item>
-                        <Menu.Item key="3" onClick={() => handleDelete(record._id)} icon={<DeleteOutlined />} danger>
-                            Xóa
-                        </Menu.Item>
-                    </Menu>
-                } trigger={['click']}>
-                    <Button icon={<MoreOutlined />} />
+                <Dropdown
+                    overlay={
+                        <Menu>
+                            <Menu.Item key="view" icon={<EyeOutlined />} onClick={() => handleViewDetail(record._id)}>
+                                Chi tiết
+                            </Menu.Item>
+                            {(userRole === 'admin' ||
+                                (userRole === 'faculty-head' && record.role?.faculty?._id === schoolData?.faculty?._id) ||
+                                record._id === schoolData?._id) && (
+                                    <Menu.Item key="edit" icon={<EditOutlined />} onClick={() => handleEdit(record)}>
+                                        Sửa
+                                    </Menu.Item>
+                                )}
+                            {userRole === 'admin' && record.role?.name !== 'admin' && (
+                                <Menu.Item key="delete" icon={<DeleteOutlined />} onClick={() => handleDelete(record._id)}>
+                                    Xóa
+                                </Menu.Item>
+                            )}
+                        </Menu>
+                    }
+                    trigger={['click']}
+                >
+                    <Button type="text" icon={<EllipsisOutlined style={{ fontSize: '24px' }} />} style={{ width: '40px', height: '40px' }} />
                 </Dropdown>
             ),
         },
@@ -205,14 +237,16 @@ const AccountManagement = () => {
 
     return (
         <div>
-            <StyledButton type="primary" onClick={handleCreate} icon={<PlusOutlined />}>
-                Tạo tài khoản mới
-            </StyledButton>
+            {(userRole === 'admin' || userRole === 'faculty-head') && (
+                <Button type="primary" onClick={handleCreate} icon={<PlusOutlined />}>
+                    Tạo tài khoản mới
+                </Button>
+            )}
             <div style={{ marginTop: 16, width: '100%', overflowX: 'auto' }}>
-                <Table 
-                    columns={columns} 
-                    dataSource={accounts} 
-                    rowKey="_id" 
+                <Table
+                    columns={columns}
+                    dataSource={accounts}
+                    rowKey="_id"
                     loading={loading}
                     scroll={{ x: 1000 }}
                     pagination={pagination}
@@ -224,45 +258,72 @@ const AccountManagement = () => {
                 visible={modalVisible}
                 onCancel={() => setModalVisible(false)}
                 footer={null}
-                width={600}
+                width={800}
             >
                 <Form form={form} onFinish={handleSubmit} layout="vertical">
-                    <Form.Item name="name" label="Tên" rules={[{ required: true }]}>
-                        <Input />
-                    </Form.Item>
-                    <Form.Item name="email" label="Email" rules={[{ required: true, type: 'email' }]}>
-                        <Input />
-                    </Form.Item>
+                    <Row gutter={16}>
+                        <Col span={12}>
+                            <Form.Item name="name" label="Tên" rules={[{ required: true }]}>
+                                <Input />
+                            </Form.Item>
+                        </Col>
+                        <Col span={12}>
+                            <Form.Item name="email" label="Email" rules={[{ required: true, type: 'email' }]}>
+                                <Input />
+                            </Form.Item>
+                        </Col>
+                    </Row>
                     {!editingAccountId && (
-                        <Form.Item name="password" label="Mật khẩu" rules={[{ required: true }]}>
-                            <Input.Password />
-                        </Form.Item>
+                        <Row gutter={16}>
+                            <Col span={24}>
+                                <Form.Item name="password" label="Mật khẩu" rules={[{ required: true }]}>
+                                    <Input.Password />
+                                </Form.Item>
+                            </Col>
+                        </Row>
                     )}
-                    <Form.Item name="role" label="Vai trò" rules={[{ required: true }]}>
-                        <Select>
-                            <Option value="faculty-head">Trưởng khoa</Option>
-                            <Option value="faculty-staff">Nhân viên khoa</Option>
-                        </Select>
-                    </Form.Item>
-                    <Form.Item name="faculty" label="Khoa" rules={[{ required: true }]}>
-                        <Select>
-                            {faculties.map(faculty => (
-                                <Option key={faculty._id} value={faculty._id}>{faculty.name}</Option>
-                            ))}
-                        </Select>
-                    </Form.Item>
-                    <Form.Item name="phoneNumber" label="Số điện thoại">
-                        <Input />
-                    </Form.Item>
-                    <Form.Item name="dateOfBirth" label="Ngày sinh">
-                        <DatePicker format="YYYY-MM-DD" />
-                    </Form.Item>
-                    <Form.Item name="isActive" label="Trạng thái" valuePropName="checked">
-                        <Select>
-                            <Option value={true}>Hoạt động</Option>
-                            <Option value={false}>Không hoạt động</Option>
-                        </Select>
-                    </Form.Item>
+                    <Row gutter={16}>
+                        <Col span={12}>
+                            <Form.Item name="role" label="Vai trò" rules={[{ required: true }]}>
+                                <Select disabled={userRole !== 'admin'}>
+                                    <Option value="admin">Admin</Option>
+                                    <Option value="faculty-head">Trưởng khoa</Option>
+                                    <Option value="faculty-staff">Nhân viên khoa</Option>
+                                </Select>
+                            </Form.Item>
+                        </Col>
+                        <Col span={12}>
+                            <Form.Item name="faculty" label="Khoa" rules={[{ required: true }]}>
+                                <Select disabled={userRole !== 'admin'}>
+                                    {faculties.map(faculty => (
+                                        <Option key={faculty._id} value={faculty._id}>{faculty.name}</Option>
+                                    ))}
+                                </Select>
+                            </Form.Item>
+                        </Col>
+                    </Row>
+                    <Row gutter={16}>
+                        <Col span={12}>
+                            <Form.Item name="phoneNumber" label="Số điện thoại">
+                                <Input />
+                            </Form.Item>
+                        </Col>
+                        <Col span={12}>
+                            <Form.Item name="dateOfBirth" label="Ngày sinh">
+                                <DatePicker format="YYYY-MM-DD" style={{ width: '100%' }} />
+                            </Form.Item>
+                        </Col>
+                    </Row>
+                    <Row gutter={16}>
+                        <Col span={12}>
+                            <Form.Item name="isActive" label="Trạng thái" valuePropName="checked">
+                                <Select>
+                                    <Option value={true}>Hoạt động</Option>
+                                    <Option value={false}>Không hoạt động</Option>
+                                </Select>
+                            </Form.Item>
+                        </Col>
+                    </Row>
                     <Form.Item>
                         <Button type="primary" htmlType="submit">
                             {editingAccountId ? 'Cập nhật' : 'Tạo mới'}
@@ -279,14 +340,14 @@ const AccountManagement = () => {
             >
                 {accountDetail && (
                     <Descriptions bordered column={2}>
-                        <Descriptions.Item label="Avatar" span={2}>
+                        <Descriptions.Item label="Avatar">
                             <Avatar src={accountDetail.avatar} size={64} icon={<UserOutlined />} />
                         </Descriptions.Item>
                         <Descriptions.Item label="Tên">{accountDetail.name}</Descriptions.Item>
                         <Descriptions.Item label="Email">{accountDetail.email}</Descriptions.Item>
                         <Descriptions.Item label="Vai trò">
-                            <StyledTag color={accountDetail.role.name.includes('admin') ? 'gold' : accountDetail.role.name.includes('head') ? 'green' : 'blue'}>
-                                {accountDetail.role.name.charAt(0).toUpperCase() + accountDetail.role.name.slice(1).replace('-', ' ')}
+                            <StyledTag color={accountDetail.role.name === 'admin' ? 'gold' : accountDetail.role.name === 'faculty-head' ? 'green' : 'blue'}>
+                                {accountDetail.role.name === 'admin' ? 'Admin' : accountDetail.role.name === 'faculty-head' ? 'Trưởng khoa' : 'Nhân viên khoa'}
                             </StyledTag>
                         </Descriptions.Item>
                         <Descriptions.Item label="Khoa">{accountDetail.role.faculty?.name || 'N/A'}</Descriptions.Item>
@@ -295,9 +356,6 @@ const AccountManagement = () => {
                                 {accountDetail.isActive ? 'Hoạt động' : 'Không hoạt động'}
                             </StyledTag>
                         </Descriptions.Item>
-                        <Descriptions.Item label="Số điện thoại">{accountDetail.phoneNumber || 'N/A'}</Descriptions.Item>
-                        <Descriptions.Item label="Ngày sinh">{accountDetail.dateOfBirth || 'N/A'}</Descriptions.Item>
-                        <Descriptions.Item label="Đăng nhập cuối">{moment(accountDetail.lastLogin).format('DD/MM/YYYY HH:mm:ss')}</Descriptions.Item>
                         <Descriptions.Item label="Ngày tạo">{moment(accountDetail.createdAt).format('DD/MM/YYYY HH:mm:ss')}</Descriptions.Item>
                         <Descriptions.Item label="Cập nhật lần cuối">{moment(accountDetail.updatedAt).format('DD/MM/YYYY HH:mm:ss')}</Descriptions.Item>
                     </Descriptions>

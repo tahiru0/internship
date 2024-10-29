@@ -1,0 +1,139 @@
+.dashboard {
+  height: calc(100vh - 64px);
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+}
+
+.calendar-container {
+  flex: 1;
+  min-height: 0;
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  display: flex;
+  flex-direction: column;
+}
+
+.fc {
+  flex: 1;
+  min-height: 0;
+}
+
+.fc-view-harness {
+  height: 100% !important;
+}
+
+/* Time column */
+.fc-timegrid-axis {
+  padding: 8px !important;
+  font-size: 12px;
+  min-width: 70px !important;
+}
+
+/* Time slots */
+.fc-timegrid-slot {
+  height: auto !important;
+  padding: 8px 0 !important;
+}
+
+.fc-timegrid-slot.fc-timegrid-slot-lane {
+  min-height: 40px;
+}
+
+/* Events */
+.fc-timegrid-event-harness {
+  margin: 0 !important;
+  transition: all 0.3s ease;
+}
+
+.fc-timegrid-event {
+  border: 1px solid rgba(0,0,0,0.1) !important;
+  margin: 0 2px !important;
+  padding: 4px !important;
+  transition: all 0.3s ease;
+  position: relative;
+  z-index: 1;
+}
+
+/* Stacked events effect */
+.fc-timegrid-event-harness:not(:first-child) {
+  margin-top: -30px !important;
+  margin-left: 4px !important;
+}
+
+.fc-timegrid-event-harness:hover {
+  z-index: 10 !important;
+  transform: scale(1.02);
+}
+
+.fc-timegrid-event-harness:hover .fc-timegrid-event {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+/* Event content */
+.event-content {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px;
+  height: 100%;
+}
+
+.company-logo {
+  width: 16px;
+  height: 16px;
+  border-radius: 2px;
+}
+
+.event-title {
+  font-size: 12px;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: white;
+}
+
+/* Tooltip */
+.event-tooltip {
+  padding: 12px;
+  max-width: 300px;
+}
+
+.tooltip-header {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.company-logo-medium {
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  object-fit: contain;
+}
+
+.tooltip-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tooltip-item {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.tooltip-item strong {
+  min-width: 80px;
+  color: #666;
+}
+
+.company-name {
+  font-weight: 500;
+  color: #333;
+}

@@ -38,6 +38,7 @@ const getNavItems = (userRole) => {
 
     const facultyHeadItems = [
         { key: "2", to: "/school/students", label: "Quản lý sinh viên", icon: <FaUserGraduate /> },
+        { key: "3", to: "/school/accounts", label: "Quản lý tài khoản", icon: <FaUserCog /> },
     ];
 
     if (userRole === 'admin') {
@@ -143,6 +144,13 @@ function ProtectedRoutes() {
                         )}
                         {userRole === 'faculty-head' && (
                             <Route path="/students" element={<FacultyHeadStudentManagement />} />
+                        )}
+                        {(userRole === 'admin' || userRole === 'faculty-head' ) && (
+                            <Route path="/accounts" element={
+                                <Suspense fallback={<FullScreenLoader />}>
+                                    <AccountManagement />
+                                </Suspense>
+                            } />
                         )}
                         <Route path="*" element={<NotFound homeLink={"/school/dashboard"} />} />
                     </Routes>

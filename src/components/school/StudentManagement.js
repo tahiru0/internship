@@ -363,7 +363,6 @@ function StudentManagement() {
     };
 
     const handleErrorDataChange = (rows) => {
-        console.log('handleErrorDataChange được gọi với dữ liệu:', rows);
         setErrorData(rows);
         // Tự động tải xuống khi có thay đổi
         handleDownloadErrors(rows);
@@ -441,7 +440,7 @@ function StudentManagement() {
                 });
                 setPendingCount(response.data.totalStudents);
             } catch (error) {
-                console.error('Lỗi khi lấy số lượng sinh viên chờ xác nhận:', error);
+                message.error( error.response?.data?.message || error.message);
             }
         };
 
@@ -547,12 +546,12 @@ function StudentManagement() {
 
     const fetchPasswordTemplate = async () => {
         try {
-            const response = await api.get('/school/student-api-config');
+            const response = await api.get('/school/password-rule');
             const config = response.data;
-            if (config.studentApiConfig && config.studentApiConfig.passwordRule) {
-                setPasswordTemplate(config.studentApiConfig.passwordRule.template || '');
+            if (config && config.passwordRule) {
+                setPasswordTemplate(config.passwordRule);
                 // Gọi hàm handlePasswordTemplateChange để cập nhật preview
-                handlePasswordTemplateChange(config.studentApiConfig.passwordRule.template || '');
+                handlePasswordTemplateChange(config.passwordRule);
             }
         } catch (error) {
             console.error('Lỗi khi lấy mẫu mật khẩu:', error);
@@ -564,10 +563,16 @@ function StudentManagement() {
         setPasswordTemplate(value);
         try {
             const response = await api.post('/school/review-password-rule', {
-                passwordRule: { template: value },
+                passwordRule: value,
                 dateOfBirth: '1995-12-31' // Ví dụ ngày sinh
             });
-            setPasswordPreview(response.data.password);
+            if (typeof response.data === 'object' && response.data.password) {
+                setPasswordPreview(response.data.password);
+            } else if (typeof response.data === 'string') {
+                setPasswordPreview(response.data);
+            } else {
+                setPasswordPreview('Không thể tạo mật khẩu mẫu');
+            }
         } catch (error) {
             console.error('Lỗi khi xem trước mật khẩu:', error);
             setPasswordPreview('Lỗi khi tạo mật khẩu mẫu');
@@ -577,7 +582,7 @@ function StudentManagement() {
     const savePasswordTemplate = async () => {
         try {
             await api.put('/school/update-password-rule', {
-                passwordRule: { template: passwordTemplate }
+                passwordRule: passwordTemplate
             });
             message.success('Đã lưu mẫu mật khẩu thành công');
             setPasswordModalVisible(false);
@@ -838,11 +843,10 @@ function StudentManagement() {
                 onOk={savePasswordTemplate}
                 onCancel={() => setPasswordModalVisible(false)}
             >
-                <Input.TextArea
+                <Input
                     value={passwordTemplate}
                     onChange={(e) => handlePasswordTemplateChange(e.target.value)}
-                    placeholder="Nhập mẫu mật khẩu (ví dụ: SV${ngaysinh})"
-                    rows={4}
+                    placeholder="Nhập mẫu mật khẩu (ví dụ: ${ngaysinh})"
                 />
                 <div style={{ marginTop: 16 }}>
                     <strong>Xem trước mật khẩu:</strong> {passwordPreview}

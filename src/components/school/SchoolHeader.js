@@ -42,17 +42,18 @@ function SchoolHeader({ handleSidenavColor, handleSidenavType, handleFixedNavbar
     const schoolName = schoolData?.school?.name || '';
     const schoolLogo = schoolData?.school?.logo || '';
     const userAvatar = schoolData?.account?.avatar || '';
+    const facultyName = schoolData?.account?.faculty?.name || '';
 
-    // Thêm hàm việt hóa role
     const getVietnameseRole = (role) => {
         switch (role) {
             case 'faculty-head':
                 return 'Trưởng khoa';
             case 'admin':
                 return 'Quản trị viên';
-            // Thêm các role khác nếu cần
+            case 'faculty-staff':
+                return 'Giáo vụ khoa';
             default:
-                return role; // Trả về role gốc nếu không có bản dịch
+                return role;
         }
     };
 
@@ -110,7 +111,14 @@ function SchoolHeader({ handleSidenavColor, handleSidenavType, handleFixedNavbar
                         style={{ width: '20px', height: 'auto', borderRadius: '8px', marginRight: '10px' }}
                     />
                 )}
-                <Text strong style={{ fontSize: '16px', marginLeft: '10px' }}>{schoolName}</Text>
+                <div>
+                    <Text strong style={{ fontSize: '16px' }}>{schoolName}</Text>
+                    {facultyName && (
+                        <div>
+                            <Text type="secondary" style={{ fontSize: '12px' }}>Khoa {facultyName}</Text>
+                        </div>
+                    )}
+                </div>
             </Menu.Item>
             <Menu.Divider />
             <Menu.Item key="1" disabled>

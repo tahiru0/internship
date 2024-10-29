@@ -21,6 +21,7 @@ const FacultyManagement = () => {
     const [majorsHasMore, setMajorsHasMore] = useState(true);
     const [infoModalVisible, setInfoModalVisible] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
+    const [majorsOptions, setMajorsOptions] = useState([]);
 
     useEffect(() => {
         fetchFaculties();
@@ -47,7 +48,16 @@ const FacultyManagement = () => {
                 params: { page, limit: 20, search }
             });
             const newMajors = response.data.majors;
-            setMajors(prevMajors => page === 1 ? newMajors : [...prevMajors, ...newMajors]);
+            if (page === 1) {
+                setMajorsOptions(newMajors);
+            } else {
+                setMajorsOptions(prevMajors => {
+                    const uniqueMajors = newMajors.filter(major => 
+                        !prevMajors.some(m => m._id === major._id)
+                    );
+                    return [...prevMajors, ...uniqueMajors];
+                });
+            }
             setMajorsPage(page);
             setMajorsHasMore(page < response.data.totalPages);
         } catch (error) {
@@ -92,8 +102,7 @@ const FacultyManagement = () => {
         setIsEditing(true);
         const details = await fetchFacultyDetails(facultyId);
         if (details) {
-            // Thêm các ngành học của khoa vào danh sách majors nếu chưa có
-            setMajors(prevMajors => {
+            setMajorsOptions(prevMajors => {
                 const newMajors = [...prevMajors];
                 details.majors.forEach(major => {
                     if (!newMajors.some(m => m._id === major._id)) {
@@ -124,24 +133,19 @@ const FacultyManagement = () => {
         }
     };
 
-    const handleMajorsChange = (value, option) => {
+    const handleMajorsChange = (value) => {
         const newMajors = value.filter(v => 
-            typeof v === 'string' && 
-            !majors.some(m => m._id === v || m.name === v)
+            !majorsOptions.some(m => m._id === v || m.name === v)
         );
         if (newMajors.length > 0) {
-            const updatedMajors = [...majors];
-            newMajors.forEach(newMajor => {
-                if (!updatedMajors.some(m => m.name === newMajor)) {
-                    updatedMajors.push({ 
-                        _id: `new-${Date.now()}-${newMajor}`, 
-                        name: newMajor
-                    });
-                }
-            });
-            setMajors(updatedMajors);
+            setMajorsOptions(prevMajors => [
+                ...prevMajors,
+                ...newMajors.map(newMajor => ({ 
+                    _id: `new-${Date.now()}-${newMajor}`, 
+                    name: newMajor
+                }))
+            ]);
         }
-        form.setFieldsValue({ majors: value });
     };
 
     const handleSubmit = async (values) => {
@@ -191,14 +195,7 @@ const FacultyManagement = () => {
             title: 'Tên khoa',
             dataIndex: 'name',
             key: 'name',
-            render: (text, record) => (
-                <Space>
-                    <Avatar src={record.avatar} icon={<UserOutlined />} />
-                    {text}
-                </Space>
-            ),
         },
-        { title: 'Mô tả', dataIndex: 'description', key: 'description', ellipsis: true },
         {
             title: 'Trưởng khoa',
             dataIndex: 'headName',
@@ -297,30 +294,10 @@ const FacultyManagement = () => {
                             onPopupScroll={handleMajorsScroll}
                             loading={majorsFetching}
                             onChange={handleMajorsChange}
-                            filterOption={(input, option) =>
-                                (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-                            }
-                            tagRender={(props) => {
-                                const { label, value, closable, onClose } = props;
-                                const onPreventMouseDown = (event) => {
-                                    event.preventDefault();
-                                    event.stopPropagation();
-                                };
-                                return (
-                                    <Tag
-                                        color="blue"
-                                        onMouseDown={onPreventMouseDown}
-                                        closable={closable}
-                                        onClose={onClose}
-                                        style={{ marginRight: 3 }}
-                                    >
-                                        {label || value}
-                                    </Tag>
-                                );
-                            }}
+                            tokenSeparators={[',']}
                         >
-                            {majors.map(major => (
-                                <Option key={major._id} value={major._id} label={major.name}>
+                            {majorsOptions.map(major => (
+                                <Option key={major._id} value={major._id}>
                                     {major.name}
                                 </Option>
                             ))}

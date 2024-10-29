@@ -27,6 +27,7 @@ const AppLayout = lazy(() => import('./components/AppLayout'));
 const NotFound = lazy(() => import('./components/NotFound'));
 const MaintenancePage = lazy(() => import('./components/MaintenancePage'));
 const CompanyActivate = lazy(() => import('./components/company/Activate'));
+const TaskView = lazy(() => import('./components/TaskView'));
 
 function ProtectedRoutes() {
   const location = useLocation();
@@ -140,6 +141,11 @@ function AppContent() {
         <Route path="/project/:id" element={
           <AppLayout>
             <ProjectDetail />
+          </AppLayout>
+        } />
+        <Route path="/tasks/:taskId" element={
+          <AppLayout>
+            <TaskView />
           </AppLayout>
         } />
         <Route path="/" element={<HomePage />} />

@@ -1,6 +1,6 @@
 import React, { useState, useLayoutEffect, useEffect, useRef, useMemo, useCallback } from 'react';
-import { Card, List, Avatar, Input, Select, message, Skeleton, Button, Tag, Descriptions, Switch, Modal, DatePicker, InputNumber, Popconfirm, Tooltip, Table, Form, Space, Divider } from 'antd';
-import { SearchOutlined, MenuFoldOutlined, MenuUnfoldOutlined, LeftOutlined, UserOutlined, PlusOutlined } from '@ant-design/icons';
+import { Card, List, Avatar, Input, Select, message, Skeleton, Button, Tag, Descriptions, Switch, Modal, DatePicker, InputNumber, Popconfirm, Tooltip, Table, Form, Space, Divider, Upload } from 'antd';
+import { SearchOutlined, MenuFoldOutlined, MenuUnfoldOutlined, LeftOutlined, UserOutlined, PlusOutlined, UploadOutlined, FileOutlined } from '@ant-design/icons';
 import axios from 'axios';
 import moment from 'moment';
 import { debounce } from 'lodash';
@@ -12,6 +12,13 @@ const { Option } = Select;
 const { TextArea } = Input;
 
 const MentorProjectManagement = () => {
+  // Thêm statusMapping vào đây
+  const statusMapping = {
+    'Assigned': 'Đã giao',
+    'Submitted': 'Đã nộp',
+    'Graded': 'Đã chấm điểm'
+  };
+
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -28,6 +35,7 @@ const MentorProjectManagement = () => {
   const [taskForm] = Form.useForm();
   const [studentModalVisible, setStudentModalVisible] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
+  const [taskFiles, setTaskFiles] = useState([]);
 
   const listRef = useRef(null);
   const resizeTimeout = useRef(null);
@@ -197,66 +205,89 @@ const MentorProjectManagement = () => {
   const handleTaskSubmit = async () => {
     try {
       const values = await taskForm.validateFields();
-      const accessToken = Cookies.get('accessToken');
-      if (!selectedProject || !selectedProject.id) {
-        throw new Error('Không có dự án nào được chọn');
+      
+      const formData = new FormData();
+      formData.append('projectId', selectedProject._id);
+      formData.append('name', values.name);
+      formData.append('description', values.description);
+      formData.append('deadline', values.deadline.toISOString());
+      formData.append('assignedTo', values.assignedTo);
+
+      // Xử lý file đính kèm
+      if (taskFiles.length > 0) {
+        taskFiles.forEach(file => {
+          formData.append('files', file);
+        });
       }
-      const response = await axiosInstance.post(`/mentor/projects/${selectedProject.id}/tasks`, {
-        name: values.title,
-        description: values.description,
-        deadline: values.deadline,
-        assignedTo: values.assignee
+
+      const response = await axiosInstance.post('/tasks', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
       });
 
-      const newTask = response.data.task;
-      const updatedProject = {
-        ...selectedProject,
-        tasks: [...selectedProject.tasks, newTask]
-      };
-
-      setSelectedProject(updatedProject);
+      message.success('Tạo task thành công');
       setTaskModalVisible(false);
       taskForm.resetFields();
-      message.success(response.data.message || 'Đã thêm task mới');
+      setTaskFiles([]);
+      refreshProjectDetails();
+
     } catch (error) {
-      const errorMessage = error.response?.data?.message || 'Không thể thêm task mới';
-      console.error('Lỗi khi thêm task:', error);
-      message.error(errorMessage);
+      message.error(error.response?.data?.message || 'Không thể tạo task');
     }
   };
 
   const taskColumns = [
     {
-      title: 'Tiêu đề',
-      dataIndex: 'title',
-      key: 'title',
+      title: 'Tên task',
+      dataIndex: 'name',
+      key: 'name',
+    },
+    {
+      title: 'Người được giao',
+      dataIndex: ['assignedTo', 'name'],
+      key: 'assignedTo',
+    },
+    {
+      title: 'Deadline',
+      dataIndex: 'deadline',
+      key: 'deadline',
+      render: (deadline) => moment(deadline).format('DD/MM/YYYY HH:mm'),
     },
     {
       title: 'Trạng thái',
       dataIndex: 'status',
       key: 'status',
       render: (status) => (
-        <Tag color={status === 'Done' ? 'green' : status === 'In Progress' ? 'blue' : 'orange'}>
-          {status}
+        <Tag color={getStatusColor(status)}>
+          {statusMapping[status] || status}
         </Tag>
       ),
     },
     {
-      title: 'Người được giao',
-      dataIndex: 'assignee',
-      key: 'assignee',
-    },
-    {
-      title: 'Hành động',
-      key: 'action',
-      render: (_, record) => (
-        <Space size="middle">
-          <Button size="small">Sửa</Button>
-          <Button size="small" danger>Xóa</Button>
+      title: 'Tài liệu',
+      dataIndex: 'materialFiles',
+      key: 'materialFiles',
+      render: (files) => (
+        <Space>
+          {files?.map((file, index) => (
+            <a key={index} href={file.url} target="_blank" rel="noopener noreferrer">
+              <FileOutlined /> {file.url.split('/').pop()}
+            </a>
+          ))}
         </Space>
       ),
-    },
+    }
   ];
+
+  const getStatusColor = (status) => {
+    const colors = {
+      'Assigned': 'warning',
+      'Submitted': 'success', 
+      'Graded': 'processing'
+    };
+    return colors[status] || 'default';
+  };
 
   const fetchStudentDetail = async (studentId) => {
     try {
@@ -467,32 +498,63 @@ const MentorProjectManagement = () => {
         onCancel={() => {
           setTaskModalVisible(false);
           taskForm.resetFields();
+          setTaskFiles([]);
         }}
       >
         <Form form={taskForm} layout="vertical">
           <Form.Item
-            name="title"
-            label="Tiêu đề"
-            rules={[{ required: true, message: 'Vui lòng nhập tiêu đề task' }]}
+            name="name"
+            label="Tên task"
+            rules={[{ required: true, message: 'Vui lòng nhập tên task' }]}
           >
             <Input />
           </Form.Item>
+
           <Form.Item
-            name="assignee"
+            name="assignedTo"
             label="Người được giao"
             rules={[{ required: true, message: 'Vui lòng chọn người được giao' }]}
           >
             <Select>
-              {selectedProject?.members.map(member => (
-                <Option key={member.id} value={member.name}>{member.name}</Option>
+              {selectedProject?.members?.map(member => (
+                <Option key={member._id} value={member._id}>{member.name}</Option>
               ))}
             </Select>
           </Form.Item>
+
           <Form.Item
             name="description"
             label="Mô tả"
           >
             <TextArea rows={4} />
+          </Form.Item>
+
+          <Form.Item
+            name="deadline"
+            label="Deadline"
+            rules={[{ required: true, message: 'Vui lòng chọn deadline' }]}
+          >
+            <DatePicker 
+              showTime 
+              format="DD/MM/YYYY HH:mm"
+              disabledDate={current => current && current < moment().startOf('day')}
+            />
+          </Form.Item>
+
+          <Form.Item label="Tài liệu đính kèm">
+            <Upload
+              multiple
+              beforeUpload={(file) => {
+                setTaskFiles(prev => [...prev, file]);
+                return false;
+              }}
+              onRemove={(file) => {
+                setTaskFiles(prev => prev.filter(f => f !== file));
+              }}
+              fileList={taskFiles}
+            >
+              <Button icon={<UploadOutlined />}>Chọn file</Button>
+            </Upload>
           </Form.Item>
         </Form>
       </Modal>

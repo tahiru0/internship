@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Container, Row, Col, ListGroup, Form,Button } from 'react-bootstrap';
-import { Tabs, Input, message, Card, Select, Modal, Tooltip } from 'antd';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { Container, Row, Col, Form, Button, ListGroup, Card, Modal, OverlayTrigger, Tooltip } from 'react-bootstrap';
+import { Input, Select, Tabs, message } from 'antd';
 import { CKEditor } from '@ckeditor/ckeditor5-react';
 import ClassicEditor from '@ckeditor/ckeditor5-build-classic';
 import { useAuthorization } from '../../routes/RequireAdminAuth';
-import { SendOutlined, ExclamationCircleOutlined, SettingOutlined } from '@ant-design/icons';
+import { FaCog, FaPaperPlane, FaRedo, FaExclamationCircle } from 'react-icons/fa';
 
 const { Option } = Select;
 const { TabPane } = Tabs;
@@ -220,7 +220,7 @@ const Email = () => {
         try {
             const response = await axiosInstance.post('/admin/email-config', values);
             setEmailConfig(response.data.config);
-            message.success('Cấu hình email đã được cập nhật thành công');
+            message.success('Cấu hình email đã đưc cập nhật thành công');
             setIsConfigModalVisible(false);
         } catch (error) {
             console.error('Lỗi khi cập nhật cấu hình email:', error);
@@ -286,19 +286,23 @@ const Email = () => {
                 </div>
                 <div className="d-flex align-items-center">
                     {email.status === 'failed' && (
-                        <Tooltip title="Gửi lại">
+                        <OverlayTrigger
+                            placement="top"
+                            overlay={<Tooltip id={`tooltip-${email._id}`}>Gửi lại</Tooltip>}
+                        >
                             <Button 
-                                icon={<SendOutlined />} 
+                                variant="link"
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     handleResend(email);
                                 }}
-                                size="small"
-                                style={{ marginRight: '10px' }}
-                                loading={resendingEmailId === email._id}
+                                size="sm"
+                                style={{ marginRight: '10px', padding: 0 }}
                                 disabled={resendingEmailId === email._id}
-                            />
-                        </Tooltip>
+                            >
+                                <FaRedo color={resendingEmailId === email._id ? 'gray' : 'blue'} />
+                            </Button>
+                        </OverlayTrigger>
                     )}
                     <small>{new Date(email.sentAt).toLocaleString()}</small>
                 </div>
@@ -317,14 +321,14 @@ const Email = () => {
                             className="me-2" 
                             style={{ width: '70%' }}
                         >
-                            Soạn thư
+                            <FaPaperPlane className="me-2" /> Soạn thư
                         </Button>
                         <Button 
                             onClick={() => setIsConfigModalVisible(true)} 
-                            variant="secondary" 
+                            variant="outline-primary"  // Thay đổi variant thành outline-primary
                             style={{ width: '30%' }}
                         >
-                            <i className="bi bi-gear"></i> Cài đặt
+                            <FaCog /> Cài đặt
                         </Button>
                     </Form.Group>
                     <div className="mb-3">
@@ -364,29 +368,28 @@ const Email = () => {
                 </Col>
                 <Col md={8} style={{ overflowY: 'auto', height: isMobileView ? 'calc(100vh - 150px)' : 'calc(100vh - 100px)', }}>
                     {selectedEmail ? (
-                        <Card>
+                        <Card style={{ padding: '20px' }}>
                             <h4>{selectedEmail.subject}</h4>
                             <p>Đến: {selectedEmail.to}</p>
                             <p>Ngày: {new Date(selectedEmail.sentAt).toLocaleString()}</p>
                             <p>Trạng thái: {selectedEmail.status === 'sent' ? 'Đã gửi' : 'Gửi thất bại'}</p>
                             {selectedEmail.status === 'failed' && (
                                 <div>
-                                    <p style={{ color: 'red' }}><ExclamationCircleOutlined /> Lỗi: {selectedEmail.error}</p>
+                                    <p style={{ color: 'red' }}><FaExclamationCircle /> Lỗi: {selectedEmail.error}</p>
                                     <Button 
                                         onClick={() => handleResend(selectedEmail)} 
-                                        type="primary"
-                                        loading={resendingEmailId === selectedEmail._id}
+                                        variant="primary"
                                         disabled={resendingEmailId === selectedEmail._id}
                                     >
-                                        Gửi lại
+                                        {resendingEmailId === selectedEmail._id ? 'Đang gửi lại...' : 'Gửi lại'}
                                     </Button>
                                 </div>
                             )}
                             <div className='my-3' dangerouslySetInnerHTML={{ __html: selectedEmail.htmlContent }} />
                             {showDeleted ? (
-                                <Button onClick={handleRestore}>Khôi phục</Button>
+                                <Button onClick={handleRestore} variant="primary">Khôi phục</Button>
                             ) : (
-                                <Button onClick={() => setIsDeleteModalVisible(true)} danger>Xóa</Button>
+                                <Button onClick={() => setIsDeleteModalVisible(true)} variant="danger">Xóa</Button>
                             )}
                         </Card>
                     ) : (

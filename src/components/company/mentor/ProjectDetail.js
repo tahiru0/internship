@@ -15,6 +15,7 @@ import ConfirmStatusChangeModal from './project/ConfirmStatusChangeModal';
 import RatingModal from './project/RatingModal';
 import ConfirmCloseRecruitingModal from './project/ConfirmCloseRecruitingModal';
 import { ModalProvider, useModal } from '../../../context/ModalContext';
+import { useCompany } from '../../../context/CompanyContext';
 
 const { TextArea } = Input;
 const { Option } = Select;
@@ -62,6 +63,7 @@ const ProjectDetail = memo(({ project, loading, onBack, isMobile, fetchProjects 
   const [filterDeadlineEnd, setFilterDeadlineEnd] = useState(null);
   const [sortBy, setSortBy] = useState('createdAt');
   const [sortOrder, setSortOrder] = useState('desc');
+  const { axiosInstance } = useCompany();
   
 
   useEffect(() => {
@@ -77,45 +79,31 @@ const ProjectDetail = memo(({ project, loading, onBack, isMobile, fetchProjects 
     }
   }, [project]);
 
-  const fetchTasks = async (page = 1, pageSize = 10, filters = {}, sorter = {}) => {
-    if (!project || !project.id) {
-      console.error('Project ID is undefined');
-      message.error('Không thể tải danh sách nhiệm vụ. ID dự án không hợp lệ.');
-      return;
-    }
+  const fetchTasks = async (currentPage = page, pageSize = limit, filters = {}, sorter = {}) => {
     setTaskLoading(true);
     try {
-      const accessToken = Cookies.get('accessToken');
-      const params = new URLSearchParams({
-        page: page.toString(),
-        limit: pageSize.toString(),
-      });
-
-      // Thêm các bộ lọc
-      if (filterName) params.append('name', filterName);
-      if (filterAssignedTo) params.append('assignedTo', filterAssignedTo);
-      if (filterStatus) params.append('status', filterStatus);
-      if (filterDeadlineStart) params.append('deadlineStart', filterDeadlineStart);
-      if (filterDeadlineEnd) params.append('deadlineEnd', filterDeadlineEnd);
-
-      // Thêm sắp xếp
-      if (sorter.field) params.append('sortBy', sorter.field);
-      if (sorter.order) params.append('order', sorter.order === 'ascend' ? 'asc' : 'desc');
-
-      const response = await axios.get(`http://localhost:5000/api/mentor/projects/${project.id}/tasks`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-        params: params
+      const response = await axiosInstance.get(`/mentor/projects/${project.id}/tasks`, {
+        params: {
+          page: currentPage,
+          limit: pageSize,
+          assignedTo: filters.assignedTo || undefined,
+          status: filters.status || undefined,
+          deadlineStart: filters.deadlineStart || undefined,
+          deadlineEnd: filters.deadlineEnd || undefined,
+          sortField: sorter.field || sortBy,
+          sortOrder: sorter.order || sortOrder
+        }
       });
 
       setTasks(response.data.tasks);
       setTotal(response.data.total);
-      setPage(response.data.page);
-      setLimit(response.data.limit);
+      setPage(currentPage);
+      setLimit(pageSize);
     } catch (error) {
-      console.error('Error fetching tasks:', error);
-      message.error('Không thể tải danh sách nhiệm vụ');
+      message.error(error.response?.data?.message || 'Không thể tải danh sách task');
+    } finally {
+      setTaskLoading(false);
     }
-    setTaskLoading(false);
   };
 
   const fetchStudentDetail = async (studentId) => {
@@ -124,16 +112,11 @@ const ProjectDetail = memo(({ project, loading, onBack, isMobile, fetchProjects 
       return;
     }
     try {
-      const accessToken = Cookies.get('accessToken');
-      const response = await axios.get(`http://localhost:5000/api/mentor/students/${studentId}`, {
-        headers: { Authorization: `Bearer ${accessToken}` }
-      });
+      const response = await axiosInstance.get(`/mentor/students/${studentId}`);
       setSelectedStudent(response.data);
       setStudentModalVisible(true);
     } catch (error) {
-      const errorMessage = error.response?.data?.message || 'Không thể lấy thông tin sinh viên';
-      console.error('Lỗi khi lấy thông tin sinh viên:', error);
-      message.error(errorMessage);
+      message.error(error.response?.data?.message || 'Không thể lấy thông tin sinh viên');
     }
   };
 
@@ -209,11 +192,8 @@ const ProjectDetail = memo(({ project, loading, onBack, isMobile, fetchProjects 
 
   const updateTaskStatus = async (taskId, newStatus) => {
     try {
-      const accessToken = Cookies.get('accessToken');
-      const response = await axios.put(`http://localhost:5000/api/mentor/tasks/${taskId}/status`, {
+      const response = await axiosInstance.put(`/task/${taskId}/status`, {
         status: newStatus
-      }, {
-        headers: { Authorization: `Bearer ${accessToken}` }
       });
       message.success(response.data.message || 'Đã cập nhật trạng thái task');
       fetchTasks();
@@ -276,12 +256,9 @@ const ProjectDetail = memo(({ project, loading, onBack, isMobile, fetchProjects 
 
   const handleRatingSubmit = async () => {
     try {
-      const accessToken = Cookies.get('accessToken');
-      const response = await axios.post(`http://localhost:5000/api/mentor/tasks/${ratingTask._id}/evaluate`, {
+      const response = await axiosInstance.post(`/task/${ratingTask._id}/evaluate`, {
         rating: Math.round(rating * 2),
         comment
-      }, {
-        headers: { Authorization: `Bearer ${accessToken}` }
       });
       message.success(response.data.message || 'Đã đánh giá task thành công');
       setRatingModalVisible(false);
@@ -432,15 +409,7 @@ const ProjectDetail = memo(({ project, loading, onBack, isMobile, fetchProjects 
 
   const handleConfirmCloseRecruiting = async () => {
     try {
-      const accessToken = Cookies.get('accessToken');
-      if (!accessToken) {
-        message.error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
-        return;
-      }
-
-      const response = await axios.patch(`http://localhost:5000/api/company/projects/${project.id}/stop-recruiting`, {}, {
-        headers: { Authorization: `Bearer ${accessToken}` }
-      });
+      const response = await axiosInstance.patch(`/company/projects/${project.id}/stop-recruiting`, {});
       message.success(response.data.message || 'Đã tắt trạng thái tuyển dụng');
       setIsRecruiting(false);
       setConfirmCloseModalVisible(false);
@@ -461,12 +430,9 @@ const ProjectDetail = memo(({ project, loading, onBack, isMobile, fetchProjects 
     }
 
     try {
-      const accessToken = Cookies.get('accessToken');
-      const response = await axios.patch(`http://localhost:5000/api/company/projects/${project.id}/start-recruiting`, {
+      const response = await axiosInstance.patch(`/company/projects/${project.id}/start-recruiting`, {
         applicationEnd: applicationEnd.format('YYYY-MM-DD'),
         maxApplicants
-      }, {
-        headers: { Authorization: `Bearer ${accessToken}` }
       });
       message.success(response.data.message || 'Đã bật trạng thái tuyển dụng');
       setIsRecruiting(true);
@@ -488,48 +454,35 @@ const ProjectDetail = memo(({ project, loading, onBack, isMobile, fetchProjects 
     setTaskModalVisible(true);
   };
 
-  const handleTaskSubmit = async () => {
+  const handleTaskSubmit = async (values) => {
     try {
-      const values = await taskForm.validateFields();
-      const accessToken = Cookies.get('accessToken');
+      const formData = new FormData();
+      formData.append('projectId', project._id);
+      formData.append('name', values.name);
+      formData.append('description', values.description);
+      formData.append('deadline', values.deadline.toISOString());
+      formData.append('assignedTo', values.assignedTo);
+      formData.append('status', 'Assigned');
 
-      let formData = new FormData();
-      Object.keys(values).forEach(key => {
-        if (key === 'deadline') {
-          formData.append(key, values[key].toISOString());
-        } else if (key === 'file') {
-          if (values[key] && values[key].length > 0) {
-            formData.append(key, values[key][0].originFileObj);
-          }
-        } else if (key === 'questionsText' && values.taskType === 'multipleChoice') {
-          const questions = parseQuestionsText(values[key]);
-          formData.append('questions', JSON.stringify(questions));
-        } else if (key === 'fileRequirements' && values.taskType === 'fileUpload') {
-          formData.append(key, JSON.stringify(values[key]));
-        } else {
-          formData.append(key, values[key]);
+      if (values.file && values.file.fileList) {
+        values.file.fileList.forEach(file => {
+          formData.append('files', file.originFileObj);
+        });
+      }
+
+      const response = await axiosInstance.post('/task', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
         }
       });
-
-      const response = await axios.post(
-        `http://localhost:5000/api/mentor/projects/${project.id}/tasks`,
-        formData,
-        {
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'multipart/form-data'
-          }
-        }
-      );
 
       message.success(response.data.message || 'Đã thêm task mới');
       setTaskModalVisible(false);
       taskForm.resetFields();
       fetchTasks();
+
     } catch (error) {
-      const errorMessage = error.response?.data?.message || 'Không thể thêm task mới';
-      console.error('Lỗi khi thêm task mới:', error);
-      message.error(errorMessage);
+      message.error(error.response?.data?.message || 'Không thể tạo task');
     }
   };
 
@@ -537,10 +490,7 @@ const ProjectDetail = memo(({ project, loading, onBack, isMobile, fetchProjects 
     if (!project || !project.id) return;
     setApplicantsLoading(true);
     try {
-      const accessToken = Cookies.get('accessToken');
-      const response = await axios.get(`http://localhost:5000/api/mentor/projects/${project.id}/applicants`, {
-        headers: { Authorization: `Bearer ${accessToken}` }
-      });
+      const response = await axiosInstance.get(`/mentor/projects/${project.id}/applicants`);
       setApplicants(response.data);
     } catch (error) {
       const errorMessage = error.response?.data?.message || 'Không thể lấy danh sách ứng viên';
@@ -553,10 +503,7 @@ const ProjectDetail = memo(({ project, loading, onBack, isMobile, fetchProjects 
 
   const handleApplicantAction = async (applicantId, action) => {
     try {
-      const accessToken = Cookies.get('accessToken');
-      const response = await axios.post(`http://localhost:5000/api/mentor/projects/${project.id}/applicants/${applicantId}/${action}`, {}, {
-        headers: { Authorization: `Bearer ${accessToken}` }
-      });
+      const response = await axiosInstance.post(`/mentor/projects/${project.id}/applicants/${applicantId}/${action}`, {});
       message.success(response.data.message);
       fetchApplicants();
       // Gọi hàm fetchProjects để cập nhật thông tin dự án, bao gồm danh sách thành viên
@@ -572,14 +519,12 @@ const ProjectDetail = memo(({ project, loading, onBack, isMobile, fetchProjects 
 
   const handleRemoveStudent = async (studentId) => {
     try {
-      const accessToken = Cookies.get('accessToken');
-      const response = await axios.post(
-        `http://localhost:5000/api/mentor/projects/${project.id}/remove-student/${studentId}`,
-        { reason: removeReason },
-        { headers: { Authorization: `Bearer ${accessToken}` } }
+      const response = await axiosInstance.post(
+        `/mentor/projects/${project.id}/remove-student/${studentId}`,
+        { reason: removeReason }
       );
       message.success(response.data.message || 'Đã xóa sinh viên khỏi dự án thành công');
-      // Gọi fetchProjects để cập nhật thông tin dự án trong component cha
+      // Gọi fetchProjects ể cập nhật thông tin dự án trong component cha
       if (typeof fetchProjects === 'function') {
         fetchProjects();
       }
@@ -599,10 +544,7 @@ const ProjectDetail = memo(({ project, loading, onBack, isMobile, fetchProjects 
       return;
     }
     try {
-      const accessToken = Cookies.get('accessToken');
-      const response = await axios.get(`http://localhost:5000/api/mentor/projects/${projectId}`, {
-        headers: { Authorization: `Bearer ${accessToken}` }
-      });
+      const response = await axiosInstance.get(`/mentor/projects/${projectId}`);
       // Thay vì setProject, chúng ta gọi fetchProjects để cập nhật dự án trong component cha
       if (typeof fetchProjects === 'function') {
         fetchProjects();
@@ -623,16 +565,11 @@ const ProjectDetail = memo(({ project, loading, onBack, isMobile, fetchProjects 
   const fetchTaskDetail = async (taskId) => {
     setTaskDetailLoading(true);
     try {
-      const accessToken = Cookies.get('accessToken');
-      const response = await axios.get(`http://localhost:5000/api/mentor/tasks/${taskId}`, {
-        headers: { Authorization: `Bearer ${accessToken}` }
-      });
+      const response = await axiosInstance.get(`/task/${taskId}`);
       setTaskDetail(response.data);
-      setViewingTask(response.data);  // Cập nhật viewingTask với dữ liệu mới
+      setViewingTask(response.data);
     } catch (error) {
-      const errorMessage = error.response?.data?.message || 'Không thể lấy chi tiết task';
-      console.error('Lỗi khi lấy chi tiết task:', error);
-      message.error(errorMessage);
+      message.error(error.response?.data?.message || 'Không thể lấy chi tiết task');
     } finally {
       setTaskDetailLoading(false);
     }
