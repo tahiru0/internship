@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { Form, Button, Layout, Typography, message, Input, Checkbox, Select, Avatar } from 'antd';
 import { MailOutlined, LockOutlined } from '@ant-design/icons';
-import axios from 'axios';
+import axiosInstance, { withAuth } from '../../utils/axiosInstance';
 import Cookies from 'js-cookie';
 import { Container, Row, Col, Card } from 'react-bootstrap';
 import * as Yup from 'yup';
@@ -29,7 +29,7 @@ const CompanySelect = ({ onSelect, initialValue }) => {
         setSearchValue(value);
         if (value.length >= 2) {
             try {
-                const response = await axios.get(`http://localhost:5000/api/auth/companies?query=${value}`);
+                const response = await axiosInstance.get(`/auth/companies?query=${value}`);
                 setCompanies(response.data);
                 if (response.data.length === 1 && response.data[0].id === value) {
                     setSelectedCompany(response.data[0]);
@@ -120,7 +120,7 @@ const Login = () => {
         setIsLoading(true);
         try {
             const { email, password } = values;
-            const response = await axios.post('http://localhost:5000/api/auth/login/company', {
+            const response = await axiosInstance.post('/auth/login/company', {
                 companyId: values.companyId,
                 email,
                 password,

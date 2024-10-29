@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Form, Input, Button, message, Card, Typography, Steps, Space } from 'antd';
 import { MailOutlined, LockOutlined, SafetyOutlined } from '@ant-design/icons';
-import axios from 'axios';
+import axiosInstance, { withAuth } from '../../utils/axiosInstance';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 
 const { Title, Paragraph } = Typography;
@@ -24,7 +24,7 @@ const ForgotPassword = () => {
   const onForgotPassword = async (values) => {
     setLoading(true);
     try {
-      const response = await axios.post('http://localhost:5000/api/auth/forgot-password/company', values);
+      const response = await axiosInstance.post('/api/auth/forgot-password/company', values);
       message.success(response.data.message || 'Kiểm tra email của bạn');
       setCurrentStep(1);
     } catch (error) {
@@ -42,9 +42,9 @@ const ForgotPassword = () => {
   const onResetPassword = async (values) => {
     setLoading(true);
     try {
-      const response = await axios.post(`http://localhost:5000/api/auth/reset-password/company/${resetToken}`, {
+      const response = await axiosInstance.post(`/api/auth/reset-password/company/${resetToken}`, {
         password: values.password
-      });
+      }, withAuth());
       message.success(response.data.message || 'Đặt lại mật khẩu thành công');
       setTimeout(() => {
         navigate('/company/login');

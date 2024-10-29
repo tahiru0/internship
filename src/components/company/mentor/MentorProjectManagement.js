@@ -1,10 +1,9 @@
 import React, { useState, useLayoutEffect, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Card, List, Avatar, Input, Select, message, Skeleton, Button, Tag, Descriptions, Switch, Modal, DatePicker, InputNumber, Popconfirm, Tooltip, Table, Form, Space, Divider, Upload } from 'antd';
 import { SearchOutlined, MenuFoldOutlined, MenuUnfoldOutlined, LeftOutlined, UserOutlined, PlusOutlined, UploadOutlined, FileOutlined } from '@ant-design/icons';
-import axios from 'axios';
+import axiosInstance, { withAuth } from '../../../utils/axiosInstance';
 import moment from 'moment';
 import { debounce } from 'lodash';
-import Cookies from 'js-cookie';
 import { useCompany } from '../../../context/CompanyContext';
 import ProjectDetail from './ProjectDetail';
 
@@ -86,7 +85,6 @@ const MentorProjectManagement = () => {
     if (loading) return;
     setLoading(true);
     try {
-      const accessToken = Cookies.get('accessToken');
       const response = await axiosInstance.get('/mentor/projects', {
         params: {
           page: pageNum,
@@ -157,7 +155,6 @@ const MentorProjectManagement = () => {
   const fetchProjectDetail = async (projectId) => {
     setProjectDetailLoading(true);
     try {
-      const accessToken = Cookies.get('accessToken');
       const response = await axiosInstance.get(`/mentor/projects/${projectId}`);
       setSelectedProject(response.data);
       // Cập nhật project trong danh sách projects
@@ -291,16 +288,14 @@ const MentorProjectManagement = () => {
 
   const fetchStudentDetail = async (studentId) => {
     try {
-      const accessToken = Cookies.get('accessToken');
-      const response = await axios.get(`http://localhost:5000/api/mentor/students/${studentId}`, {
-        headers: { Authorization: `Bearer ${accessToken}` }
-      });
+      const response = await axiosInstance.get(
+        `/mentor/students/${studentId}`, 
+        withAuth()
+      );
       setSelectedStudent(response.data);
       setStudentModalVisible(true);
     } catch (error) {
-      const errorMessage = error.response?.data?.message || 'Không thể lấy thông tin sinh viên';
-      console.error('Lỗi khi lấy thông tin sinh viên:', error);
-      message.error(errorMessage);
+      message.error(error.message);
     }
   };
 

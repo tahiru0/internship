@@ -4,13 +4,12 @@ import moment from 'moment';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { Modal, Spin, Empty, message, Card, Row, Col, Typography, Tag, Space, Avatar, Button, Tabs, List, Form, Input, Upload, Radio, Divider } from 'antd';
 import { UserOutlined, DownloadOutlined, ProjectOutlined, ClockCircleOutlined, CheckCircleOutlined, UploadOutlined } from '@ant-design/icons';
-import axios from 'axios';
+import axiosInstance, { withAuth } from '../../utils/axiosInstance';
 import styled from 'styled-components';
 import MultipleChoice from './task/MultipleChoice';
 import EssayTask from './task/EssayTask';
 import FileUploadTask from './task/FileUploadTask';
 import GeneralTask from './task/GeneralTask';
-import Cookies from 'js-cookie';
 
 const { Title, Text } = Typography;
 const { TabPane } = Tabs;
@@ -58,7 +57,7 @@ const Internships = () => {
 
   const fetchCurrentProject = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/student/current-project');
+      const response = await axiosInstance.get('/student/current-project', withAuth());
       setCurrentProject(response.data);
     } catch (error) {
       if (error.response && error.response.status === 404) {
@@ -72,7 +71,7 @@ const Internships = () => {
 
   const fetchTasks = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/student/tasks');
+      const response = await axiosInstance.get('/student/tasks', withAuth());
       setTasks(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
       const errorMessage = error.response?.data?.message || 'Có lỗi xảy ra khi tải thông tin nhiệm vụ.';
@@ -84,7 +83,7 @@ const Internships = () => {
 
   const updateTaskStatus = async (taskId, newStatus) => {
     try {
-      await axios.put(`http://localhost:5000/api/student/tasks/${taskId}/status`, { status: newStatus });
+      const response = await axiosInstance.put(`/student/tasks/${taskId}/status`, { status: newStatus }, withAuth());
       message.success('Cập nhật trạng thái nhiệm vụ thành công');
       fetchTasks();
       setModalVisible(false);
@@ -165,7 +164,7 @@ const Internships = () => {
 
   const fetchTaskDetails = async (taskId) => {
     try {
-      const response = await axios.get(`http://localhost:5000/api/student/tasks/${taskId}`);
+      const response = await axiosInstance.get(`/student/tasks/${taskId}`, withAuth());
       setCurrentTask(response.data);
     } catch (error) {
       const errorMessage = error.response?.data?.message || 'Có lỗi xảy ra khi tải thông tin nhiệm vụ.';
@@ -199,13 +198,7 @@ const Internships = () => {
         data = { answer: taskAnswer };
       }
 
-      const accessToken = Cookies.get('accessToken');
-      const response = await axios.post(`http://localhost:5000/api/student/tasks/${currentTask._id}/submit`, data, {
-        headers: { 
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': currentTask.taskType === 'fileUpload' ? 'multipart/form-data' : 'application/json'
-        }
-      });
+      const response = await axiosInstance.post(`/student/tasks/${currentTask._id}/submit`, data, withAuth());
 
       message.success(response.data.message || 'Đã nộp bài làm thành công');
       setTaskModalVisible(false);

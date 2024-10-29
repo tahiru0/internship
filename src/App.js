@@ -1,6 +1,6 @@
 import React, { Suspense, lazy, useState, useEffect, useContext } from 'react';
 import './App.css';
-import { Routes, Route, useLocation } from 'react-router-dom';
+import { Routes, Route, useLocation, Outlet } from 'react-router-dom';
 import { Modal } from 'antd';
 import { CompanyProvider } from './context/CompanyContext';
 import { SchoolProvider } from './context/SchoolContext';
@@ -8,6 +8,7 @@ import { StudentProvider } from './context/StudentContext';
 import FullScreenLoader from './common/FullScreenLoader';
 import axios from 'axios';
 import { MaintenanceContext, MaintenanceProvider } from './context/MaintenanceContext';
+import axiosInstance from './utils/axiosInstance';
 
 const HomePage = lazy(() => import('./components/HomePage'));
 const Login = lazy(() => import('./components/Login'));
@@ -73,16 +74,15 @@ function AppContent() {
   useEffect(() => {
     const checkMaintenanceStatus = async () => {
       try {
-        const response = await axios.get('http://localhost:5000/api/health-check', { timeout: 5000 });
+        const response = await axiosInstance.get('/health-check', { timeout: 5000 });
         setMaintenanceMode({
           isActive: false,
-          message: ''
+          message: response.message || 'Hệ thống hoạt động bình thường'
         });
       } catch (error) {
-        // Xử lý tất cả các loại lỗi như là chế độ bảo trì
         setMaintenanceMode({
           isActive: true,
-          message: error.response?.data?.message || 'Hệ thống đang gặp sự cố, vui lòng thử lại sau'
+          message: error.message || 'Hệ thống đang gặp sự cố, vui lòng thử lại sau'
         });
       } finally {
         setIsLoading(false);
@@ -133,21 +133,19 @@ function AppContent() {
         <Route path="/student/register/*" element={<StudentRegister/>}/>
         <Route path="/company/forgot-password" element={<ForgotPassword />} />
         <Route path="/company/reset-password/:resetToken" element={<ForgotPassword />} />
-        <Route path="/jobs" element={
-          <AppLayout>
-            <JobSearch />
-          </AppLayout>
-        } />
-        <Route path="/project/:id" element={
-          <AppLayout>
-            <ProjectDetail />
-          </AppLayout>
-        } />
-        <Route path="/tasks/:taskId" element={
-          <AppLayout>
-            <TaskView />
-          </AppLayout>
-        } />
+        
+        <Route element={
+          <StudentProvider>
+            <AppLayout>
+              <Outlet />
+            </AppLayout>
+          </StudentProvider>
+        }>
+          <Route path="/jobs" element={<JobSearch />} />
+          <Route path="/project/:id" element={<ProjectDetail />} />
+          <Route path="/tasks/:taskId" element={<TaskView />} />
+        </Route>
+
         <Route path="/" element={<HomePage />} />
         <Route path="/admin/*" element={<Admin />} /> 
         <Route path="/company/activate/:token" element={<CompanyActivate />} />

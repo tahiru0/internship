@@ -3,6 +3,7 @@ import { Layout, Typography, Button, Avatar, Menu, Dropdown, Badge, Space } from
 import { UserOutlined, LogoutOutlined, FileOutlined, MenuOutlined, BellOutlined, DashboardOutlined } from '@ant-design/icons';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
+import { useStudent } from '../context/StudentContext';
 
 const { Header } = Layout;
 const { Title, Text } = Typography;
@@ -99,10 +100,14 @@ const MobileMenu = styled.div`
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 `;
 
-const AppHeader = ({ isLoggedIn, studentData, onLogout, appliedProjects = [], acceptedProjects = [] }) => {
+const AppHeader = ({ appliedProjects = [], acceptedProjects = [] }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileMenuVisible, setMobileMenuVisible] = useState(false);
+  
+  // Lấy dữ liệu từ StudentContext
+  const { userData, logout, loading } = useStudent();
+  const isLoggedIn = !!userData;
 
   const appliedMenu = (
     <Menu>
@@ -122,7 +127,7 @@ const AppHeader = ({ isLoggedIn, studentData, onLogout, appliedProjects = [], ac
 
   const profileMenu = (
     <Menu>
-      <Menu.Item key="logout" icon={<LogoutOutlined />} onClick={onLogout}>
+      <Menu.Item key="logout" icon={<LogoutOutlined />} onClick={logout}>
         Đăng xuất
       </Menu.Item>
     </Menu>
@@ -152,8 +157,8 @@ const AppHeader = ({ isLoggedIn, studentData, onLogout, appliedProjects = [], ac
                 </Dropdown>
                 <Dropdown overlay={profileMenu} placement="bottomRight">
                   <Space>
-                    <UserAvatar size={36} src={studentData?.avatar} icon={<UserOutlined />} />
-                    <Text strong>{studentData?.name || 'Người dùng'}</Text>
+                    <UserAvatar size={36} src={userData?.avatar} icon={<UserOutlined />} />
+                    <Text strong>{userData?.name || 'Người dùng'}</Text>
                   </Space>
                 </Dropdown>
               </Space>
@@ -178,7 +183,7 @@ const AppHeader = ({ isLoggedIn, studentData, onLogout, appliedProjects = [], ac
                 </Dropdown>
                 <MenuButton 
                   icon={<LogoutOutlined />}
-                  onClick={onLogout}
+                  onClick={logout}
                   block
                 >
                   Đăng xuất

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import axiosInstance from '../utils/axiosInstance';
 import { Select, Spin } from 'antd';
 
 const { Option } = Select;
@@ -13,7 +13,7 @@ const CompanySelect = ({ value, onChange, onSelect, ...rest }) => {
         const fetchCompanies = async () => {
             setLoading(true);
             try {
-                const response = await axios.get('http://localhost:5000/api/auth/companies');
+                const response = await axiosInstance.get('/api/auth/companies');
                 setCompanies(response.data);
             } catch (error) {
                 setError('Error fetching companies');

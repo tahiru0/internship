@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, Form, Input, Button, message, Avatar, Upload } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
 import { useCompany } from '../../context/CompanyContext';
-import axios from 'axios';
+import axiosInstance, { withAuth } from '../../utils/axiosInstance';
 import Cookies from 'js-cookie';
 
 const CompanyInfo = () => {
@@ -31,7 +31,7 @@ const CompanyInfo = () => {
     setFieldErrors({});
     try {
       const accessToken = Cookies.get('accessToken');
-      const response = await axios.put('http://localhost:5000/api/company/company-info', values, {
+      const response = await axiosInstance.put('/api/company/company-info', values, {
         headers: { Authorization: `Bearer ${accessToken}` }
       });
       if (response.data) {

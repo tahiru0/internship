@@ -3,8 +3,7 @@ import { Upload, message, Button, Table, Modal, Form, Select, Space, Tabs, Typog
 import { InboxOutlined, InfoCircleOutlined, FileExcelOutlined, DownloadOutlined } from '@ant-design/icons';
 import * as XLSX from 'xlsx';
 import moment from 'moment';
-import axios from 'axios';
-import { useAuthorization } from '../../routes/RequireAdminAuth';
+import axiosInstance from '../../utils/axiosInstance';
 
 const { Dragger } = Upload;
 const { Option } = Select;
@@ -26,14 +25,14 @@ const SchoolSelect = ({ onSelect, initialValue }) => {
     setSearchValue(value);
     if (value.length >= 2) {
       try {
-        const response = await axios.get(`http://localhost:5000/api/auth/schools?query=${value}`);
+        const response = await axiosInstance.get(`/auth/schools?query=${value}`);
         setSchools(response.data);
         if (response.data.length === 1 && response.data[0].id === value) {
           setSelectedSchool(response.data[0]);
         }
       } catch (error) {
         console.error('Lỗi khi tìm kiếm trường học:', error);
-        message.error('Không thể tìm kiếm trường học');
+        message.error(error.message);
       }
     } else {
       setSchools([]);
@@ -73,7 +72,6 @@ const DataUpload = () => {
   const [previewData, setPreviewData] = useState([]);
   const [isPreviewVisible, setIsPreviewVisible] = useState(false);
   const [uploadedData, setUploadedData] = useState(null);
-  const { axiosInstance } = useAuthorization();
   const [form] = Form.useForm();
   const [excelColumns, setExcelColumns] = useState([]);
   const [currentType, setCurrentType] = useState('students');
@@ -114,10 +112,10 @@ const DataUpload = () => {
       });
       console.log('Phản hồi API:', response.data);
       setUploadResult(response.data);
-      message.success(response.data.message);
+      message.success(response.data.message || 'Tải lên thành công');
     } catch (error) {
       console.error('Lỗi khi tải lên dữ liệu:', error);
-      message.error('Không thể tải lên dữ liệu: ' + (error.response?.data?.message || error.message));
+      message.error(error.message);
     } finally {
       setLoading(false);
     }

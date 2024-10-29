@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Row, Col, Typography, Tag, Space, Avatar, Button, Spin, Empty, message } from 'antd';
-import { UserOutlined, CalendarOutlined, TeamOutlined } from '@ant-design/icons';
-import axios from 'axios';
+import { CalendarOutlined } from '@ant-design/icons';
+import axiosInstance, { withAuth } from '../../utils/axiosInstance';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 
@@ -47,20 +47,10 @@ const Applications = () => {
 
   const fetchAppliedProjects = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/student/applied-projects');
+      const response = await axiosInstance.get('/student/applied-projects', withAuth());
       setAppliedProjects(response.data);
     } catch (error) {
-      if (error.response && error.response.data) {
-        if (error.response.data.error) {
-          message.error(error.response.data.error);
-        } else if (error.response.data.message) {
-          message.error(error.response.data.message);
-        } else {
-          message.error('Có lỗi xảy ra khi tải danh sách đơn ứng tuyển.');
-        }
-      } else {
-        message.error('Có lỗi xảy ra khi tải danh sách đơn ứng tuyển.');
-      }
+      message.error(error.message);
     } finally {
       setLoading(false);
     }
@@ -68,19 +58,11 @@ const Applications = () => {
 
   const handleCancelApply = async (projectId) => {
     try {
-      const response = await axios.delete(`http://localhost:5000/api/student/projects/${projectId}/apply`);
-      if (response.data && response.data.message) {
-        message.success(response.data.message);
-      } else {
-        message.success('Đã hủy ứng tuyển thành công');
-      }
+      const response = await axiosInstance.delete(`/student/projects/${projectId}/apply`, withAuth());
+      message.success(response.data.message);
       setAppliedProjects(prevProjects => prevProjects.filter(project => project._id !== projectId));
     } catch (error) {
-      if (error.response && error.response.data && error.response.data.error) {
-        message.error(error.response.data.error);
-      } else {
-        message.error('Không thể hủy ứng tuyển. Vui lòng thử lại sau.');
-      }
+      message.error(error.message);
     }
   };
 

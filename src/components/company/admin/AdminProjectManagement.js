@@ -1,6 +1,6 @@
 import { Table, Button, Modal, message, Avatar, Typography, Card, Tag, Popconfirm, Switch, Pagination, Tooltip, Progress, Dropdown, Menu, Row, Col, Empty, Input, Select, DatePicker, InputNumber, Descriptions, Spin } from 'antd';
 import { EditOutlined, DeleteOutlined, UserAddOutlined, AppstoreOutlined, TableOutlined, PushpinOutlined, PushpinFilled, SearchOutlined, MoreOutlined } from '@ant-design/icons';
-import axios from 'axios';
+import axiosInstance, { withAuth } from '../../../utils/axiosInstance';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Cookies from 'js-cookie';
 import useForm from '../../../common/useForm';
@@ -59,12 +59,12 @@ const AdminProjectManagement = () => {
     try {
       const accessToken = Cookies.get('accessToken');
       if (editingProject) {
-        const response = await axios.put(`http://localhost:5000/api/company/projects/${editingProject._id}`, values, {
+        const response = await axiosInstance.put(`/company/projects/${editingProject._id}`, values, {
           headers: { Authorization: `Bearer ${accessToken}` }
         });
         message.success(response.data.message || 'Cập nhật dự án thành công');
       } else {
-        const response = await axios.post('http://localhost:5000/api/company/projects', values, {
+        const response = await axiosInstance.post('/company/projects', values, {
           headers: { Authorization: `Bearer ${accessToken}` }
         });
         message.success(response.data.message || 'Thêm dự án mới thành công');
@@ -112,7 +112,7 @@ const AdminProjectManagement = () => {
         params.append('order', sorter.order === 'ascend' ? 'asc' : 'desc');
       }
 
-      const response = await axios.get(`http://localhost:5000/api/company/projects?${params.toString()}`, {
+      const response = await axiosInstance.get(`/company/projects?${params.toString()}`, {
         headers: { Authorization: `Bearer ${accessToken}` }
       });
       
@@ -151,7 +151,7 @@ const AdminProjectManagement = () => {
   const fetchMentors = async () => {
     try {
       const accessToken = Cookies.get('accessToken');
-      const response = await axios.get('http://localhost:5000/api/company/mentors', {
+      const response = await axiosInstance.get('/company/mentors', {
         headers: { Authorization: `Bearer ${accessToken}` }
       });
       if (response.data && Array.isArray(response.data)) {
@@ -169,7 +169,7 @@ const AdminProjectManagement = () => {
   const fetchMentorDetail = async (mentorId) => {
     try {
       const accessToken = Cookies.get('accessToken');
-      const response = await axios.get(`http://localhost:5000/api/company/mentors/${mentorId}`, {
+      const response = await axiosInstance.get(`/company/mentors/${mentorId}`, {
         headers: { Authorization: `Bearer ${accessToken}` }
       });
       setSelectedMentor(response.data);
@@ -181,7 +181,7 @@ const AdminProjectManagement = () => {
 
   const fetchSkills = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/guest/skills');
+      const response = await axiosInstance.get('/guest/skills');
       setSkills(response.data);
     } catch (error) {
       console.error('Lỗi khi lấy danh sách kỹ năng:', error);
@@ -191,7 +191,7 @@ const AdminProjectManagement = () => {
 
   const fetchMajors = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/guest/majors');
+      const response = await axiosInstance.get('/guest/majors');
       setMajors(response.data);
     } catch (error) {
       console.error('Lỗi khi lấy danh sách ngành học:', error);
@@ -216,7 +216,7 @@ const AdminProjectManagement = () => {
     setLoading(true);
     try {
       const accessToken = Cookies.get('accessToken');
-      const response = await axios.delete(`http://localhost:5000/api/company/projects/${id}`, {
+      const response = await axiosInstance.delete(`/company/projects/${id}`, {
         headers: { Authorization: `Bearer ${accessToken}` }
       });
       message.success(response.data.message || 'Xóa dự án thành công');
@@ -242,7 +242,7 @@ const AdminProjectManagement = () => {
       // Tắt trạng thái tuyển dụng
       try {
         const accessToken = Cookies.get('accessToken');
-        await axios.patch(`http://localhost:5000/api/company/projects/${record._id}/stop-recruiting`, {}, {
+        await axiosInstance.patch(`/company/projects/${record._id}/stop-recruiting`, {}, {
           headers: { Authorization: `Bearer ${accessToken}` }
         });
         message.success('Đã tắt trạng thái tuyển dụng');
@@ -271,7 +271,7 @@ const AdminProjectManagement = () => {
 
     try {
       const accessToken = Cookies.get('accessToken');
-      await axios.patch(`http://localhost:5000/api/company/projects/${recruitingProject._id}/start-recruiting`, {
+      await axiosInstance.patch(`/company/projects/${recruitingProject._id}/start-recruiting`, {
         maxApplicants,
         applicationEnd: applicationEnd.format('YYYY-MM-DD')
       }, {
@@ -300,8 +300,8 @@ const AdminProjectManagement = () => {
     setLoading(true);
     try {
       const accessToken = Cookies.get('accessToken');
-      const response = await axios.patch(
-        `http://localhost:5000/api/company/projects/${selectedProjectId}/change-mentor`, 
+      const response = await axiosInstance.patch(
+        `/company/projects/${selectedProjectId}/change-mentor`, 
         { newMentorId, oldMentorId },
         { headers: { Authorization: `Bearer ${accessToken}` } }
       );

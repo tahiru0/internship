@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Card, Statistic, Row, Col, Progress, Spin, Typography, Empty } from 'antd';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
 import { ProjectOutlined, TeamOutlined, CheckCircleOutlined, StarOutlined } from '@ant-design/icons';
-import axios from 'axios';
+import axiosInstance, { withAuth } from '../../../utils/axiosInstance';
 import { useCompany } from '../../../context/CompanyContext';
 
 const { Title } = Typography;
@@ -15,7 +15,7 @@ function AdminDashboard() {
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        const response = await axios.get('http://localhost:5000/api/company/dashboard');
+        const response = await axiosInstance.get('/company/dashboard', withAuth());
         setDashboardData(response.data);
       } catch (error) {
         console.error('Lỗi khi lấy dữ liệu dashboard:', error);

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { Form, Button, Layout, Typography, message, Input, Checkbox, Select, Avatar } from 'antd';
 import { IdcardOutlined, LockOutlined } from '@ant-design/icons';
-import axios from 'axios';
+import axiosInstance from '../utils/axiosInstance';
 import Cookies from 'js-cookie';
 import { Container, Row, Col, Card } from 'react-bootstrap';
 import * as Yup from 'yup';
@@ -29,7 +29,7 @@ const SchoolSelect = ({ onSelect, initialValue }) => {
     const fetchInitialSchool = async (schoolId) => {
         setLoading(true);
         try {
-            const response = await axios.get(`http://localhost:5000/api/auth/schools?query=${schoolId}`);
+            const response = await axiosInstance.get(`/auth/schools?query=${schoolId}`);
             if (response.data && response.data.length > 0) {
                 setSchools(response.data);
                 const initialSchool = response.data.find(school => school._id === schoolId);
@@ -38,7 +38,7 @@ const SchoolSelect = ({ onSelect, initialValue }) => {
             }
         } catch (error) {
             console.error('Lỗi khi lấy thông tin trường:', error);
-            message.error('Không thể lấy thông tin trường');
+            message.error(error.message || 'Không thể lấy thông tin trường');
         } finally {
             setLoading(false);
         }
@@ -49,18 +49,14 @@ const SchoolSelect = ({ onSelect, initialValue }) => {
         if (value.length >= 2) {
             setLoading(true);
             try {
-                const response = await axios.get(`http://localhost:5000/api/auth/schools?query=${value}`);
+                const response = await axiosInstance.get(`/auth/schools?query=${value}`);
                 setSchools(response.data);
                 if (response.data.length === 1 && response.data[0]._id === value) {
                     setSelectedSchool(response.data[0]);
                 }
             } catch (error) {
                 console.error('Lỗi khi tìm kiếm trường học:', error);
-                if (error.response && error.response.data && error.response.data.message) {
-                    message.error(error.response.data.message);
-                } else {
-                    message.error('Không thể tìm kiếm trường học');
-                }
+                message.error(error.message || 'Không thể tìm kiếm trường học');
             } finally {
                 setLoading(false);
             }
@@ -153,7 +149,7 @@ const Login = () => {
     const handleLogin = async (values) => {
         try {
             const { studentId, password } = values;
-            const response = await axios.post('http://localhost:5000/api/auth/login/student', {
+            const response = await axiosInstance.post('/auth/login/student', {
                 schoolId: values.schoolId,
                 studentId,
                 password,
@@ -168,16 +164,11 @@ const Login = () => {
             navigate(redirectPath || '/student/dashboard');
         } catch (error) {
             console.error('Lỗi đăng nhập:', error);
-            if (error.response && error.response.data) {
-                const errorMessage = error.response.data.error || error.response.data.message || 'Đăng nhập thất bại';
-                message.error(errorMessage);
-            } else {
-                message.error('Đăng nhập thất bại. Vui lòng thử lại sau.');
-            }
+            message.error(error.message || 'Đăng nhập thất bại. Vui lòng thử lại sau.');
         }
     };
 
-    const handleSchoolSelect = (value) => {
+    const handleSchoolSelect = async (value) => {
         setSchoolId(value);
         form.setFieldsValue({ schoolId: value });
         Cookies.set('selectedSchool', value, { expires: 7 });

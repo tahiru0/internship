@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import Cookies from 'js-cookie';
 import confetti from 'canvas-confetti';
 import { FaCheckCircle, FaHome, FaEnvelope } from 'react-icons/fa';
+import axiosInstance, { withAuth } from '../utils/axiosInstance';
 
 const Register = () => {
     const navigate = useNavigate();
@@ -25,14 +26,10 @@ const Register = () => {
         }
 
         try {
-            const response = await fetch('http://localhost:5000/api/school/register', {
-                method: 'POST',
-                body: formData,
-            });
-            const data = await response.json();
+            const response = await axiosInstance.post('/api/school/register', formData);
 
             if (response.ok) {
-                Cookies.set('selectedSchool', data.school._id, { expires: 7 });
+                Cookies.set('selectedSchool', response.data.school._id, { expires: 7 });
                 setRegistrationSuccess(true);
                 setUserEmail(values.email);
                 confetti({
@@ -41,7 +38,7 @@ const Register = () => {
                     origin: { y: 0.6 }
                 });
             } else {
-                message.error(data.message);
+                message.error(response.data.message);
             }
         } catch (error) {
             message.error('Đã xảy ra lỗi!');

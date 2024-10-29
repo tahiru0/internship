@@ -6,9 +6,8 @@ import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import viLocale from '@fullcalendar/core/locales/vi';
 import { useStudent } from '../../context/StudentContext';
-import axios from 'axios';
+import axiosInstance, { withAuth } from '../../utils/axiosInstance';
 import dayjs from 'dayjs';
-import Cookies from 'js-cookie';
 import { ClockCircleOutlined, SyncOutlined } from '@ant-design/icons';
 import {
   DashboardContainer,
@@ -53,9 +52,7 @@ const Dashboard = () => {
 
   const fetchTasks = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/task/student-tasks', {
-        headers: { Authorization: `Bearer ${Cookies.get('accessToken')}` }
-      });
+      const response = await axiosInstance.get('/task/student-tasks', withAuth());
       if (response.data.message) {
         setApiMessage(response.data.message);
       }
@@ -241,11 +238,9 @@ const Dashboard = () => {
         });
         formData.append('comment', comment);
 
-        const response = await axios.post(`http://localhost:5000/api/task/${task._id}/submit`, formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-            Authorization: `Bearer ${Cookies.get('accessToken')}`
-          }
+        const response = await axiosInstance.post(`/task/${task._id}/submit`, formData, {
+          ...withAuth(),
+          headers: { 'Content-Type': 'multipart/form-data' }
         });
 
         antMessage.success('Nộp task thành công');

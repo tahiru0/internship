@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Layout, Typography, Space, Tag, Button, message, Spin, Row, Col, Avatar, Card, Divider } from 'antd';
+import { useParams, useNavigate } from 'react-router-dom';
+import { Layout, Typography, Space, Tag, Button, message, Spin, Row, Col, Card } from 'antd';
 import { Container } from 'react-bootstrap';
 import { ClockCircleOutlined, TeamOutlined, CalendarOutlined, UserOutlined, AimOutlined, GlobalOutlined, EnvironmentOutlined, ArrowLeftOutlined } from '@ant-design/icons';
-import axios from 'axios';
-import Cookies from 'js-cookie';
+import axiosInstance, { withAuth } from '../utils/axiosInstance';
 import styled from 'styled-components';
 
 const { Header, Content, Footer } = Layout;
@@ -63,22 +62,16 @@ const ProjectDetail = ({ isLoggedIn, studentData, appliedProjects, updateApplied
   const fetchProjectDetails = async () => {
     try {
       setLoading(true);
-      const accessToken = Cookies.get('accessToken');
-      const headers = accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
-      const response = await axios.get(`http://localhost:5000/api/guest/projects/${id}`, { headers });
+      const response = await axiosInstance.get(`/guest/projects/${id}`);
       setProject(response.data);
-      // Giả sử thông tin công ty được lấy riêng
+      
       if (response.data.companyId) {
-        const companyResponse = await axios.get(`http://localhost:5000/api/guest/companies/${response.data.companyId}`);
+        const companyResponse = await axiosInstance.get(`/guest/companies/${response.data.companyId}`);
         setCompany(companyResponse.data);
       }
     } catch (error) {
       console.error('Lỗi khi lấy chi tiết dự án:', error);
-      if (error.response && error.response.data && error.response.data.message) {
-        message.error(error.response.data.message);
-      } else {
-        message.error('Không thể lấy thông tin dự án');
-      }
+      message.error(error.message);
     } finally {
       setLoading(false);
     }
@@ -86,17 +79,13 @@ const ProjectDetail = ({ isLoggedIn, studentData, appliedProjects, updateApplied
 
   const handleApply = async () => {
     if (!isLoggedIn) {
-      // Nếu chưa đăng nhập, chuyển hướng đến trang đăng nhập với redirect
       const currentPath = encodeURIComponent(window.location.pathname);
       navigate(`/login?redirect=${currentPath}`);
       return;
     }
 
     try {
-      const accessToken = Cookies.get('accessToken');
-      await axios.post(`http://localhost:5000/api/student/apply/${id}`, {}, {
-        headers: { Authorization: `Bearer ${accessToken}` }
-      });
+      await axiosInstance.post(`/student/apply/${id}`, {}, withAuth());
       message.success('Ứng tuyển thành công!');
       setProject(prevProject => ({ ...prevProject, hasApplied: true }));
 
@@ -108,26 +97,13 @@ const ProjectDetail = ({ isLoggedIn, studentData, appliedProjects, updateApplied
       }
     } catch (error) {
       console.error('Lỗi khi ứng tuyển:', error);
-      if (error.response && error.response.data) {
-        if (error.response.data.error) {
-          message.error(error.response.data.error);
-        } else if (error.response.data.message) {
-          message.error(error.response.data.message);
-        } else {
-          message.error('Không thể ứng tuyển. Vui lòng thử lại sau.');
-        }
-      } else {
-        message.error('Không thể ứng tuyển. Vui lòng thử lại sau.');
-      }
+      message.error(error.message);
     }
   };
 
   const handleCancelApply = async () => {
     try {
-      const accessToken = Cookies.get('accessToken');
-      await axios.delete(`http://localhost:5000/api/student/projects/${id}/apply`, {
-        headers: { Authorization: `Bearer ${accessToken}` }
-      });
+      await axiosInstance.delete(`/student/projects/${id}/apply`, withAuth());
       message.success('Đã hủy ứng tuyển thành công');
       setProject(prevProject => ({ ...prevProject, hasApplied: false }));
 
@@ -135,15 +111,11 @@ const ProjectDetail = ({ isLoggedIn, studentData, appliedProjects, updateApplied
         updateAppliedProjects({
           _id: project._id,
           title: project.title
-        }, true); // Thêm tham số true để chỉ ra rằng đây là hành động hủy
+        }, true);
       }
     } catch (error) {
       console.error('Lỗi khi hủy ứng tuyển:', error);
-      if (error.response && error.response.data && error.response.data.error) {
-        message.error(error.response.data.error);
-      } else {
-        message.error('Không thể hủy ứng tuyển. Vui lòng thử lại sau.');
-      }
+      message.error(error.message);
     }
   };
 

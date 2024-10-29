@@ -2,8 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, Avatar, Typography, Row, Col, Tabs, Form, Input, Button, Upload, message, Spin, Divider } from 'antd';
 import { UserOutlined, MailOutlined, PhoneOutlined, HomeOutlined, UploadOutlined, EditOutlined, FilePdfOutlined } from '@ant-design/icons';
 import { useStudent } from '../../context/StudentContext';
-import axios from 'axios';
-import Cookies from 'js-cookie';
+import axiosInstance, { withAuth } from '../../utils/axiosInstance';
 
 const { Title, Text } = Typography;
 const { TabPane } = Tabs;
@@ -20,10 +19,7 @@ const PersonalProfile = () => {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const accessToken = Cookies.get('accessToken');
-        const response = await axios.get('http://localhost:5000/api/student/update-profile', {
-          headers: { Authorization: `Bearer ${accessToken}` }
-        });
+        const response = await axiosInstance.get('/student/update-profile', withAuth());
         const data = response.data;
         form.setFieldsValue({
           name: data.name,
@@ -51,10 +47,7 @@ const PersonalProfile = () => {
     setLoading(true);
     setFieldErrors({});
     try {
-      const accessToken = Cookies.get('accessToken');
-      await axios.put('http://localhost:5000/api/student/update-profile', values, {
-        headers: { Authorization: `Bearer ${accessToken}` }
-      });
+      const response = await axiosInstance.put('/student/update-profile', values, withAuth());
       message.success('Cập nhật thông tin thành công');
       await fetchUserData();
       setEditing(false);
@@ -79,10 +72,9 @@ const PersonalProfile = () => {
       try {
         const formData = new FormData();
         formData.append('avatar', info.file.originFileObj);
-        const accessToken = Cookies.get('accessToken');
-        const response = await axios.put('http://localhost:5000/api/student/update-avatar', formData, {
-          headers: { 
-            'Authorization': `Bearer ${accessToken}`,
+        const response = await axiosInstance.put('/student/update-avatar', formData, {
+          ...withAuth(),
+          headers: {
             'Content-Type': 'multipart/form-data'
           }
         });
@@ -103,12 +95,9 @@ const PersonalProfile = () => {
       try {
         const formData = new FormData();
         formData.append('cv', info.file.originFileObj);
-        const accessToken = Cookies.get('accessToken');
-        const response = await axios.put('http://localhost:5000/api/student/update-cv', formData, {
-          headers: { 
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'multipart/form-data'
-          }
+        const response = await axiosInstance.put('/student/update-cv', formData, {
+          ...withAuth(),
+          headers: { 'Content-Type': 'multipart/form-data' }
         });
         setCv(response.data.cv);
         message.success('Cập nhật CV thành công');
@@ -123,10 +112,7 @@ const PersonalProfile = () => {
 
   const fetchCV = async () => {
     try {
-      const accessToken = Cookies.get('accessToken');
-      const response = await axios.get('http://localhost:5000/api/student/get-cv', {
-        headers: { Authorization: `Bearer ${accessToken}` }
-      });
+      const response = await axiosInstance.get('/student/get-cv', withAuth());
       setCv(response.data.cv);
     } catch (error) {
       console.error('Lỗi khi lấy CV:', error);
@@ -158,12 +144,9 @@ const PersonalProfile = () => {
                 const formData = new FormData();
                 formData.append('avatar', file);
                 try {
-                  const accessToken = Cookies.get('accessToken');
-                  const response = await axios.put('http://localhost:5000/api/student/update-avatar', formData, {
-                    headers: { 
-                      'Authorization': `Bearer ${accessToken}`,
-                      'Content-Type': 'multipart/form-data'
-                    }
+                  const response = await axiosInstance.put('/student/update-avatar', formData, {
+                    ...withAuth(),
+                    headers: { 'Content-Type': 'multipart/form-data' }
                   });
                   onSuccess(response, file);
                 } catch (error) {
@@ -297,12 +280,9 @@ const PersonalProfile = () => {
               const formData = new FormData();
               formData.append('cv', file);
               try {
-                const accessToken = Cookies.get('accessToken');
-                const response = await axios.put('http://localhost:5000/api/student/update-cv', formData, {
-                  headers: { 
-                    'Authorization': `Bearer ${accessToken}`,
-                    'Content-Type': 'multipart/form-data'
-                  }
+                const response = await axiosInstance.put('/student/update-cv', formData, {
+                  ...withAuth(),
+                  headers: { 'Content-Type': 'multipart/form-data' }
                 });
                 onSuccess(response, file);
                 setCv(response.data.cv);

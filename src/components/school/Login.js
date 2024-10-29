@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { Form, Button, Layout, Typography, message, Input, Checkbox, Select, Avatar } from 'antd';
 import { MailOutlined, LockOutlined } from '@ant-design/icons';
-import axios from 'axios';
+import axiosInstance, { withAuth } from '../../utils/axiosInstance';
 import Cookies from 'js-cookie';
 import { Container, Row, Col, Card } from 'react-bootstrap';
 import * as Yup from 'yup';
@@ -29,7 +29,7 @@ const SchoolSelect = ({ onSelect, initialValue }) => {
         setSearchValue(value);
         if (value.length >= 2) {
             try {
-                const response = await axios.get(`http://localhost:5000/api/auth/schools?query=${value}`);
+                const response = await axiosInstance.get(`/auth/schools?query=${value}`);
                 setSchools(response.data);
                 if (response.data.length === 1 && response.data[0].id === value) {
                     setSelectedSchool(response.data[0]);
@@ -110,7 +110,7 @@ const Login = () => {
         console.log('Đang xử lý đăng nhập với giá trị:', values);
         try {
             const { email, password } = values;
-            const response = await axios.post('http://localhost:5000/api/auth/login/school', {
+            const response = await axiosInstance.post('/auth/login/school', {
                 schoolId: values.schoolId,
                 email,
                 password,

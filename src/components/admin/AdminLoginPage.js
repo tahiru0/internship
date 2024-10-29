@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Form, Button, Card, Layout, Typography, message } from 'antd';
 import { UserOutlined, LockOutlined } from '@ant-design/icons';
-import axios from 'axios';
 import Cookies from 'js-cookie';
 import FloatingLabelInput from '../../common/FloatingLabelInput';
+import axiosInstance from '../../utils/axiosInstance';
 
 const { Content } = Layout;
 const { Title } = Typography;
@@ -16,30 +16,22 @@ const AdminLoginPage = () => {
 
   const handleLogin = async (values) => {
     try {
-      const response = await axios.post('http://localhost:5000/api/auth/login/admin', values);
+      const response = await axiosInstance.post('/auth/login/admin', values);
       const { accessToken, refreshToken, user } = response.data;
 
+      // Lưu tokens và thông tin user vào cookies
       Cookies.set('adminAccessToken', accessToken, { expires: 1 / 24 });
       Cookies.set('adminRefreshToken', refreshToken, { expires: 7 });
       Cookies.set('adminUser', JSON.stringify(user), { expires: 7 });
 
-      // Cập nhật axiosInstance với token mới
-      axios.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
+      // Cập nhật header mặc định cho axiosInstance
+      axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
 
       message.success('Đăng nhập thành công!');
       navigate('/admin');
-    } catch (err) {
-      let errorMessage = 'Đã xảy ra lỗi không xác định';
-      if (err.response && err.response.data) {
-        errorMessage = err.response.data.error || err.response.data.message || errorMessage;
-      } else if (err.request) {
-        errorMessage = 'Không có phản hồi từ máy chủ';
-      } else if (err.message) {
-        errorMessage = err.message;
-      }
-      console.error('Lỗi đăng nhập:', errorMessage);
-      setError(errorMessage);
-      message.error(`Đăng nhập thất bại: ${errorMessage}`);
+    } catch (error) {
+      setError(error.message);
+      message.error(`Đăng nhập thất bại: ${error.message}`);
     }
   };
 
@@ -65,7 +57,7 @@ const AdminLoginPage = () => {
               <FloatingLabelInput
                 label="Tên đăng nhập"
                 icon={<UserOutlined />}
-                placeholder=" " // Add an empty placeholder to activate the floating label
+                placeholder=" "
               />
             </Form.Item>
 
@@ -77,7 +69,7 @@ const AdminLoginPage = () => {
                 label="Mật khẩu"
                 type="password"
                 icon={<LockOutlined />}
-                placeholder=" " // Add an empty placeholder to activate the floating label
+                placeholder=" "
               />
             </Form.Item>
 

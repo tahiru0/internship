@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Layout, Spin } from 'antd';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
 import Cookies from 'js-cookie';
 import AppHeader from './Header';
+import axiosInstance, { withAuth } from '../utils/axiosInstance';
 
 const { Content } = Layout;
 
@@ -21,12 +21,8 @@ const AppLayout = ({ children }) => {
     if (accessToken) {
       try {
         const [meResponse, projectsResponse] = await Promise.all([
-          axios.get('http://localhost:5000/api/student/me', {
-            headers: { Authorization: `Bearer ${accessToken}` }
-          }),
-          axios.get('http://localhost:5000/api/student/applied-and-accepted-projects', {
-            headers: { Authorization: `Bearer ${accessToken}` }
-          })
+          axiosInstance.get('/student/me', withAuth()),
+          axiosInstance.get('/student/applied-and-accepted-projects', withAuth())
         ]);
 
         if (meResponse.data && meResponse.data.student) {
@@ -45,7 +41,7 @@ const AppLayout = ({ children }) => {
           setAcceptedProjects([]);
         }
       } catch (error) {
-        console.error('Lỗi khi kiểm tra trạng thái đăng nhập:', error);
+        console.error('Lỗi khi kiểm tra trạng thái đăng nhập:', error.message);
         setIsLoggedIn(false);
         setStudentData(null);
         setAppliedProjects([]);

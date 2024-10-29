@@ -1,9 +1,9 @@
 import React, { useState, useEffect, createContext, useContext } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
-import axios from 'axios';
 import { message } from 'antd';
 import FullScreenLoader from '../common/FullScreenLoader';
 import Cookies from 'js-cookie';
+import axiosInstance, { withAuth } from '../utils/axiosInstance';
 
 const AuthorizationContext = createContext(null);
 
@@ -30,14 +30,13 @@ const RequireAdminAuth = ({ children }) => {
       return null;
     }
     try {
-      const response = await axios.post('http://localhost:5000/api/auth/refresh-token', { refreshToken });
+      const response = await axiosInstance.post('/auth/refresh-token', { refreshToken });
       const { accessToken, refreshToken: newRefreshToken, user } = response.data;
+      
       Cookies.set('adminAccessToken', accessToken, { expires: 1/24 });
       Cookies.set('adminRefreshToken', newRefreshToken, { expires: 7 });
       setToken(accessToken);
       setUser(user);
-      
-      axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
       
       return { accessToken, refreshToken: newRefreshToken, user };
     } catch (error) {
@@ -45,47 +44,6 @@ const RequireAdminAuth = ({ children }) => {
       return null;
     }
   };
-
-  const axiosInstance = axios.create({
-    baseURL: 'http://localhost:5000/api',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-  });
-
-  axiosInstance.interceptors.request.use(
-    (config) => {
-      const token = Cookies.get('adminAccessToken');
-      if (token) {
-        config.headers['Authorization'] = `Bearer ${token}`;
-      }
-      return config;
-    },
-    (error) => Promise.reject(error)
-  );
-
-  axiosInstance.interceptors.response.use(
-    (response) => response,
-    async (error) => {
-      const originalRequest = error.config;
-      if (error.response && error.response.status === 401 && !originalRequest._retry) {
-        originalRequest._retry = true;
-        try {
-          const newTokens = await refreshToken();
-          if (newTokens) {
-            axiosInstance.defaults.headers['Authorization'] = `Bearer ${newTokens.accessToken}`;
-            originalRequest.headers['Authorization'] = `Bearer ${newTokens.accessToken}`;
-            return axiosInstance(originalRequest);
-          } else {
-            handleAuthError(error);
-          }
-        } catch (refreshError) {
-          handleAuthError(refreshError);
-        }
-      }
-      return Promise.reject(error);
-    }
-  );
 
   useEffect(() => {
     const checkAndRefreshToken = async () => {
@@ -130,7 +88,7 @@ const RequireAdminAuth = ({ children }) => {
   }
 
   return (
-    <AuthorizationContext.Provider value={{ axiosInstance, token, user }}>
+    <AuthorizationContext.Provider value={{ token, user }}>
       {children}
     </AuthorizationContext.Provider>
   );

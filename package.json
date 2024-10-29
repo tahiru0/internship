@@ -31,6 +31,7 @@
     "codemirror": "^5.65.18",
     "color-thief-react": "^2.1.0",
     "date-fns": "^3.6.0",
+    "dotenv": "^16.4.5",
     "event-source-polyfill": "^1.0.31",
     "file-saver": "^2.0.5",
     "formik": "^2.4.6",
@@ -81,7 +82,7 @@
     "yup": "^1.4.0"
   },
   "scripts": {
-    "start": "react-scripts start",
+    "start": "cross-env NODE_ENV=development react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
@@ -105,6 +106,7 @@
     ]
   },
   "devDependencies": {
+    "cross-env": "^7.0.3",
     "dotenv-webpack": "^8.1.0"
   }
 }

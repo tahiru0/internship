@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Table, Button, Modal, Form, Input, Select, message, Avatar, Typography, Card, Tag, Popconfirm, Switch, Pagination, Row, Col } from 'antd';
 import { EditOutlined, DeleteOutlined, UserAddOutlined, UserOutlined, MailOutlined, LockOutlined, SearchOutlined } from '@ant-design/icons';
-import axios from 'axios';
+import axiosInstance, { withAuth } from '../../utils/axiosInstance';
 import { useCompany } from '../../context/CompanyContext';
-import Cookies from 'js-cookie';
+
 import { useMediaQuery } from 'react-responsive'; // Import useMediaQuery
 
 const { Title } = Typography;
@@ -50,23 +50,20 @@ const AccountManagement = () => {
       const queryParams = new URLSearchParams({
         page: page.toString(),
         limit: pageSize.toString(),
+        ...(filters.role.length > 0 && { role: filters.role.join(',') }),
+        ...(filters.isActive.length > 0 && { isActive: filters.isActive.join(',') }),
+        ...(filters.search && { search: filters.search }),
+        ...(filters.sortBy && filters.order && { 
+          sortBy: filters.sortBy,
+          order: filters.order 
+        })
       });
 
-      if (filters.role.length > 0) {
-        queryParams.append('role', filters.role.join(','));
-      }
-      if (filters.isActive.length > 0) {
-        queryParams.append('isActive', filters.isActive.join(','));
-      }
-      if (filters.search) {
-        queryParams.append('search', filters.search);
-      }
-      if (filters.sortBy && filters.order) {
-        queryParams.append('sortBy', filters.sortBy);
-        queryParams.append('order', filters.order);
-      }
+      const response = await axiosInstance.get(
+        `/company/accounts?${queryParams.toString()}`, 
+        withAuth()
+      );
 
-      const response = await axiosInstance.get(`/company/accounts?${queryParams.toString()}`);
       if (response.data && Array.isArray(response.data.data)) {
         setAccounts(response.data.data);
         setPagination({
@@ -74,17 +71,13 @@ const AccountManagement = () => {
           pageSize: response.data.limit,
           total: response.data.total,
         });
-      } else {
-        console.error('Dữ liệu nhận được không hợp lệ:', response.data);
-        message.error('Có lỗi xảy ra khi lấy danh sách tài khoản');
       }
     } catch (error) {
-      console.error('Lỗi khi lấy danh sách tài khoản:', error);
-      message.error('Không thể lấy danh sách tài khoản');
+      message.error(error.message);
     } finally {
       setLoading(false);
     }
-  }, [filters, pagination.current, pagination.pageSize, axiosInstance]);
+  }, [filters, pagination.current, pagination.pageSize]);
 
   useEffect(() => {
     fetchAccounts();
@@ -113,29 +106,26 @@ const AccountManagement = () => {
   const handleAddEdit = async (values) => {
     setLoading(true);
     try {
-      const accessToken = Cookies.get('accessToken');
       if (editingAccount) {
-        // Loại bỏ trường role khỏi values khi cập nhật
         const { role, ...updateValues } = values;
-        const response = await axios.put(`http://localhost:5000/api/company/accounts/${editingAccount._id}`, updateValues, {
-          headers: { Authorization: `Bearer ${accessToken}` }
-        });
-        message.success(response.data.message || 'Cập nhật tài khoản thành công');
+        const response = await axiosInstance.put(
+          `/company/accounts/${editingAccount._id}`, 
+          updateValues,
+          withAuth()
+        );
+        message.success(response.message || 'Cập nhật tài khoản thành công');
       } else {
-        const response = await axios.post('http://localhost:5000/api/company/accounts', values, {
-          headers: { Authorization: `Bearer ${accessToken}` }
-        });
-        message.success(response.data.message || 'Thêm tài khoản mới thành công');
+        const response = await axiosInstance.post(
+          '/company/accounts', 
+          values,
+          withAuth()
+        );
+        message.success(response.message || 'Thêm tài khoản mới thành công');
       }
       setModalVisible(false);
       fetchAccounts(pagination.current, pagination.pageSize);
     } catch (error) {
-      console.error('Lỗi khi thêm/sửa tài khoản:', error);
-      if (error.response && error.response.data) {
-        message.error(error.response.data.error || error.response.data.message);
-      } else {
-        message.error('Không thể thêm/sửa tài khoản');
-      }
+      message.error(error.message);
     } finally {
       setLoading(false);
     }
@@ -144,19 +134,14 @@ const AccountManagement = () => {
   const handleDelete = async (id) => {
     setLoading(true);
     try {
-      const accessToken = Cookies.get('accessToken');
-      const response = await axios.delete(`http://localhost:5000/api/company/accounts/${id}`, {
-        headers: { Authorization: `Bearer ${accessToken}` }
-      });
-      message.success(response.data.message || 'Xóa tài khoản thành công');
+      const response = await axiosInstance.delete(
+        `/company/accounts/${id}`,
+        withAuth()
+      );
+      message.success(response.message || 'Xóa tài khoản thành công');
       fetchAccounts(pagination.current, pagination.pageSize);
     } catch (error) {
-      console.error('Lỗi khi xóa tài khoản:', error);
-      if (error.response && error.response.data) {
-        message.error(error.response.data.error || error.response.data.message);
-      } else {
-        message.error('Không thể xóa tài khoản');
-      }
+      message.error(error.message);
     } finally {
       setLoading(false);
     }
@@ -165,19 +150,15 @@ const AccountManagement = () => {
   const handleToggleActive = async (record) => {
     setLoading(true);
     try {
-      const accessToken = Cookies.get('accessToken');
-      const response = await axios.patch(`http://localhost:5000/api/company/accounts/${record._id}/toggle-active`, {}, {
-        headers: { Authorization: `Bearer ${accessToken}` }
-      });
-      message.success(response.data.message || 'Cập nhật trạng thái tài khoản thành công');
+      const response = await axiosInstance.patch(
+        `/company/accounts/${record._id}/toggle-active`,
+        {},
+        withAuth()
+      );
+      message.success(response.message || 'Cập nhật trạng thái tài khoản thành công');
       fetchAccounts(pagination.current, pagination.pageSize);
     } catch (error) {
-      console.error('Lỗi khi cập nhật trạng thái tài khoản:', error);
-      if (error.response && error.response.data) {
-        message.error(error.response.data.error || error.response.data.message);
-      } else {
-        message.error('Không thể cập nhật trạng thái tài khoản');
-      }
+      message.error(error.message);
     } finally {
       setLoading(false);
     }

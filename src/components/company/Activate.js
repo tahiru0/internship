@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import axiosInstance, { withAuth } from '../../utils/axiosInstance';
 import { message } from 'antd';
 import ActivationLoader from '../common/ActivationLoader';
 
@@ -12,7 +12,7 @@ const Activate = () => {
   useEffect(() => {
     const activateAccount = async () => {
       try {
-        const response = await axios.get(`http://localhost:5000/api/company/activate/${token}`);
+        const response = await axiosInstance.get(`/api/company/activate/${token}`, withAuth());
         message.success(response.data.message);
         setTimeout(() => {
           navigate(`/company/login?message=${encodeURIComponent(response.data.message)}`);

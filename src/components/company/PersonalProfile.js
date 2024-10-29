@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Card, Avatar, Form, Input, Button, message, Upload, Modal } from 'antd';
 import { UserOutlined, UploadOutlined, MailOutlined, HomeOutlined, PhoneOutlined } from '@ant-design/icons';
 import { useCompany } from '../../context/CompanyContext';
-import axios from 'axios';
+import axiosInstance, { withAuth } from '../../utils/axiosInstance';
 import Cookies from 'js-cookie';
 import Cropper from 'react-easy-crop';
 
@@ -102,7 +102,7 @@ const PersonalProfile = () => {
       if (avatarFile) {
         const avatarFormData = new FormData();
         avatarFormData.append('avatar', avatarFile, 'avatar.png');
-        await axios.put('http://localhost:5000/api/company/account/avatar', avatarFormData, {
+        await axiosInstance.put('/company/account/avatar', avatarFormData, {
           headers: { 
             Authorization: `Bearer ${accessToken}`,
             'Content-Type': 'multipart/form-data'
@@ -111,7 +111,7 @@ const PersonalProfile = () => {
       }
 
       // Sau đó gửi các thông tin khác
-      const response = await axios.put('http://localhost:5000/api/company/account', values, {
+      const response = await axiosInstance.put('/company/account', values, {
         headers: { 
           Authorization: `Bearer ${accessToken}`,
           'Content-Type': 'application/json'
