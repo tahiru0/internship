@@ -35,9 +35,17 @@ export const SchoolProvider = ({ children }) => {
     }, [navigate, resetNotifications]);
 
     const checkAuthStatus = useCallback(async () => {
-        if (isAuthChecked) return;
+        if (isCheckingAuth.current || isAuthChecked) return;
+        
+        isCheckingAuth.current = true;
         setLoading(true);
+        
         try {
+            const accessToken = Cookies.get('accessToken');
+            if (!accessToken) {
+                throw new Error('No access token');
+            }
+
             const response = await axiosInstance.get('/school/me', withAuth());
             setSchoolData(response.data);
             setUserRole(response.data.account.role);
@@ -47,15 +55,20 @@ export const SchoolProvider = ({ children }) => {
             }
         } catch (error) {
             console.error('Auth error:', error.message);
-            logout();
+            setSchoolData(null);
+            setUserRole(null);
         } finally {
             setIsAuthChecked(true);
             setLoading(false);
+            isCheckingAuth.current = false;
         }
-    }, [isAuthChecked, logout, reloadNotifications]);
+    }, [isAuthChecked, reloadNotifications]);
 
     useEffect(() => {
-        if (location.pathname !== '/school/forgot-password' && !location.pathname.startsWith('/school/forgot-password')) {
+        const isLoginPage = location.pathname.includes('/login');
+        const isForgotPasswordPage = location.pathname.includes('/forgot-password');
+        
+        if (!isLoginPage && !isForgotPasswordPage) {
             checkAuthStatus();
         } else {
             setLoading(false);

@@ -48,19 +48,20 @@ const handleAuthError = () => {
     Cookies.remove(TOKEN_NAMES.access);
     Cookies.remove(TOKEN_NAMES.refresh);
 
-    // Lấy current path để redirect sau khi login
+    // Lấy current path
     const currentPath = window.location.pathname;
     
-    // Xác định login path dựa vào current path
-    let loginPath = '/login';
-    if (currentPath.includes('/company')) {
-        loginPath = '/company/login';
-    } else if (currentPath.includes('/school')) {
-        loginPath = '/school/login';
+    // Chỉ redirect nếu không phải đang ở trang login
+    if (!currentPath.includes('/login')) {
+        let loginPath = '/login';
+        if (currentPath.includes('/company')) {
+            loginPath = '/company/login';
+        } else if (currentPath.includes('/school')) {
+            loginPath = '/school/login';
+        }
+        
+        window.location.href = `${loginPath}?redirect=${encodeURIComponent(currentPath)}`;
     }
-
-    // Chuyển hướng về trang login tương ứng với redirect path
-    window.location.href = `${loginPath}?redirect=${encodeURIComponent(currentPath)}`;
 };
 
 const axiosInstance = axios.create({

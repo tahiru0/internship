@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Table, Input, Button, Space, Modal, Form, Select, message, Popconfirm, Badge, Row, Col, Typography, Descriptions, List, Tabs, Tag, Tooltip } from 'antd';
 import { SearchOutlined, PlusOutlined, EditOutlined, DeleteOutlined, CheckOutlined, SwapOutlined, ClockCircleOutlined, CheckCircleOutlined, CloseCircleOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import { useSchool } from '../../../context/SchoolContext';
+import axiosInstance, { withAuth } from '../../../utils/axiosInstance';
 
 const { Option } = Select;
 const { Title, Text, Paragraph } = Typography;
@@ -16,7 +17,7 @@ const StudentManagement = () => {
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [form] = Form.useForm();
     const [editingStudentId, setEditingStudentId] = useState(null);
-    const { api } = useSchool();
+    const { userRole } = useSchool();
     const [submitLoading, setSubmitLoading] = useState(false);
     const [approvalFilter, setApprovalFilter] = useState(true); // Mặc định hiển thị đã duyệt
     const [approvedCount, setApprovedCount] = useState(0);
@@ -28,24 +29,25 @@ const StudentManagement = () => {
     const fetchStudents = useCallback(async () => {
         setLoading(true);
         try {
-            const response = await api.get('/faculty/students', { 
+            const response = await axiosInstance.get('/faculty/students', withAuth({ 
                 params: { 
                     page: pagination.current,
                     limit: pagination.pageSize,
                     search: searchText,
                     isApproved: approvalFilter 
                 } 
-            });
+            }));
             setStudents(response.data.students);
             setPagination(prev => ({
                 ...prev,
                 total: response.data.totalStudents,
             }));
         } catch (error) {
-            message.error('Lỗi khi tải danh sách sinh viên');
+            message.error(error.message);
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
-    }, [api, searchText, approvalFilter, pagination.current, pagination.pageSize]);
+    }, [searchText, approvalFilter, pagination]);
 
     useEffect(() => {
         fetchStudents();
@@ -55,7 +57,7 @@ const StudentManagement = () => {
 
     const fetchStudentCounts = async () => {
         try {
-            const response = await api.get('/faculty/student-counts');
+            const response = await axiosInstance.get('/faculty/student-counts');
             setApprovedCount(response.data.approvedCount);
             setUnapprovedCount(response.data.unapprovedCount);
         } catch (error) {
@@ -65,7 +67,7 @@ const StudentManagement = () => {
 
     const fetchMajors = async () => {
         try {
-            const response = await api.get('/faculty/majors');
+            const response = await axiosInstance.get('/faculty/majors');
             setMajors(response.data);
         } catch (error) {
             message.error('Lỗi khi tải danh sách ngành học');
@@ -103,10 +105,10 @@ const StudentManagement = () => {
             setSubmitLoading(true);
             const values = await form.validateFields();
             if (editingStudentId) {
-                await api.put(`/faculty/students/${editingStudentId}`, values);
+                await axiosInstance.put(`/faculty/students/${editingStudentId}`, values, withAuth());
                 message.success('Cập nhật sinh viên thành công');
             } else {
-                await api.post('/faculty/students', values);
+                await axiosInstance.post('/faculty/students', values, withAuth());
                 message.success('Thêm sinh viên mới thành công');
             }
             setIsModalVisible(false);
@@ -125,7 +127,7 @@ const StudentManagement = () => {
     const handleDelete = async (id) => {
         try {
             setSubmitLoading(true);
-            await api.delete(`/faculty/students/${id}`);
+            await axiosInstance.delete(`/faculty/students/${id}`, withAuth());
             message.success('Xóa sinh viên thành công');
             fetchStudents();
         } catch (error) {
@@ -142,7 +144,7 @@ const StudentManagement = () => {
     const handleApprove = async (id) => {
         try {
             setSubmitLoading(true);
-            await api.put(`/faculty/approve-student/${id}`);
+            await axiosInstance.put(`/faculty/approve-student/${id}`, {}, withAuth());
             message.success('Duyệt sinh viên thành công');
             fetchStudents();
             fetchStudentCounts();
@@ -159,7 +161,7 @@ const StudentManagement = () => {
 
     const fetchInternshipReport = async (studentId) => {
         try {
-            const response = await api.get(`/faculty/students/${studentId}/internship-report`);
+            const response = await axiosInstance.get(`/faculty/students/${studentId}/internship-report`);
             setCurrentReport(response.data);
             setReportModalVisible(true);
         } catch (error) {

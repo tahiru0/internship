@@ -3,11 +3,12 @@ import { Table, Button, Modal, Form, Input, Select, message, Space, Popconfirm, 
 import { PlusOutlined, EditOutlined, DeleteOutlined, UserOutlined, BookOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import { useSchool } from '../../context/SchoolContext';
 import debounce from 'lodash/debounce';
-
+import axiosInstance, { withAuth } from '../../utils/axiosInstance';
+    
 const { Option } = Select;
 
 const FacultyManagement = () => {
-    const { api } = useSchool();
+    const { userRole } = useSchool();
     const [faculties, setFaculties] = useState([]);
     const [majors, setMajors] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -31,10 +32,10 @@ const FacultyManagement = () => {
     const fetchFaculties = async () => {
         setLoading(true);
         try {
-            const response = await api.get('/school/faculties');
+            const response = await axiosInstance.get('/school/faculties', withAuth());
             setFaculties(response.data);
         } catch (error) {
-            message.error('Lỗi khi lấy danh sách khoa: ' + error.response?.data?.message || error.message);
+            message.error(error.message);
         } finally {
             setLoading(false);
         }
@@ -44,9 +45,9 @@ const FacultyManagement = () => {
         if (!majorsHasMore && page !== 1) return;
         setMajorsFetching(true);
         try {
-            const response = await api.get('/school/majors', {
+            const response = await axiosInstance.get('/school/majors', {
                 params: { page, limit: 20, search }
-            });
+            }, withAuth());
             const newMajors = response.data.majors;
             if (page === 1) {
                 setMajorsOptions(newMajors);
@@ -82,7 +83,7 @@ const FacultyManagement = () => {
 
     const fetchFacultyDetails = async (facultyId) => {
         try {
-            const response = await api.get(`/school/faculties/${facultyId}`);
+            const response = await axiosInstance.get(`/school/faculties/${facultyId}`, withAuth());
             setFacultyDetails(response.data);
             return response.data;
         } catch (error) {
@@ -125,11 +126,11 @@ const FacultyManagement = () => {
 
     const handleDelete = async (facultyId) => {
         try {
-            await api.delete(`/school/faculties/${facultyId}`);
+            await axiosInstance.delete(`/school/faculties/${facultyId}`, withAuth());
             message.success('Đã xóa khoa thành công');
             fetchFaculties();
         } catch (error) {
-            message.error('Lỗi khi xóa khoa: ' + error.response?.data?.message || error.message);
+            message.error(error.message);
         }
     };
 
@@ -164,7 +165,7 @@ const FacultyManagement = () => {
                     facultyHeadId: values.facultyHeadId || null
                 };
 
-                await api.put(`/school/faculties/${editingFacultyId}`, dataToSubmit);
+                await axiosInstance.put(`/school/faculties/${editingFacultyId}`, dataToSubmit, withAuth());
                 message.success('Cập nhật thông tin khoa thành công');
             } else {
                 // Xử lý tạo khoa mới theo API mới
@@ -177,7 +178,7 @@ const FacultyManagement = () => {
                     })
                 };
 
-                const response = await api.post('/school/create-faculty', dataToSubmit);
+                const response = await axiosInstance.post('/school/create-faculty', dataToSubmit, withAuth());
                 message.success('Tạo khoa mới thành công');
                 console.log('Khoa mới được tạo:', response.data.faculty);
             }

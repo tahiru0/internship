@@ -9,6 +9,7 @@ import { saveAs } from 'file-saver';
 import { useDropzone } from 'react-dropzone';
 import DataGrid from 'react-data-grid';
 import 'react-data-grid/lib/styles.css';
+import axiosInstance, { withAuth } from '../../utils/axiosInstance';
 
 const { Option } = Select;
 
@@ -43,7 +44,7 @@ const ResizeObserverWrapper = ({ children }) => {
 };
 
 function StudentManagement() {
-    const { api } = useSchool();
+    const { userRole } = useSchool();
     const [students, setStudents] = useState([]);
     const [majors, setMajors] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -87,10 +88,10 @@ function StudentManagement() {
     }, [activeTab, filters, pagination.current, pagination.pageSize]);
 
     const fetchStudents = useCallback(async () => {
-        if (loading) return; // Prevent multiple requests while loading
+        if (loading) return;
         setLoading(true);
         try {
-            const response = await api.get('/school/students', {
+            const response = await axiosInstance.get('/school/students', withAuth({
                 params: {
                     search: filters.search,
                     isApproved: activeTab === 'approved',
@@ -99,8 +100,8 @@ function StudentManagement() {
                     order: filters.order,
                     page: pagination.current,
                     limit: pagination.pageSize,
-                },
-            });
+                }
+            }));
             setStudents(response.data.students);
             setPagination(prev => ({
                 ...prev,
@@ -112,15 +113,11 @@ function StudentManagement() {
                 setPendingCount(response.data.totalStudents);
             }
         } catch (error) {
-            if (error.response && error.response.data && error.response.data.message) {
-                message.error(error.response.data.message);
-            } else {
-                message.error('Lỗi khi lấy danh sách sinh viên');
-            }
+            message.error(error.message);
         } finally {
             setLoading(false);
         }
-    }, [api, filters.search, activeTab, filters.major, filters.sort, filters.order, pagination.current, pagination.pageSize]);
+    }, [userRole, filters.search, activeTab, filters.major, filters.sort, filters.order, pagination.current, pagination.pageSize]);
 
     useEffect(() => {
         const debouncedFetchStudents = debounce(() => {
@@ -139,9 +136,9 @@ function StudentManagement() {
     const fetchMajors = async (page = 1, search = '') => {
         setMajorLoading(true);
         try {
-            const response = await api.get('/school/majors', {
+            const response = await axiosInstance.get('/school/majors', withAuth({
                 params: { page, limit: 10, search }
-            });
+            }));
             const newMajors = response.data.majors;
             setMajors(prevMajors => (page === 1 ? newMajors : [...prevMajors, ...newMajors]));
             setHasMoreMajors(page < response.data.totalPages);
@@ -178,30 +175,22 @@ function StudentManagement() {
 
     const handleUpdate = async (values) => {
         try {
-            await api.put(`/school/students/${editingStudent._id}`, values);
+            await axiosInstance.put(`/school/students/${editingStudent._id}`, values, withAuth());
             message.success('Cập nhật thông tin sinh viên thành công');
             setModalVisible(false);
             fetchStudents();
         } catch (error) {
-            message.error('Lỗi khi cập nhật thông tin sinh viên');
+            message.error(error.message);
         }
     };
 
     const handleApprove = async (studentId) => {
         try {
-            const response = await api.post(`/school/approve-student/${studentId}`);
-            if (response.data && response.data.message) {
-                message.success(response.data.message);
-            } else {
-                message.success('Xác nhận sinh viên thành công');
-            }
+            const response = await axiosInstance.post(`/school/approve-student/${studentId}`, {}, withAuth());
+            message.success(response.data.message || 'Xác nhận sinh viên thành công');
             fetchStudents();
         } catch (error) {
-            if (error.response && error.response.data && error.response.data.message) {
-                message.error(error.response.data.message);
-            } else {
-                message.error('Lỗi khi xác nhận sinh viên');
-            }
+            message.error(error.message);
         }
     };
 
@@ -304,7 +293,7 @@ function StudentManagement() {
         formData.append('file', uploadFile, 'students.xlsx');
 
         try {
-            const response = await api.post('/school/students/upload', formData, {
+            const response = await axiosInstance.post('/school/students/upload', formData, {
                 onUploadProgress: (progressEvent) => {
                     const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
                     setUploadProgress(Math.min(percentCompleted, 98));
@@ -432,12 +421,12 @@ function StudentManagement() {
     useEffect(() => {
         const fetchPendingCount = async () => {
             try {
-                const response = await api.get('/school/students', {
+                const response = await axiosInstance.get('/school/students', withAuth({
                     params: {
                         isApproved: false,
                         limit: 1,
                     },
-                });
+                }));
                 setPendingCount(response.data.totalStudents);
             } catch (error) {
                 message.error( error.response?.data?.message || error.message);
@@ -445,7 +434,7 @@ function StudentManagement() {
         };
 
         fetchPendingCount();
-    }, [api]);
+    }, [userRole]);
 
     const columns = useMemo(() => [
         {
@@ -546,7 +535,7 @@ function StudentManagement() {
 
     const fetchPasswordTemplate = async () => {
         try {
-            const response = await api.get('/school/password-rule');
+            const response = await axiosInstance.get('/school/password-rule', withAuth());
             const config = response.data;
             if (config && config.passwordRule) {
                 setPasswordTemplate(config.passwordRule);
@@ -562,10 +551,10 @@ function StudentManagement() {
     const handlePasswordTemplateChange = async (value) => {
         setPasswordTemplate(value);
         try {
-            const response = await api.post('/school/review-password-rule', {
+            const response = await axiosInstance.post('/school/review-password-rule', {
                 passwordRule: value,
                 dateOfBirth: '1995-12-31' // Ví dụ ngày sinh
-            });
+            }, withAuth());
             if (typeof response.data === 'object' && response.data.password) {
                 setPasswordPreview(response.data.password);
             } else if (typeof response.data === 'string') {
@@ -581,9 +570,9 @@ function StudentManagement() {
 
     const savePasswordTemplate = async () => {
         try {
-            await api.put('/school/update-password-rule', {
+            await axiosInstance.put('/school/update-password-rule', {
                 passwordRule: passwordTemplate
-            });
+            }, withAuth());
             message.success('Đã lưu mẫu mật khẩu thành công');
             setPasswordModalVisible(false);
         } catch (error) {

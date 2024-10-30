@@ -1,5 +1,5 @@
 import React, { useEffect, useState, Suspense, lazy } from 'react';
-import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import Main from '../layout/Main';
 import Dashboard from '../components/school/Dashboard';
 import NotFound from '../common/Notfound';
@@ -57,24 +57,25 @@ const isAuthenticated = () => {
 function PrivateRoute({ children }) {
     const { loading, checkAuthStatus, schoolData, isAuthChecked } = useSchool();
     const navigate = useNavigate();
+    const location = useLocation();
 
     useEffect(() => {
-        if (!isAuthChecked) {
+        if (!isAuthChecked && !location.pathname.includes('/login')) {
             checkAuthStatus();
         }
-    }, [checkAuthStatus, isAuthChecked]);
+    }, [checkAuthStatus, isAuthChecked, location]);
 
     useEffect(() => {
-        if (isAuthChecked && !schoolData) {
+        if (isAuthChecked && !schoolData && !location.pathname.includes('/login')) {
             navigate('/school/login', { replace: true });
         }
-    }, [isAuthChecked, schoolData, navigate]);
+    }, [isAuthChecked, schoolData, navigate, location]);
 
     if (loading) {
         return <Spin size="large" />;
     }
 
-    return schoolData ? children : null;
+    return children;
 }
 
 function School() {

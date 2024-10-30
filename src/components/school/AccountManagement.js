@@ -4,6 +4,7 @@ import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, UserOutlined, 
 import { useSchool } from '../../context/SchoolContext';
 import moment from 'moment';
 import styled from 'styled-components';
+import axiosInstance, { withAuth } from '../../utils/axiosInstance';
 
 const { Option } = Select;
 const { Title } = Typography;
@@ -19,7 +20,7 @@ const StyledTag = styled(Tag)`
 `;
 
 const AccountManagement = () => {
-    const { api, userRole, schoolData } = useSchool();
+    const { userRole, schoolData } = useSchool();
     const [accounts, setAccounts] = useState([]);
     const [loading, setLoading] = useState(false);
     const [modalVisible, setModalVisible] = useState(false);
@@ -42,19 +43,19 @@ const AccountManagement = () => {
     const fetchAccounts = async () => {
         setLoading(true);
         try {
-            const response = await api.get('/school/accounts', {
+            const response = await axiosInstance.get('/school/accounts', withAuth({
                 params: {
                     page: pagination.current,
                     limit: pagination.pageSize
                 }
-            });
+            }));
             setAccounts(response.data.data);
             setPagination({
                 ...pagination,
                 total: response.data.total
             });
         } catch (error) {
-            message.error('Lỗi khi lấy danh sách tài khoản: ' + error.response?.data?.message || error.message);
+            message.error(error.message);
         } finally {
             setLoading(false);
         }
@@ -62,10 +63,10 @@ const AccountManagement = () => {
 
     const fetchFaculties = async () => {
         try {
-            const response = await api.get('/school/faculties');
+            const response = await axiosInstance.get('/school/faculties', withAuth());
             setFaculties(response.data);
         } catch (error) {
-            message.error('Lỗi khi lấy danh sách khoa: ' + error.response?.data?.message || error.message);
+            message.error(error.message);
         }
     };
 
@@ -85,7 +86,7 @@ const AccountManagement = () => {
             record._id === schoolData.account._id) {
             setEditingAccountId(record._id);
             try {
-                const response = await api.get(`/school/accounts/${record._id}`);
+                const response = await axiosInstance.get(`/school/accounts/${record._id}`, withAuth());
                 const accountData = response.data;
                 form.setFieldsValue({
                     name: accountData.name,
@@ -93,11 +94,10 @@ const AccountManagement = () => {
                     role: accountData.role.name,
                     faculty: accountData.role.faculty?._id,
                     isActive: accountData.isActive,
-                    // Thêm các trường khác nếu cần
                 });
                 setModalVisible(true);
             } catch (error) {
-                message.error('Lỗi khi lấy thông tin tài khoản: ' + error.response?.data?.message || error.message);
+                message.error(error.message);
             }
         }
     };
@@ -108,11 +108,11 @@ const AccountManagement = () => {
             return;
         }
         try {
-            await api.delete(`/school/accounts/${id}`);
+            await axiosInstance.delete(`/school/accounts/${id}`, withAuth());
             message.success('Xóa tài khoản thành công');
             fetchAccounts();
         } catch (error) {
-            message.error('Lỗi khi xóa tài khoản: ' + error.response?.data?.message || error.message);
+            message.error(error.message);
         }
     };
 
@@ -126,32 +126,31 @@ const AccountManagement = () => {
                     faculty: values.faculty
                 };
             } else {
-                // Nếu không phải admin, giữ nguyên role và faculty
-                const currentAccount = await api.get(`/school/accounts/${editingAccountId}`);
+                const currentAccount = await axiosInstance.get(`/school/accounts/${editingAccountId}`, withAuth());
                 data.role = currentAccount.data.role;
             }
 
             if (editingAccountId) {
-                await api.put(`/school/accounts/${editingAccountId}`, data);
+                await axiosInstance.put(`/school/accounts/${editingAccountId}`, data, withAuth());
                 message.success('Cập nhật tài khoản thành công');
             } else {
-                await api.post('/school/accounts', data);
+                await axiosInstance.post('/school/accounts', data, withAuth());
                 message.success('Tạo tài khoản mới thành công');
             }
             setModalVisible(false);
             fetchAccounts();
         } catch (error) {
-            message.error('Lỗi: ' + error.response?.data?.message || error.message);
+            message.error(error.message);
         }
     };
 
     const handleViewDetail = async (id) => {
         try {
-            const response = await api.get(`/school/accounts/${id}`);
+            const response = await axiosInstance.get(`/school/accounts/${id}`, withAuth());
             setAccountDetail(response.data);
             setDetailModalVisible(true);
         } catch (error) {
-            message.error('Lỗi khi lấy chi tiết tài khoản: ' + error.response?.data?.message || error.message);
+            message.error(error.message);
         }
     };
 

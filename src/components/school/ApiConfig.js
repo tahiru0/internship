@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Form, Input, Button, Card, message, Spin, Tabs, Space, Typography, Divider, Alert, Modal, Row, Col } from 'antd';
 import { SaveOutlined, LinkOutlined, InfoCircleOutlined, UserOutlined, EyeOutlined } from '@ant-design/icons';
-import { useSchool } from '../../context/SchoolContext';
+import axiosInstance, { withAuth } from '../../utils/axiosInstance';
 
 const { TabPane } = Tabs;
 const { Title, Paragraph, Text } = Typography;
 
 const ApiConfig = () => {
-    const { api } = useSchool();
     const [form] = Form.useForm();
     const [loading, setLoading] = useState(false);
     const [apiConfig, setApiConfig] = useState(null);
@@ -23,7 +22,7 @@ const ApiConfig = () => {
     const fetchApiConfig = async () => {
         setLoading(true);
         try {
-            const response = await api.get('/school/student-api-config');
+            const response = await axiosInstance.get('/school/student-api-config', withAuth());
             const config = response.data;
             setApiConfig(config);
             form.setFieldsValue({
@@ -32,7 +31,7 @@ const ApiConfig = () => {
                 passwordRule: config.studentApiConfig.passwordRule
             });
         } catch (error) {
-            handleApiError(error, 'Lỗi khi tải cấu hình API');
+            message.error(error.message);
         } finally {
             setLoading(false);
         }
@@ -42,19 +41,15 @@ const ApiConfig = () => {
         setLoading(true);
         try {
             const uri = form.getFieldValue('uri');
-            const response = await api.post('/school/check-student-api-connection', {
+            const response = await axiosInstance.post('/school/check-student-api-connection', {
                 uri,
                 id: testStudentId
-            });
+            }, withAuth());
             setTestResult(response.data.data);
             message.success(response.data.message);
         } catch (error) {
             setTestResult(null);
-            if (error.response && error.response.data && error.response.data.message) {
-                message.error(error.response.data.message);
-            } else {
-                message.error('Lỗi khi kiểm tra kết nối API');
-            }
+            message.error(error.message);
         } finally {
             setLoading(false);
         }
@@ -70,15 +65,11 @@ const ApiConfig = () => {
                     passwordRule: values.passwordRule
                 }
             };
-            const response = await api.put('/school/student-api-config', configToSave);
+            const response = await axiosInstance.put('/school/student-api-config', configToSave, withAuth());
             message.success(response.data.message || 'Cập nhật cấu hình API thành công');
             setApiConfig(configToSave);
         } catch (error) {
-            if (error.response && error.response.data && error.response.data.message) {
-                message.error(error.response.data.message);
-            } else {
-                message.error('Lỗi khi cập nhật cấu hình API');
-            }
+            message.error(error.message);
         } finally {
             setLoading(false);
         }
@@ -87,22 +78,14 @@ const ApiConfig = () => {
     const reviewPasswordRule = async () => {
         try {
             const values = await form.validateFields(['passwordRule']);
-            const response = await api.post('/school/review-password-rule', {
+            const response = await axiosInstance.post('/school/review-password-rule', {
                 passwordRule: values.passwordRule,
-                dateOfBirth: '1995-01-01' // Ví dụ ngày sinh
-            });
+                dateOfBirth: '1995-01-01'
+            }, withAuth());
             setPasswordPreview(response.data.password);
             setPasswordPreviewVisible(true);
         } catch (error) {
-            handleApiError(error, 'Lỗi khi kiểm tra quy tắc mật khẩu');
-        }
-    };
-
-    const handleApiError = (error, defaultMessage) => {
-        if (error.response && error.response.data && error.response.data.message) {
-            message.error(error.response.data.message);
-        } else {
-            message.error(defaultMessage);
+            message.error(error.message);
         }
     };
 
