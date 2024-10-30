@@ -138,6 +138,8 @@ function AppContent() {
         <Route path="/company/forgot-password" element={<ForgotPassword />} />
         <Route path="/company/reset-password/:resetToken" element={<ForgotPassword />} />
         
+        <Route path="/tasks/:taskId" element={<TaskView />} />
+
         <Route element={
           <PublicStudentProvider>
             <AppLayout>
@@ -147,7 +149,6 @@ function AppContent() {
         }>
           <Route path="/jobs" element={<JobSearch />} />
           <Route path="/project/:id" element={<ProjectDetail />} />
-          <Route path="/tasks/:taskId" element={<TaskView />} />
         </Route>
 
         <Route path="/" element={<HomePage />} />

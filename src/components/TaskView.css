@@ -1,0 +1,72 @@
+.account-menu-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+}
+
+.account-menu {
+  position: absolute;
+  top: 60px;
+  right: 20px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  overflow: hidden;
+  z-index: 1001;
+}
+
+.menu-container {
+  position: relative;
+  width: 300px;
+  display: flex;
+  transition: transform 0.3s ease;
+}
+
+.menu-container.slide {
+  transform: translateX(-300px);
+}
+
+.menu-section {
+  min-width: 300px;
+  flex-shrink: 0;
+  padding: 8px;
+}
+
+.section-header {
+  padding: 8px;
+}
+
+.user-info {
+  padding: 12px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.user-info.clickable {
+  cursor: pointer;
+}
+
+.user-info.clickable:hover {
+  background-color: rgba(0,0,0,0.04);
+}
+
+.user-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.menu-items {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.account-trigger {
+  position: relative;
+} 

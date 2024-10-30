@@ -11,22 +11,21 @@ const { Text } = Typography;
 
 function StudentHeader({ handleSidenavColor, handleSidenavType, handleFixedNavbar }) {
     const { userData, logout } = useStudent();
-    const { unreadCount, notifications, markNotificationAsRead, markAllNotificationsAsRead, deleteNotification, fetchUnreadCount } = useNotification();
+    const { 
+        unreadCount, 
+        notifications, 
+        loading, 
+        hasMore, 
+        markNotificationAsRead, 
+        markAllNotificationsAsRead, 
+        deleteNotification, 
+        fetchNotifications 
+    } = useNotification();
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [settingsVisible, setSettingsVisible] = useState(false);
     const navigate = useNavigate();
     const [windowWidth, setWindowWidth] = useState(window.innerWidth);
     const [notificationDropdownVisible, setNotificationDropdownVisible] = useState(false);
-
-    useEffect(() => {
-        if (userData) {
-            fetchUnreadCount();
-        }
-    }, [userData, fetchUnreadCount]);
-
-    useEffect(() => {
-        console.log('Current unreadCount in StudentHeader:', unreadCount);
-    }, [unreadCount]);
 
     useEffect(() => {
         const handleResize = () => setWindowWidth(window.innerWidth);
@@ -121,7 +120,19 @@ function StudentHeader({ handleSidenavColor, handleSidenavType, handleFixedNavba
             <div style={{ display: 'flex', alignItems: 'center' }}>
                 <Badge size="small" count={unreadCount || 0} overflowCount={99}>
                     <Dropdown 
-                        overlay={<NotificationMenu isMobile={isMobile} onClose={closeNotificationDropdown} />} 
+                        overlay={
+                            <NotificationMenu 
+                                notifications={notifications}
+                                unreadCount={unreadCount}
+                                onMarkAsRead={markNotificationAsRead}
+                                onMarkAllAsRead={markAllNotificationsAsRead}
+                                loading={loading}
+                                hasMore={hasMore}
+                                onLoadMore={fetchNotifications}
+                                isMobile={isMobile}
+                                onClose={closeNotificationDropdown}
+                            />
+                        } 
                         trigger={['click']}
                         placement={isMobile ? 'bottomLeft' : 'bottomRight'}
                         getPopupContainer={() => document.body}

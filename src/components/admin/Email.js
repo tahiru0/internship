@@ -3,14 +3,13 @@ import { Container, Row, Col, Form, Button, ListGroup, Card, Modal, OverlayTrigg
 import { Input, Select, Tabs, message } from 'antd';
 import { CKEditor } from '@ckeditor/ckeditor5-react';
 import ClassicEditor from '@ckeditor/ckeditor5-build-classic';
-import { useAuthorization } from '../../routes/RequireAdminAuth';
 import { FaCog, FaPaperPlane, FaRedo, FaExclamationCircle } from 'react-icons/fa';
+import axiosInstance, { withAuth } from '../../utils/axiosInstance';
 
 const { Option } = Select;
 const { TabPane } = Tabs;
 
 const Email = () => {
-    const { axiosInstance } = useAuthorization();
     const [emails, setEmails] = useState([]);
     const [selectedEmail, setSelectedEmail] = useState(null);
     const [editorContent, setEditorContent] = useState('');
@@ -61,7 +60,7 @@ const Email = () => {
     const fetchEmails = async () => {
         setIsLoading(true);
         try {
-            const response = await axiosInstance.get('/admin/emails', {
+            const response = await axiosInstance.get('/admin/emails', withAuth(), {
                 params: {
                     page: 1,
                     search: searchTerm,

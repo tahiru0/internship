@@ -15,6 +15,7 @@ export const PublicStudentProvider = ({ children }) => {
     const [userData, setUserData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [userRole, setUserRole] = useState(null);
+    const [appliedProjects, setAppliedProjects] = useState([]);
     const navigate = useNavigate();
     const { resetNotifications } = useNotification() || {};
 
@@ -22,11 +23,31 @@ export const PublicStudentProvider = ({ children }) => {
         setTokenNames('std_token', 'std_refresh');
     }, []);
 
+    const fetchAppliedProjects = async () => {
+        try {
+            const response = await axiosInstance.get('/student/applied-projects', withAuth());
+            setAppliedProjects(response.data || []);
+            return response.data;
+        } catch (error) {
+            console.error('Lỗi khi lấy danh sách dự án đã ứng tuyển:', error);
+            return [];
+        }
+    };
+
+    const login = useCallback(async () => {
+        const token = Cookies.get('std_token');
+        if (token) {
+            await fetchUserData();
+            await fetchAppliedProjects();
+        }
+    }, []);
+
     const logout = useCallback(() => {
         Cookies.remove('std_token');
         Cookies.remove('std_refresh');
         setUserData(null);
         setUserRole(null);
+        setAppliedProjects([]);
         setLoading(false);
         if (resetNotifications) {
             resetNotifications();
@@ -46,11 +67,13 @@ export const PublicStudentProvider = ({ children }) => {
             const studentData = response.data.student;
             setUserData(studentData);
             setUserRole('student');
+            await fetchAppliedProjects();
             return studentData;
         } catch (error) {
             console.error('Lỗi khi lấy thông tin người dùng:', error.message);
             setUserData(null);
             setUserRole(null);
+            setAppliedProjects([]);
             return null;
         } finally {
             setLoading(false);
@@ -58,15 +81,32 @@ export const PublicStudentProvider = ({ children }) => {
     }, []);
 
     useEffect(() => {
-        fetchUserData();
-    }, [fetchUserData]);
+        const initializeData = async () => {
+            const token = Cookies.get('std_token');
+            if (token) {
+                await fetchUserData();
+            } else {
+                setLoading(false);
+            }
+        };
+        initializeData();
+    }, []);
+
+    useEffect(() => {
+        if (userData) {
+            fetchAppliedProjects();
+        }
+    }, [userData]);
 
     const value = {
         userData,
         loading,
         userRole,
         logout,
+        login,
         fetchUserData,
+        appliedProjects,
+        fetchAppliedProjects,
         isAuthenticated: !!userData
     };
 
@@ -121,8 +161,11 @@ export const StudentProvider = ({ children }) => {
     }, [logout, reloadNotifications]);
 
     useEffect(() => {
-        fetchUserData();
-    }, [fetchUserData]);
+        const initializeData = async () => {
+            await fetchUserData();
+        };
+        initializeData();
+    }, []);
 
     const value = {
         userData,

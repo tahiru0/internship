@@ -2,12 +2,11 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Table, Button, Modal, Input, Row, Col, Switch, Dropdown, Menu, Card, message } from 'antd';
 import { SearchOutlined, EyeOutlined, DownOutlined, EditOutlined } from '@ant-design/icons';
 import { InputGroup } from 'react-bootstrap';
-import { useAuthorization } from '../../routes/RequireAdminAuth';
 import moment from 'moment';
 import useForm from '../../common/useForm';
+import axiosInstance from '../../utils/axiosInstance';
 
 const Company = () => {
-  const { axiosInstance } = useAuthorization();
   const [detailsVisible, setDetailsVisible] = useState(false);
   const [selectedDetails, setSelectedDetails] = useState(null);
 
@@ -39,7 +38,7 @@ const Company = () => {
         total: response.data.totalItems,
       }));
     } catch (error) {
-      message.error('Không thể tải dữ liệu công ty');
+      message.error(error.message || 'Không thể tải dữ liệu công ty');
     } finally {
       setLoading(false);
     }

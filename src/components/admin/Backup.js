@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { List, Modal, Button, Input, message, Space, Switch, TimePicker, Select, Form, Pagination, Spin, Typography } from 'antd';
 import { FileZipOutlined, EyeOutlined, UndoOutlined, SettingOutlined, PlusOutlined, MinusOutlined, EditOutlined, LoadingOutlined, FileOutlined } from '@ant-design/icons';
-import { useAuthorization } from '../../routes/RequireAdminAuth';
+import axiosInstance, { withAuth } from '../../utils/axiosInstance';
 import moment from 'moment';
-import 'moment/locale/vi';  // Import tiếng Việt cho moment
+import 'moment/locale/vi';
 
 const { Option } = Select;
 const { Text } = Typography;
 
-moment.locale('vi');  // Sử dụng tiếng Việt
+moment.locale('vi');
 
 const Backup = () => {
   const [backups, setBackups] = useState([]);
@@ -31,7 +31,6 @@ const Backup = () => {
   const [newBackupModalVisible, setNewBackupModalVisible] = useState(false);
   const [newBackupName, setNewBackupName] = useState('');
   const [newBackupPassword, setNewBackupPassword] = useState('');
-  const { axiosInstance } = useAuthorization();
 
   const [isCreatingBackup, setIsCreatingBackup] = useState(false);
   const [isRestoringBackup, setIsRestoringBackup] = useState(false);
@@ -54,7 +53,7 @@ const Backup = () => {
 
   const fetchBackups = async (page, limit) => {
     try {
-      const response = await axiosInstance.get('/admin/backups', {
+      const response = await axiosInstance.get('/admin/backups', withAuth(), {
         params: { page, limit }
       });
       setBackups(response.data.backups);
@@ -62,16 +61,16 @@ const Backup = () => {
       setTotalPages(response.data.totalPages);
       setTotalItems(response.data.totalItems);
     } catch (error) {
-      message.error(error.response?.data?.message || 'Không thể tải danh sách sao lưu');
+      message.error(error.message || 'Không thể tải danh sách sao lưu');
     }
   };
 
   const fetchAutoBackupConfig = async () => {
     try {
-      const response = await axiosInstance.get('/admin/backup-config');
+      const response = await axiosInstance.get('/admin/backup-config', withAuth());
       setAutoBackupConfig(response.data.config ? response.data : { config: autoBackupConfig.config });
     } catch (error) {
-      message.error(error.response?.data?.message || 'Không thể tải cấu hình sao lưu tự động');
+      message.error(error.message || 'Không thể tải cấu hình sao lưu tự động');
     }
   };
 
@@ -84,25 +83,13 @@ const Backup = () => {
     setIsAnalyzingBackup(true);
     setAnalyzingMessage('Đang phân tích sao lưu...');
     try {
-      let messageIndex = 0;
-      const messages = [
-        'Đang kiểm tra cấu trúc dữ liệu...',
-        'Đang so sánh với dữ liệu hiện tại...',
-        'Đang tổng hợp kết quả...',
-      ];
-      const messageInterval = setInterval(() => {
-        setAnalyzingMessage(messages[messageIndex]);
-        messageIndex = (messageIndex + 1) % messages.length;
-      }, 3000);
-
       const response = await axiosInstance.post('/admin/analyze-backup', {
         backupFileName: selectedBackup.fileName,
         password,
-      });
-      clearInterval(messageInterval);
+      }, withAuth());
       setSelectedBackup({ ...selectedBackup, analysis: response.data });
     } catch (error) {
-      message.error(error.response?.data?.message || 'Mật khẩu không đúng hoặc có lỗi xảy ra');
+      message.error(error.message || 'Mật khẩu không đúng hoặc có lỗi xảy ra');
     } finally {
       setIsAnalyzingBackup(false);
       setAnalyzingMessage('');
@@ -111,29 +98,15 @@ const Backup = () => {
 
   const handleRestore = async () => {
     setIsRestoringBackup(true);
-    setRestoringMessage('Đang bắt đầu quá trình khôi phục...');
     try {
-      let messageIndex = 0;
-      const messages = [
-        'Đang chuẩn bị dữ liệu...',
-        'Đang khôi phục cơ sở dữ liệu...',
-        'Đang kiểm tra tính toàn vẹn...',
-        'Gần hoàn thành...',
-      ];
-      const messageInterval = setInterval(() => {
-        setRestoringMessage(messages[messageIndex]);
-        messageIndex = (messageIndex + 1) % messages.length;
-      }, 3000);
-
       const response = await axiosInstance.post('/admin/restore-backup', {
         backupFileName: selectedBackup.fileName,
         password,
-      });
-      clearInterval(messageInterval);
+      }, withAuth());
       message.success(response.data?.message || 'Khôi phục sao lưu thành công');
       setModalVisible(false);
     } catch (error) {
-      message.error(error.response?.data?.message || 'Không thể khôi phục sao lưu');
+      message.error(error.message || 'Không thể khôi phục sao lưu');
     } finally {
       setIsRestoringBackup(false);
       setRestoringMessage('');
@@ -149,36 +122,18 @@ const Backup = () => {
 
   const handleCreateBackup = async () => {
     setIsCreatingBackup(true);
-    let progressIndex = 0;
-    const progressMessages = [
-      'Đang khởi tạo quá trình sao lưu...',
-      'Đang thu thập dữ liệu...',
-      'Đang nén và mã hóa dữ liệu...',
-      'Đang kiểm tra tính toàn vẹn...',
-      'Đang lưu trữ bản sao lưu...',
-      'Đang hoàn tất quá trình...',
-      'Quá trình có thể kéo dài tùy thuộc vào khối lượng dữ liệu...',
-      'Vui lòng không đóng cửa sổ này...',
-    ];
-    const progressInterval = setInterval(() => {
-      setBackupProgress(progressMessages[progressIndex]);
-      progressIndex = (progressIndex + 1) % progressMessages.length;
-    }, 3000);
-
     try {
       const response = await axiosInstance.post('/admin/backup', {
         backupName: newBackupName,
         password: newBackupPassword,
-      });
-      clearInterval(progressInterval);
+      }, withAuth());
       message.success(response.data?.message || 'Tạo sao lưu thành công');
       fetchBackups(currentPage, pageSize);
       setNewBackupModalVisible(false);
       setNewBackupName('');
       setNewBackupPassword('');
     } catch (error) {
-      clearInterval(progressInterval);
-      message.error(error.response?.data?.message || 'Không thể tạo sao lưu');
+      message.error(error.message || 'Không thể tạo sao lưu');
     } finally {
       setIsCreatingBackup(false);
       setBackupProgress('');
@@ -188,22 +143,12 @@ const Backup = () => {
   const handleAutoBackupConfigChange = async (values) => {
     setIsSavingConfig(true);
     try {
-      let configToSend = {
-        isAutoBackup: values.isAutoBackup,
-        schedule: values.isAutoBackup ? {
-          frequency: values.schedule?.frequency || 'daily',
-          dayOfWeek: values.schedule?.dayOfWeek || 0,
-          time: values.schedule?.time ? values.schedule.time.format('HH:mm') : '00:00',
-        } : null,
-        password: values.isAutoBackup ? values.password : null,
-        retentionPeriod: values.isAutoBackup ? values.retentionPeriod : null,
-      };
-      const response = await axiosInstance.post('/admin/backup-config', configToSend);
+      const response = await axiosInstance.post('/admin/backup-config', values, withAuth());
       message.success(response.data?.message || 'Cập nhật cấu hình sao lưu tự động thành công');
       setAutoBackupConfig(response.data);
       setConfigModalVisible(false);
     } catch (error) {
-      message.error(error.response?.data?.message || 'Không thể cập nhật cấu hình sao lưu tự động');
+      message.error(error.message || 'Không thể cập nhật cấu hình sao lưu tự động');
     } finally {
       setIsSavingConfig(false);
     }
@@ -229,7 +174,6 @@ const Backup = () => {
     const date = moment(dateString);
     const now = moment();
     if (date.isAfter(now)) {
-      // Nếu ngày trong tương lai, hiển thị ngày tháng năm
       return date.format('DD/MM/YYYY HH:mm:ss');
     }
     return date.fromNow();

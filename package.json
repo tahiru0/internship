@@ -32,6 +32,7 @@
     "codemirror": "^5.65.18",
     "color-thief-react": "^2.1.0",
     "date-fns": "^3.6.0",
+    "dhtmlx-gantt": "^9.0.1",
     "dotenv": "^16.4.5",
     "event-source-polyfill": "^1.0.31",
     "file-saver": "^2.0.5",
@@ -77,11 +78,11 @@
     "react-toastify": "^10.0.6",
     "react-window": "^1.8.10",
     "recharts": "^2.13.0",
+    "serve": "^14.2.1",
     "styled-components": "^6.1.12",
     "web-vitals": "^2.1.4",
     "xlsx": "^0.18.5",
-    "yup": "^1.4.0",
-    "serve": "^14.2.1"
+    "yup": "^1.4.0"
   },
   "scripts": {
     "start": "cross-env NODE_ENV=development react-scripts start",

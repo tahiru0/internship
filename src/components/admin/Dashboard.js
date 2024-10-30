@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useAuthorization } from '../../routes/RequireAdminAuth';
+import axiosInstance from '../../utils/axiosInstance';
 import { Row, Col, Card, Spinner, Form, Table, ProgressBar } from 'react-bootstrap';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import DatePicker from 'react-datepicker';
@@ -8,7 +8,6 @@ import moment from 'moment';
 import { FaBuilding, FaSchool, FaUserGraduate, FaProjectDiagram } from 'react-icons/fa';
 
 const Dashboard = () => {
-  const { axiosInstance } = useAuthorization();
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [timeUnit, setTimeUnit] = useState('day');

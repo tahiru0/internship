@@ -1,10 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ConfigProvider, Spin, Badge, Modal, Upload, Button, Empty, message as antMessage, Tabs, List, Input, Tooltip } from 'antd';
-import FullCalendar from '@fullcalendar/react';
-import dayGridPlugin from '@fullcalendar/daygrid';
-import timeGridPlugin from '@fullcalendar/timegrid';
-import interactionPlugin from '@fullcalendar/interaction';
-import viLocale from '@fullcalendar/core/locales/vi';
+import { gantt } from 'dhtmlx-gantt';
+import 'dhtmlx-gantt/codebase/dhtmlxgantt.css';
 import { useStudent } from '../../context/StudentContext';
 import axiosInstance, { withAuth } from '../../utils/axiosInstance';
 import dayjs from 'dayjs';
@@ -42,17 +39,16 @@ const Dashboard = () => {
   const [apiMessage, setApiMessage] = useState('');
   const [selectedTask, setSelectedTask] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
-  const [viewMode, setViewMode] = useState('dayGridMonth');
   const [selectedDate, setSelectedDate] = useState(null);
   const [dayTasksModalVisible, setDayTasksModalVisible] = useState(false);
-
-  useEffect(() => {
-    fetchTasks();
-  }, []);
+  const ganttContainerRef = useRef(null);
 
   const fetchTasks = async () => {
+    console.log("Đang fetch tasks...");
     try {
       const response = await axiosInstance.get('/task/student-tasks', withAuth());
+      console.log("Response từ API:", response.data);
+      
       if (response.data.message) {
         setApiMessage(response.data.message);
       }
@@ -63,6 +59,220 @@ const Dashboard = () => {
       setTasks([]);
     }
   };
+
+  useEffect(() => {
+    console.log("useEffect fetch tasks được gọi");
+    fetchTasks();
+  }, []);
+
+  const formatTasksForGantt = (tasks) => {
+    return tasks.map(task => ({
+      id: task._id,
+      text: task.name,
+      start_date: new Date(task.createdAt),
+      end_date: new Date(task.deadline),
+      status: task.status,
+      project: task.project?.title,
+      description: task.description,
+      mentor: task.project?.mentor,
+      companyLogo: task.project?.companyLogo
+    }));
+  };
+
+  // Khởi tạo Gantt
+  useEffect(() => {
+    if (!ganttContainerRef.current) return;
+    
+    gantt.init(ganttContainerRef.current);
+    
+    // Thêm template để tô màu task và các styles cơ bản
+    gantt.templates.task_class = function(start, end, task) {
+      switch (task.status) {
+        case 'Assigned': return 'task-assigned';
+        case 'In Progress': return 'task-in-progress';
+        case 'Submitted': return 'task-submitted';
+        case 'Completed': return 'task-completed';
+        case 'Rejected': return 'task-rejected';
+        case 'Overdue': return 'task-overdue';
+        case 'Pending': return 'task-pending';
+        default: return '';
+      }
+    };
+
+    // Combine all styles into one styleSheet
+    const styleSheet = document.createElement('style');
+    styleSheet.textContent = `
+      /* Task status styles */
+      .task-assigned .gantt_task_progress_drag { display: none !important; }
+      .task-assigned .gantt_task_content,
+      .task-assigned .gantt_task_progress { background: #1890ff; }
+      
+      .task-in-progress .gantt_task_progress_drag { display: none !important; }
+      .task-in-progress .gantt_task_content,
+      .task-in-progress .gantt_task_progress { background: #fa8c16; }
+      
+      .task-submitted .gantt_task_progress_drag { display: none !important; }
+      .task-submitted .gantt_task_content,
+      .task-submitted .gantt_task_progress { background: #722ed1; }
+      
+      .task-completed .gantt_task_progress_drag { display: none !important; }
+      .task-completed .gantt_task_content,
+      .task-completed .gantt_task_progress { background: #52c41a; }
+      
+      .task-rejected .gantt_task_progress_drag { display: none !important; }
+      .task-rejected .gantt_task_content,
+      .task-rejected .gantt_task_progress { background: #f5222d; }
+      
+      .task-overdue .gantt_task_progress_drag { display: none !important; }
+      .task-overdue .gantt_task_content,
+      .task-overdue .gantt_task_progress { background: #ff4d4f; }
+      
+      .task-pending .gantt_task_progress_drag { display: none !important; }
+      .task-pending .gantt_task_content,
+      .task-pending .gantt_task_progress { background: #faad14; }
+
+      /* Task appearance */
+      .gantt_task_line {
+        border-radius: 20px;
+        height: 28px !important;
+        line-height: 28px !important;
+        margin-top: 5px;
+      }
+
+      .gantt_task_content {
+        color: white !important;
+        font-weight: bold;
+      }
+
+      /* Grid styles */
+      .gantt_grid_data .gantt_cell {
+        font-size: 13px;
+        padding: 5px 10px;
+      }
+
+      /* Resize handle styles */
+      .gantt_grid_column_resize_wrap {
+        cursor: col-resize;
+        opacity: 0.3;
+        transition: opacity 0.2s;
+      }
+      .gantt_grid_column_resize_wrap:hover {
+        opacity: 1;
+      }
+      
+      .gantt_grid_head_cell {
+        font-weight: bold;
+        color: #1a1a1a;
+        background-color: #f5f5f5;
+        border-right: 1px solid #e8e8e8;
+      }
+
+      .gantt_grid_column_resize_line {
+        background-color: #1890ff;
+        width: 2px;
+      }
+    `;
+    document.head.appendChild(styleSheet);
+
+    // Config for columns and grid
+    gantt.config.grid_resize = true;
+    gantt.config.grid_width = 800;
+    gantt.config.min_grid_column_width = 100;
+    gantt.config.grid_elastic_columns = true;
+    
+    gantt.config.columns = [
+      {
+        name: "text", 
+        label: "Task", 
+        tree: true, 
+        width: 300,
+        resize: true,
+        min_width: 150
+      },
+      {
+        name: "start_date", 
+        label: "Bắt đầu", 
+        align: "center", 
+        width: 200,
+        resize: true,
+        min_width: 120,
+        template: function(task) {
+          return dayjs(task.start_date).format('DD/MM/YYYY HH:mm');
+        }
+      },
+      {
+        name: "end_date", 
+        label: "Deadline", 
+        align: "center", 
+        width: 200,
+        resize: true,
+        min_width: 120,
+        template: function(task) {
+          return dayjs(task.end_date).format('DD/MM/YYYY HH:mm');
+        }
+      },
+      {
+        name: "status", 
+        label: "Trạng thái", 
+        align: "center", 
+        width: 200,
+        resize: true,
+        min_width: 100,
+        template: function(task) {
+          const statusColors = {
+            'Assigned': '#1890ff',
+            'In Progress': '#fa8c16',
+            'Submitted': '#722ed1',
+            'Completed': '#52c41a',
+            'Rejected': '#f5222d',
+            'Overdue': '#ff4d4f',
+            'Pending': '#faad14'
+          };
+          return `<span style="color: ${statusColors[task.status] || '#000'}; font-weight: bold;">
+            ${getTaskStatus(task.status)}
+          </span>`;
+        }
+      }
+    ];
+
+    gantt.config.date_format = "%Y-%m-%d %H:%i";
+    gantt.config.scale_unit = "day";
+    gantt.config.date_scale = "%d/%m";
+    gantt.config.subscales = [
+      {unit: "hour", step: 6, date: "%H:%i"}
+    ];
+    
+    gantt.config.drag_move = false;
+    gantt.config.drag_progress = false;
+    gantt.config.drag_resize = false;
+    gantt.config.drag_links = false;
+    
+    
+
+    gantt.attachEvent("onTaskClick", (id) => {
+      const task = tasks.find(t => t._id === id);
+      if (task) {
+        setSelectedTask(task);
+        setModalVisible(true);
+      }
+    });
+
+    return () => {
+      gantt.clearAll();
+    };
+  }, [ganttContainerRef.current]);
+
+  // Cập nhật dữ liệu cho Gantt khi tasks thay đổi
+  useEffect(() => {
+    if (tasks.length > 0) {
+      console.log("Cập nhật dữ liệu Gantt với tasks:", tasks);
+      const ganttTasks = formatTasksForGantt(tasks);
+      gantt.clearAll();
+      gantt.parse({
+        data: ganttTasks
+      });
+    }
+  }, [tasks]);
 
   // Cập nhật getTaskStatus để chỉ trả về text
   const getTaskStatus = (status) => {
@@ -485,30 +695,9 @@ const Dashboard = () => {
         ) : (
           <CalendarContainer>
             {Array.isArray(tasks) && tasks.length > 0 ? (
-              <FullCalendar
-                plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-                initialView={viewMode}
-                headerToolbar={{
-                  left: 'prev,next today',
-                  center: 'title',
-                  right: 'dayGridMonth,timeGridWeek'
-                }}
-                locale={viLocale}
-                events={events}
-                eventClick={handleEventClick}
-                eventContent={renderEventContent}
-                height="100%" // Thay đổi từ "auto" thành "100%"
-                viewDidMount={(view) => setViewMode(view.view.type)}
-                dayMaxEvents={4} // Giảm số lượng events hiển thị trước khi hiện "+more"
-                eventMaxStack={3}
-                eventDisplay="block"
-                displayEventEnd={false}
-                // Thêm height control
-                contentHeight="auto"
-                handleWindowResize={true}
-                stickyHeaderDates={true} // Giữ header cố định khi cuộn
-                // Bỏ aspectRatio để calendar fill đúng chiều cao container
-                aspectRatio={1.8}
+              <div 
+                ref={ganttContainerRef}
+                style={{width: '100%', height: '500px'}}
               />
             ) : (
               <Empty 

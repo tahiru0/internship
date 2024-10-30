@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Layout, Typography, Button, Avatar, Menu, Dropdown, Badge, Space } from 'antd';
 import { UserOutlined, LogoutOutlined, FileOutlined, MenuOutlined, BellOutlined, DashboardOutlined } from '@ant-design/icons';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 import { useStudent } from '../context/StudentContext';
+import Cookies from 'js-cookie';
+import axiosInstance, { withAuth } from '../utils/axiosInstance';
 
 const { Header } = Layout;
 const { Title, Text } = Typography;
@@ -100,12 +102,26 @@ const MobileMenu = styled.div`
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 `;
 
-const AppHeader = ({ appliedProjects = [], acceptedProjects = [] }) => {
+const AppHeader = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileMenuVisible, setMobileMenuVisible] = useState(false);
-  
-  const { userData, logout, loading, isAuthenticated } = useStudent();
+  const { 
+    userData, 
+    logout, 
+    loading, 
+    isAuthenticated, 
+    login,
+    appliedProjects,
+    isLoadingAppliedProjects
+  } = useStudent();
+
+  useEffect(() => {
+    const token = Cookies.get('std_token');
+    if (token && !isAuthenticated) {
+      login();
+    }
+  }, [isAuthenticated, login]);
 
   if (loading) {
     return null;
@@ -114,7 +130,7 @@ const AppHeader = ({ appliedProjects = [], acceptedProjects = [] }) => {
   const appliedMenu = (
     <Menu>
       <Menu.ItemGroup title="Dự án đã ứng tuyển">
-        {appliedProjects.length > 0 ? (
+        {appliedProjects?.length > 0 ? (
           appliedProjects.map(project => (
             <Menu.Item key={project._id} onClick={() => navigate(`/project/${project._id}`)}>
               {project.title}
@@ -154,7 +170,7 @@ const AppHeader = ({ appliedProjects = [], acceptedProjects = [] }) => {
                 </MenuButton>
                 <Dropdown overlay={appliedMenu} placement="bottomCenter">
                   <MenuButton icon={<FileOutlined />}>
-                    Đã ứng tuyển ({appliedProjects.length})
+                    Đã ứng tuyển ({isLoadingAppliedProjects ? '...' : appliedProjects?.length || 0})
                   </MenuButton>
                 </Dropdown>
                 <Dropdown overlay={profileMenu} placement="bottomRight">
@@ -180,7 +196,7 @@ const AppHeader = ({ appliedProjects = [], acceptedProjects = [] }) => {
                 </MenuButton>
                 <Dropdown overlay={appliedMenu} placement="bottomCenter">
                   <MenuButton icon={<FileOutlined />} block>
-                    Đã ứng tuyển ({appliedProjects.length})
+                    Đã ứng tuyển ({isLoadingAppliedProjects ? '...' : appliedProjects?.length || 0})
                   </MenuButton>
                 </Dropdown>
                 <MenuButton 

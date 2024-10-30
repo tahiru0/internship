@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Layout, Input, Card, Tag, Button, Row, Col, Pagination, Spin, Select, Typography, Space, Tooltip, Modal, message, Empty, Drawer, Skeleton } from 'antd';
-import { SearchOutlined, ClockCircleOutlined, TeamOutlined, CalendarOutlined, UserOutlined, AimOutlined, CloseCircleOutlined, FilterOutlined, LeftOutlined, RightOutlined } from '@ant-design/icons';
-import axiosInstance from '../utils/axiosInstance';
+import { SearchOutlined, ClockCircleOutlined, TeamOutlined, CalendarOutlined, UserOutlined, AimOutlined, CloseCircleOutlined, FilterOutlined, LeftOutlined, RightOutlined, ReloadOutlined, ProjectOutlined, BookOutlined, CompassOutlined } from '@ant-design/icons';
+import axiosInstance, { withAuth } from '../utils/axiosInstance';
 import styled from 'styled-components';
 import { useNavigate } from 'react-router-dom';
 import { useMediaQuery } from 'react-responsive';
 import NoProjectsFound from '../layout/NoProjectsFound';
 import { debounce } from 'lodash';
+import { useStudent } from '../context/StudentContext';
 
 const { Header, Content } = Layout;
 const { Option } = Select;
@@ -172,7 +173,103 @@ const FilterHeader = styled.div`
   margin-bottom: 16px;
 `;
 
-const PublicJobSearch = ({ studentData, isLoggedIn }) => {
+const EmptyStateWrapper = styled.div`
+  text-align: center;
+  padding: 60px 20px;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  margin: 20px 0;
+`;
+
+const IconWrapper = styled.div`
+  font-size: 86px;
+  margin-bottom: 24px;
+  color: #1890ff;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  
+  .anticon {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  @keyframes float {
+    0% {
+      transform: translateY(0px);
+    }
+    50% {
+      transform: translateY(-20px);
+    }
+    100% {
+      transform: translateY(0px);
+    }
+  }
+`;
+
+const EmptyStateTitle = styled(Title)`
+  &.ant-typography {
+    color: #1f1f1f;
+    font-size: 24px;
+    margin-bottom: 16px;
+    font-weight: 600;
+  }
+`;
+
+const EmptyStateDescription = styled(Text)`
+  display: block;
+  color: #666;
+  font-size: 16px;
+  line-height: 1.6;
+  margin-bottom: 24px;
+`;
+
+const ViewAllButton = styled(Button)`
+  height: auto;
+  padding: 12px 32px;
+  border-radius: 30px;
+  font-size: 16px;
+  font-weight: 500;
+  background: linear-gradient(135deg, #1890ff 0%, #096dd9 100%);
+  border: none;
+  color: white;
+  box-shadow: 0 4px 15px rgba(24, 144, 255, 0.3);
+  transition: all 0.3s ease;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(24, 144, 255, 0.4);
+    background: linear-gradient(135deg, #40a9ff 0%, #1890ff 100%);
+    color: white;
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+`;
+
+const EmptyStateImage = styled.img`
+  width: 200px;
+  height: 200px;
+  margin-bottom: 24px;
+  animation: float 6s ease-in-out infinite;
+
+  @keyframes float {
+    0% {
+      transform: translateY(0px);
+    }
+    50% {
+      transform: translateY(-20px);
+    }
+    100% {
+      transform: translateY(0px);
+    }
+  }
+`;
+
+const PublicJobSearch = () => {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -198,18 +295,18 @@ const PublicJobSearch = ({ studentData, isLoggedIn }) => {
   const [filteredMajors, setFilteredMajors] = useState([]);
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   const isXLScreen = useMediaQuery({ minWidth: 1200 });
+  const { userData, isAuthenticated } = useStudent();
 
   useEffect(() => {
-    if (isLoggedIn && studentData && studentData.major) {
+    if (userData?.major) {
       setFilters(prevFilters => ({
         ...prevFilters,
-        major: studentData.major._id
+        major: userData.major._id
       }));
+      setMajorSearchValue(userData.major.name);
       setIsRecommended(true);
-      // Thêm dòng này để cập nhật giá trị hiển thị của Select
-      setMajorSearchValue(studentData.major.name);
     }
-  }, [isLoggedIn, studentData]);
+  }, [userData]);
 
   const debouncedFetchProjects = useCallback(
     debounce(async () => {
@@ -295,7 +392,7 @@ const PublicJobSearch = ({ studentData, isLoggedIn }) => {
     }));
     setPagination({ ...pagination, current: 1 });
     if (filterType === 'major') {
-      setIsRecommended(value === studentData?.major?._id);
+      setIsRecommended(value === userData?.major?._id);
     } else {
       setIsRecommended(false);
     }
@@ -335,12 +432,32 @@ const PublicJobSearch = ({ studentData, isLoggedIn }) => {
     setPagination({ ...pagination, current: 1 });
     if (filterType === 'major') {
       setIsRecommended(false);
-      setMajorSearchValue(''); // Thêm dòng này để reset giá trị hiển thị của Select
+      setMajorSearchValue('');
     }
   };
 
-  const handleApply = (projectId) => {
-    navigate(`/login?redirect=/project/${projectId}`);
+  const handleApply = async (projectId) => {
+    if (!isAuthenticated) {
+      const currentPath = encodeURIComponent(window.location.pathname);
+      navigate(`/login?redirect=${currentPath}`);
+      return;
+    }
+
+    try {
+      await axiosInstance.post(`/student/apply/${projectId}`, {}, withAuth());
+      message.success('Ứng tuyển thành công!');
+      
+      setProjects(prevProjects => 
+        prevProjects.map(p => 
+          p._id === projectId 
+            ? { ...p, hasApplied: true }
+            : p
+        )
+      );
+    } catch (error) {
+      console.error('Lỗi khi ứng tuyển:', error);
+      message.error(error.response?.data?.message || 'Có lỗi xảy ra khi ứng tuyển');
+    }
   };
 
   const handleSkillClick = (skillId, skillName) => {
@@ -360,7 +477,6 @@ const PublicJobSearch = ({ studentData, isLoggedIn }) => {
       setFilters(prevFilters => {
         const newMajor = prevFilters.major === majorId ? '' : majorId;
         
-        // Cập nhật majorSearchValue
         if (newMajor) {
           setMajorSearchValue(selectedMajor.name);
         } else {
@@ -374,7 +490,7 @@ const PublicJobSearch = ({ studentData, isLoggedIn }) => {
       });
       
       setPagination({ ...pagination, current: 1 });
-      setIsRecommended(majorId === studentData?.major?._id);
+      setIsRecommended(majorId === userData?.major?._id);
     }
   };
 
@@ -514,19 +630,99 @@ const PublicJobSearch = ({ studentData, isLoggedIn }) => {
     </>
   );
 
+  const renderNoResults = () => {
+    const hasActiveFilters = filters.skills.length > 0 || filters.status || filters.major || searchQuery;
+
+    if (!hasActiveFilters) {
+      return (
+        <EmptyStateWrapper>
+          <IconWrapper>
+            <ProjectOutlined style={{ opacity: 0.8 }} />
+          </IconWrapper>
+          <EmptyStateTitle level={3}>
+            Chưa có dự án nào
+          </EmptyStateTitle>
+          <EmptyStateDescription>
+            Hiện tại chưa có dự án thực tập nào được đăng tải.
+            <br />
+            Vui lòng quay lại sau nhé!
+          </EmptyStateDescription>
+        </EmptyStateWrapper>
+      );
+    }
+
+    if (filters.major === userData?.major?._id) {
+      return (
+        <EmptyStateWrapper>
+          <IconWrapper>
+            <BookOutlined style={{ opacity: 0.8 }} />
+          </IconWrapper>
+          <EmptyStateTitle level={3}>
+            Chưa có dự án phù hợp
+          </EmptyStateTitle>
+          <EmptyStateDescription>
+            Hiện tại chưa có dự án nào dành cho chuyên ngành{' '}
+            <Text strong style={{ color: '#1890ff' }}>{userData.major.name}</Text> của bạn.
+            <br />
+            Hãy thử tìm kiếm các cơ hội khác nhé!
+          </EmptyStateDescription>
+          <ViewAllButton 
+            onClick={() => removeFilter('major')}
+            icon={<CompassOutlined />}
+          >
+            Khám phá tất cả dự án
+          </ViewAllButton>
+        </EmptyStateWrapper>
+      );
+    }
+
+    return (
+      <EmptyStateWrapper>
+        <IconWrapper>
+          <FilterOutlined style={{ opacity: 0.8 }} />
+        </IconWrapper>
+        <EmptyStateTitle level={3}>
+          Không tìm thấy kết quả
+        </EmptyStateTitle>
+        <EmptyStateDescription>
+          Không tìm thấy dự án nào phù hợp với bộ lọc hiện tại.
+          <br />
+          Hãy thử điều chỉnh lại các tiêu chí tìm kiếm của bạn.
+        </EmptyStateDescription>
+        <ViewAllButton 
+          onClick={() => {
+            setFilters({
+              skills: [],
+              status: '',
+              major: ''
+            });
+            setSearchQuery('');
+            setMajorSearchValue('');
+            setIsRecommended(false);
+          }}
+          icon={<ReloadOutlined />}
+        >
+          Đặt lại bộ lọc
+        </ViewAllButton>
+      </EmptyStateWrapper>
+    );
+  };
+
   const renderProjectCards = () => {
     if (loading) {
-      return Array(5).fill(null).map((_, index) => (
-        <SkeletonCard key={`skeleton-${index}`} />
+      return Array(3).fill(null).map((_, index) => (
+        <StyledCard key={index}>
+          <Skeleton active avatar paragraph={{ rows: 4 }} />
+        </StyledCard>
       ));
     }
 
-    if (initialLoadComplete && projects.length === 0) {
-      return <NoProjectsFound />;
+    if (projects.length === 0) {
+      return renderNoResults();
     }
 
     return projects.map(project => (
-      <StyledCard key={project._id} hoverable>
+      <StyledCard key={project._id}>
         <Row gutter={[16, 16]} align="middle">
           <Col xs={6} sm={6} md={4}>
             <CompanyLogo style={{ margin: isMobile ? '0 auto 16px' : '0' }}>
@@ -624,7 +820,7 @@ const PublicJobSearch = ({ studentData, isLoggedIn }) => {
                 enterButton={<SearchOutlined />}
               />
             )}
-            {isRecommended && (
+            {isRecommended && projects.length > 0 && (
               <Title level={4} style={{ marginBottom: 16, color: '#1890ff' }}>
                 Công việc thực tập gợi ý cho bạn
               </Title>

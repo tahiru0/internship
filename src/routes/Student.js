@@ -10,18 +10,18 @@ import { NotificationProvider } from '../context/NotificationContext';
 import NProgress from 'nprogress';
 import 'nprogress/nprogress.css';
 import PersonalProfile from '../components/student/PersonalProfile';
-import Internships from '../components/student/Internships';
-import InternshipDetails from '../components/student/InternshipDetails';
 import Applications from '../components/student/Applications';
 import Settings from '../components/student/Settings';
+import CurrentProjects from '../components/student/CurrentProjects';
+import CurrentProjectDetail from '../components/student/CurrentProjectDetail';
 
 const getNavItems = () => {
     return [
         { key: "1", to: "/student/dashboard", label: "Dashboard", icon: <FaTachometerAlt /> },
-        { key: "2", to: "/student/internships", label: "Thực tập", icon: <FaProjectDiagram /> },
-        { key: "3", to: "/student/applications", label: "Đơn ứng tuyển", icon: <FaFileAlt /> },
-        { key: "4", to: "/student/profile", label: "Hồ sơ cá nhân", icon: <FaUser /> },
-        { key: "5", to: "/student/settings", label: "Cài đặt", icon: <FaCog /> },
+        { key: "3", to: "/student/current-projects", label: "Dự án hiện tại", icon: <FaProjectDiagram /> },
+        { key: "4", to: "/student/applications", label: "Đơn ứng tuyển", icon: <FaFileAlt /> },
+        { key: "5", to: "/student/profile", label: "Hồ sơ cá nhân", icon: <FaUser /> },
+        { key: "6", to: "/student/settings", label: "Cài đặt", icon: <FaCog /> },
     ];
 };
 
@@ -45,8 +45,8 @@ function StudentRoutes() {
             <Routes>
                 <Route path="/" element={<Navigate to="dashboard" replace />} />
                 <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/internships" element={<Internships />} />
-                <Route path="/internships/:id" element={<InternshipDetails />} />
+                <Route path="/current-projects" element={<CurrentProjects />} />
+                <Route path="/current-projects/:id" element={<CurrentProjectDetail />} />
                 <Route path="/applications" element={<Applications />} />
                 <Route path="/profile" element={<PersonalProfile />} />
                 <Route path="/settings" element={<Settings />} />
@@ -58,11 +58,11 @@ function StudentRoutes() {
 
 function Student() {
     return (
-        <StudentProvider>
-            <NotificationProvider>
+        <NotificationProvider>
+            <StudentProvider>
                 <StudentRoutes />
-            </NotificationProvider>
-        </StudentProvider>
+            </StudentProvider>
+        </NotificationProvider>
     );
 }
 

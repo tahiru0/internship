@@ -5,6 +5,7 @@ import { Container } from 'react-bootstrap';
 import { ClockCircleOutlined, TeamOutlined, CalendarOutlined, UserOutlined, AimOutlined, GlobalOutlined, EnvironmentOutlined, ArrowLeftOutlined } from '@ant-design/icons';
 import axiosInstance, { withAuth } from '../utils/axiosInstance';
 import styled from 'styled-components';
+import { useStudent } from '../context/StudentContext';
 
 const { Header, Content, Footer } = Layout;
 const { Title, Paragraph, Text } = Typography;
@@ -48,12 +49,13 @@ const BackButton = styled(Button)`
   margin-bottom: 20px;
 `;
 
-const ProjectDetail = ({ isLoggedIn, studentData, appliedProjects, updateAppliedProjects }) => {
+const ProjectDetail = ({ studentData, appliedProjects, updateAppliedProjects }) => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [project, setProject] = useState(null);
   const [company, setCompany] = useState(null);
   const [loading, setLoading] = useState(true);
+  const { login, isAuthenticated, refreshAppliedProjects } = useStudent();
 
   useEffect(() => {
     fetchProjectDetails();
@@ -78,7 +80,7 @@ const ProjectDetail = ({ isLoggedIn, studentData, appliedProjects, updateApplied
   };
 
   const handleApply = async () => {
-    if (!isLoggedIn) {
+    if (!isAuthenticated) {
       const currentPath = encodeURIComponent(window.location.pathname);
       navigate(`/login?redirect=${currentPath}`);
       return;
@@ -87,17 +89,15 @@ const ProjectDetail = ({ isLoggedIn, studentData, appliedProjects, updateApplied
     try {
       await axiosInstance.post(`/student/apply/${id}`, {}, withAuth());
       message.success('Ứng tuyển thành công!');
+      
+      // Cập nhật trạng thái local
       setProject(prevProject => ({ ...prevProject, hasApplied: true }));
-
-      if (updateAppliedProjects) {
-        updateAppliedProjects({
-          _id: project._id,
-          title: project.title
-        });
-      }
+      
+      // Refresh danh sách ứng tuyển trong context
+      refreshAppliedProjects();
     } catch (error) {
       console.error('Lỗi khi ứng tuyển:', error);
-      message.error(error.message);
+      message.error(error.response?.data?.message || 'Có lỗi xảy ra khi ứng tuyển');
     }
   };
 
@@ -105,23 +105,28 @@ const ProjectDetail = ({ isLoggedIn, studentData, appliedProjects, updateApplied
     try {
       await axiosInstance.delete(`/student/projects/${id}/apply`, withAuth());
       message.success('Đã hủy ứng tuyển thành công');
+      
+      // Cập nhật trạng thái local
       setProject(prevProject => ({ ...prevProject, hasApplied: false }));
-
-      if (updateAppliedProjects) {
-        updateAppliedProjects({
-          _id: project._id,
-          title: project.title
-        }, true);
-      }
+      
+      // Refresh danh sách ứng tuyển trong context
+      refreshAppliedProjects();
     } catch (error) {
       console.error('Lỗi khi hủy ứng tuyển:', error);
-      message.error(error.message);
+      message.error(error.response?.data?.message || 'Có lỗi xảy ra khi hủy ứng tuyển');
     }
   };
 
   const handleBack = () => {
     navigate('/jobs');
   };
+
+  // Thêm useEffect để lắng nghe thay đổi của isAuthenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchProjectDetails();
+    }
+  }, [isAuthenticated, id]);
 
   if (loading) {
     return (
@@ -226,7 +231,7 @@ const ProjectDetail = ({ isLoggedIn, studentData, appliedProjects, updateApplied
             </Col>
             <Col xs={24} md={8}>
               <div style={{ position: 'sticky', top: '88px' }}>
-                {isLoggedIn ? (
+                {isAuthenticated ? (
                   project.hasApplied ? (
                     <Button type="primary" danger size="large" onClick={handleCancelApply} style={{ width: '100%', marginBottom: '20px' }}>
                       Hủy ứng tuyển

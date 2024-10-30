@@ -351,3 +351,19 @@ export const UploadSection = styled.div`
     margin-top: 16px;
   }
 `;
+
+export const GanttContainer = styled.div`
+  .gantt_task_line {
+    border-radius: 20px;
+  }
+  
+  .gantt_task_progress {
+    background-color: #1890ff;
+    border-radius: 20px;
+  }
+
+  .gantt_task_content {
+    color: #fff;
+    font-weight: 500;
+  }
+`;
