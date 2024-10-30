@@ -48,8 +48,11 @@ const RequireAdminAuth = ({ children }) => {
   useEffect(() => {
     const checkAndRefreshToken = async () => {
       const storedToken = Cookies.get('adminAccessToken');
-      if (storedToken) {
+      const storedUser = Cookies.get('adminUser');
+
+      if (storedToken && storedUser) {
         setToken(storedToken);
+        setUser(JSON.parse(storedUser));
         setLoading(false);
       } else {
         try {

@@ -4,7 +4,7 @@ import { Form, Button, Card, Layout, Typography, message } from 'antd';
 import { UserOutlined, LockOutlined } from '@ant-design/icons';
 import Cookies from 'js-cookie';
 import FloatingLabelInput from '../../common/FloatingLabelInput';
-import axiosInstance from '../../utils/axiosInstance';
+import axiosInstance, { setTokenNames } from '../../utils/axiosInstance';
 
 const { Content } = Layout;
 const { Title } = Typography;
@@ -19,19 +19,21 @@ const AdminLoginPage = () => {
       const response = await axiosInstance.post('/auth/login/admin', values);
       const { accessToken, refreshToken, user } = response.data;
 
-      // Lưu tokens và thông tin user vào cookies
-      Cookies.set('adminAccessToken', accessToken, { expires: 1 / 24 });
+      // Set token names cho admin
+      setTokenNames('adminAccessToken', 'adminRefreshToken');
+      
+      // Lưu token và user
+      Cookies.set('adminAccessToken', accessToken, { expires: 1/24 });
       Cookies.set('adminRefreshToken', refreshToken, { expires: 7 });
       Cookies.set('adminUser', JSON.stringify(user), { expires: 7 });
 
-      // Cập nhật header mặc định cho axiosInstance
+      // Cập nhật header
       axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
 
       message.success('Đăng nhập thành công!');
-      navigate('/admin');
+      navigate('/admin/dashboard', { replace: true });
     } catch (error) {
-      setError(error.message);
-      message.error(`Đăng nhập thất bại: ${error.message}`);
+      message.error(error.message || 'Đăng nhập thất bại');
     }
   };
 

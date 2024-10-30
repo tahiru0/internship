@@ -32,7 +32,7 @@ const PersonalProfile = () => {
           major: data.major?.name,
         });
         setAvatar(data.avatar);
-        setCv(data.cv);
+        await fetchCV();
         setLoading(false);
       } catch (error) {
         message.error('Lỗi khi lấy thông tin cá nhân');
@@ -113,14 +113,19 @@ const PersonalProfile = () => {
   const fetchCV = async () => {
     try {
       const response = await axiosInstance.get('/student/get-cv', withAuth());
-      setCv(response.data.cv);
+      if (response.data && response.data.cv) {
+        setCv(response.data.cv);
+      } else {
+        setCv(null);
+      }
     } catch (error) {
       console.error('Lỗi khi lấy CV:', error);
-      if (error.response && error.response.status === 404) {
-        message.info('Bạn chưa có CV.');
-      } else {
-        message.error('Có lỗi xảy ra khi lấy CV.');
+      if (error.response?.data?.message) {
+        if (error.response.status !== 404) {
+          message.error(error.response.data.message);
+        }
       }
+      setCv(null);
     }
   };
 
@@ -271,7 +276,9 @@ const PersonalProfile = () => {
               </a>
             </div>
           ) : (
-            <Text>Chưa có CV</Text>
+            <div>
+              <Text type="secondary">Bạn chưa tải lên CV</Text>
+            </div>
           )}
           <Upload
             accept=".pdf"
@@ -284,11 +291,15 @@ const PersonalProfile = () => {
                   ...withAuth(),
                   headers: { 'Content-Type': 'multipart/form-data' }
                 });
-                onSuccess(response, file);
-                setCv(response.data.cv);
-                message.success('Cập nhật CV thành công');
+                if (response.data && response.data.cv) {
+                  onSuccess(response, file);
+                  setCv(response.data.cv);
+                  message.success('Cập nhật CV thành công');
+                  await fetchUserData(); // Cập nhật userData sau khi upload thành công
+                }
               } catch (error) {
-                message.error('Lỗi khi cập nhật CV');
+                const errorMessage = error.response?.data?.message || 'Lỗi khi cập nhật CV';
+                message.error(errorMessage);
               }
             }}
           >

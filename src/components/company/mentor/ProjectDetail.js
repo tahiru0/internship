@@ -15,7 +15,7 @@ import ConfirmStatusChangeModal from './project/ConfirmStatusChangeModal';
 import RatingModal from './project/RatingModal';
 import ConfirmCloseRecruitingModal from './project/ConfirmCloseRecruitingModal';
 import { ModalProvider, useModal } from '../../../context/ModalContext';
-import { useCompany } from '../../../context/CompanyContext';
+import axiosInstance, { withAuth } from '../../../utils/axiosInstance';
 
 const { TextArea } = Input;
 const { Option } = Select;
@@ -63,8 +63,6 @@ const ProjectDetail = memo(({ project, loading, onBack, isMobile, fetchProjects 
   const [filterDeadlineEnd, setFilterDeadlineEnd] = useState(null);
   const [sortBy, setSortBy] = useState('createdAt');
   const [sortOrder, setSortOrder] = useState('desc');
-  const { axiosInstance } = useCompany();
-  
 
   useEffect(() => {
     if (project) {
@@ -83,6 +81,7 @@ const ProjectDetail = memo(({ project, loading, onBack, isMobile, fetchProjects 
     setTaskLoading(true);
     try {
       const response = await axiosInstance.get(`/mentor/projects/${project.id}/tasks`, {
+        ...withAuth(),
         params: {
           page: currentPage,
           limit: pageSize,
@@ -95,11 +94,16 @@ const ProjectDetail = memo(({ project, loading, onBack, isMobile, fetchProjects 
         }
       });
 
+      if (!response.data) {
+        throw new Error('Không có dữ liệu trả về');
+      }
+
       setTasks(response.data.tasks);
       setTotal(response.data.total);
       setPage(currentPage);
       setLimit(pageSize);
     } catch (error) {
+      console.error('Lỗi khi tải danh sách task:', error);
       message.error(error.response?.data?.message || 'Không thể tải danh sách task');
     } finally {
       setTaskLoading(false);

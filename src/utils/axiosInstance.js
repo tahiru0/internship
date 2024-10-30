@@ -7,25 +7,60 @@ const CONFIG = {
     TIMEOUT: parseInt(process.env.REACT_APP_API_TIMEOUT) || 5000,
 };
 
+// Thêm cấu hình cho token names
+const TOKEN_NAMES = {
+    access: 'accessToken',
+    refresh: 'refreshToken'
+};
+
+// Hàm để set token names
+export const setTokenNames = (accessTokenName, refreshTokenName) => {
+    TOKEN_NAMES.access = accessTokenName;
+    TOKEN_NAMES.refresh = refreshTokenName;
+};
+
 const refreshToken = async () => {
-    const refreshToken = Cookies.get('refreshToken');
+    const refreshToken = Cookies.get(TOKEN_NAMES.refresh);
     if (!refreshToken) {
         console.error('Không có refresh token');
+        handleAuthError();
         return null;
     }
     try {
         const response = await axios.post(`${CONFIG.API_URL}/auth/refresh-token`, { refreshToken });
         const { accessToken, refreshToken: newRefreshToken } = response.data;
         
-        Cookies.set('accessToken', accessToken, { expires: 1/24 });
-        Cookies.set('refreshToken', newRefreshToken, { expires: 7 });
+        Cookies.set(TOKEN_NAMES.access, accessToken, { expires: 1/24 });
+        Cookies.set(TOKEN_NAMES.refresh, newRefreshToken, { expires: 7 });
         
         return { accessToken, refreshToken: newRefreshToken };
     } catch (error) {
         const errorMessage = error.response?.data?.message || 'Lỗi khi làm mới token';
         console.error(errorMessage);
+        handleAuthError();
         return null;
     }
+};
+
+// Thêm hàm xử lý lỗi auth
+const handleAuthError = () => {
+    // Xóa tokens
+    Cookies.remove(TOKEN_NAMES.access);
+    Cookies.remove(TOKEN_NAMES.refresh);
+
+    // Lấy current path để redirect sau khi login
+    const currentPath = window.location.pathname;
+    
+    // Xác định login path dựa vào current path
+    let loginPath = '/login';
+    if (currentPath.includes('/company')) {
+        loginPath = '/company/login';
+    } else if (currentPath.includes('/school')) {
+        loginPath = '/school/login';
+    }
+
+    // Chuyển hướng về trang login tương ứng với redirect path
+    window.location.href = `${loginPath}?redirect=${encodeURIComponent(currentPath)}`;
 };
 
 const axiosInstance = axios.create({
@@ -38,7 +73,7 @@ const axiosInstance = axios.create({
 
 // Tạo hàm withAuth để wrap các request cần xác thực
 const withAuth = (options = {}) => {
-    const token = Cookies.get('accessToken');
+    const token = Cookies.get(TOKEN_NAMES.access);
     const config = {
         headers: {
             ...options.headers
@@ -65,7 +100,7 @@ const withFormData = (options = {}) => {
 
 axiosInstance.interceptors.request.use(
     (config) => {
-        const token = Cookies.get('accessToken');
+        const token = Cookies.get(TOKEN_NAMES.access);
         if (token) {
             config.headers['Authorization'] = `Bearer ${token}`;
         }
@@ -100,10 +135,22 @@ axiosInstance.interceptors.response.use(
                     axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${newTokens.accessToken}`;
                     originalRequest.headers['Authorization'] = `Bearer ${newTokens.accessToken}`;
                     return axiosInstance(originalRequest);
+                } else {
+                    // Nếu không refresh được token, chuyển về login
+                    handleAuthError();
+                    return Promise.reject({
+                        message: 'Phiên đăng nhập đã hết hạn',
+                        status: 401
+                    });
                 }
             } catch (refreshError) {
-                const errorMessage = refreshError.response?.data?.message || 'Lỗi xác thực';
-                return Promise.reject({ message: errorMessage, error: refreshError });
+                // Nếu có lỗi khi refresh, chuyển về login
+                handleAuthError();
+                return Promise.reject({
+                    message: 'Lỗi xác thực, vui lòng đăng nhập lại',
+                    status: 401,
+                    error: refreshError
+                });
             }
         }
 
@@ -113,7 +160,11 @@ axiosInstance.interceptors.response.use(
                            error.message || 
                            'Đã xảy ra lỗi';
 
-        // Trả về object có cấu trúc rõ ràng
+        // Nếu là lỗi 401 khác, cũng chuyển về login
+        if (error.response?.status === 401) {
+            handleAuthError();
+        }
+
         return Promise.reject({
             message: errorMessage,
             status: error.response?.status,
@@ -124,5 +175,5 @@ axiosInstance.interceptors.response.use(
 );
 
 // Export cả instance gốc và hàm withAuth
-export { withAuth, withFormData, CONFIG };
+export { withAuth, withFormData, CONFIG, TOKEN_NAMES };
 export default axiosInstance;

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useCompany } from '../../context/CompanyContext';
 import { BellOutlined, LogoutOutlined, SearchOutlined, SettingOutlined } from '@ant-design/icons';
 import { Avatar, Badge, Dropdown, Input, Menu, Modal, Typography } from 'antd';
@@ -6,23 +6,27 @@ import NotificationMenu from '../../layout/NotificationMenu';
 import SettingsDrawer from '../../layout/SettingsDrawer';
 import { useNavigate } from 'react-router-dom';
 import { useNotification } from '../../context/NotificationContext';
+import Cookies from 'js-cookie';
 
 const { Text } = Typography;
 
 function CompanyHeader({ handleSidenavColor, handleSidenavType, handleFixedNavbar }) {
-    const { companyData, logout, isAuthChecked } = useCompany();
-    const { unreadCount, fetchUnreadCount } = useNotification();
+    const { companyData, logout } = useCompany();
+    const { 
+        unreadCount, 
+        notifications, 
+        loading, 
+        hasMore, 
+        markNotificationAsRead: handleMarkAsRead,
+        markAllNotificationsAsRead: handleMarkAllAsRead,
+        fetchNotifications: handleLoadMore
+    } = useNotification();
+    
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [settingsVisible, setSettingsVisible] = useState(false);
+    const [notificationDropdownVisible, setNotificationDropdownVisible] = useState(false);
     const navigate = useNavigate();
     const [windowWidth, setWindowWidth] = useState(window.innerWidth);
-    const [notificationDropdownVisible, setNotificationDropdownVisible] = useState(false);
-
-    useEffect(() => {
-        if (companyData && isAuthChecked) {
-            fetchUnreadCount();
-        }
-    }, [companyData, fetchUnreadCount, isAuthChecked]);
 
     useEffect(() => {
         const handleResize = () => setWindowWidth(window.innerWidth);
@@ -117,7 +121,19 @@ function CompanyHeader({ handleSidenavColor, handleSidenavType, handleFixedNavba
             <div style={{ display: 'flex', alignItems: 'center' }}>
                 <Badge size="small" count={unreadCount || 0} overflowCount={99}>
                     <Dropdown 
-                        overlay={<NotificationMenu isMobile={isMobile} onClose={closeNotificationDropdown} />} 
+                        overlay={
+                            <NotificationMenu 
+                                notifications={notifications}
+                                unreadCount={unreadCount}
+                                onMarkAsRead={handleMarkAsRead}
+                                onMarkAllAsRead={handleMarkAllAsRead}
+                                loading={loading}
+                                hasMore={hasMore}
+                                onLoadMore={handleLoadMore}
+                                isMobile={isMobile}
+                                onClose={closeNotificationDropdown}
+                            />
+                        }
                         trigger={['click']}
                         placement={isMobile ? 'bottomLeft' : 'bottomRight'}
                         getPopupContainer={() => document.body}

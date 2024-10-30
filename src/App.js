@@ -4,7 +4,7 @@ import { Routes, Route, useLocation, Outlet } from 'react-router-dom';
 import { Modal } from 'antd';
 import { CompanyProvider } from './context/CompanyContext';
 import { SchoolProvider } from './context/SchoolContext';
-import { StudentProvider } from './context/StudentContext';
+import { StudentProvider, PublicStudentProvider } from './context/StudentContext';
 import FullScreenLoader from './common/FullScreenLoader';
 import axios from 'axios';
 import { MaintenanceContext, MaintenanceProvider } from './context/MaintenanceContext';
@@ -60,7 +60,11 @@ function ProtectedRoutes() {
         <Route path="/instructor/*" element={<Instructor />} />
         <Route path="/school/*" element={<School />} />
         <Route path="/student/*" element={<Student />} />
-        <Route path="*" element={<NotFound />} />
+        <Route path="*" element={
+          <PublicStudentProvider>
+            <NotFound />
+          </PublicStudentProvider>
+        } />
       </Routes>
     </Suspense>
   );
@@ -108,9 +112,9 @@ function AppContent() {
         <Route 
           path="/login" 
           element={
-            <StudentProvider>
+            <PublicStudentProvider>
               <Login />
-            </StudentProvider>
+            </PublicStudentProvider>
           } 
         />
         <Route 
@@ -135,11 +139,11 @@ function AppContent() {
         <Route path="/company/reset-password/:resetToken" element={<ForgotPassword />} />
         
         <Route element={
-          <StudentProvider>
+          <PublicStudentProvider>
             <AppLayout>
               <Outlet />
             </AppLayout>
-          </StudentProvider>
+          </PublicStudentProvider>
         }>
           <Route path="/jobs" element={<JobSearch />} />
           <Route path="/project/:id" element={<ProjectDetail />} />

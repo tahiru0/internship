@@ -45,100 +45,54 @@ const protectedRoutes = [
 ];
 
 function Company() {
-    const [accessToken, setAccessToken] = useState(Cookies.get('accessToken'));
-    const { loading, authState, companyData, userRole, logout, isAuthChecked, isRedirecting, setIsRedirecting, checkAuthStatus, refreshToken } = useCompany();
-    const navigate = useNavigate();
+    const { loading, companyData, userRole, logout } = useCompany();
     const location = useLocation();
-
-    const isProtectedRoute = useCallback((path) => {
-        return protectedRoutes.some(route => path.startsWith(route));
-    }, []);
+    const navigate = useNavigate();
 
     useEffect(() => {
-        const currentToken = Cookies.get('accessToken');
-        setAccessToken(currentToken);
-
-        if (authState === 'unauthenticated' && !currentToken && isProtectedRoute(location.pathname)) {
-            console.log('Unauthenticated, redirecting to login...');
-            navigate('/company/login', { replace: true });
-        } else if (authState === 'unauthenticated' && currentToken) {
-            console.log('Token exists but unauthenticated, checking auth status...');
-            checkAuthStatus();
+        const token = Cookies.get('com_token');
+        if (!token && location.pathname !== '/company/login') {
+            navigate('/company/login');
         }
-    }, [authState, navigate, location.pathname, isProtectedRoute, checkAuthStatus]);
+    }, [location.pathname, navigate]);
 
-    useEffect(() => {
-        if (location.pathname === '/company/login') {
-            setIsRedirecting(false);
-        }
-    }, [location.pathname, setIsRedirecting]);
-
-    useEffect(() => {
-        if (authState === 'checking') {
-            checkAuthStatus();
-        }
-    }, [authState, checkAuthStatus]);
-
-    if (authState === 'checking') {
+    if (loading) {
         return <FullScreenLoader />;
     }
 
-    if (authState === 'unauthenticated') {
-        console.log('Redirecting to login...');
-        const refreshTokenExists = Cookies.get('refreshToken');
-        if (refreshTokenExists && !isRedirecting) {
-            setIsRedirecting(true);
-            refreshToken().then(newTokens => {
-                if (newTokens) {
-                    checkAuthStatus();
-                } else {
-                    navigate('/company/login', { replace: true });
-                }
-            }).finally(() => {
-                setIsRedirecting(false);
-            });
-        } else if (!isRedirecting) {
-            setIsRedirecting(true);
-            navigate('/company/login', { replace: true });
-        }
+    if (!companyData && location.pathname !== '/company/login') {
         return <Navigate to="/company/login" replace />;
     }
 
     const navItems = getNavItems(userRole);
 
     return (
-        <NotificationProvider>
-            <Main navItems={navItems} RightComponent={CompanyHeader} logout={logout}>
-                {authState === 'checking' ? (
-                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-                        <span>Đang tải...</span>
-                    </div>
-                ) : (
-                    <Routes>
-                        <Route path="/" element={<Navigate to="/company/dashboard" replace />} />
-                        <Route path="/dashboard" element={<Dashboard />} />
-                        {userRole === 'admin' && (
-                            <>
-                                <Route path="/account" element={<AccountManagement />} />
-                                <Route path="/company-info" element={<CompanyInfo />} />
-                            </>
-                        )}
-                        <Route path="/projects" element={<ProjectManagement />} />
-                        <Route path="/profile" element={<CompanyProfile />} />
-                        <Route path="/setting" element={<Settings />} />
-                        <Route path="/personal" element={<PersonalProfile />} />
-                        <Route path="*" element={<NotFound homeLink={"/company/dashboard"} />} />
-                    </Routes>
+        <Main navItems={navItems} RightComponent={CompanyHeader} logout={logout}>
+            <Routes>
+                <Route path="/" element={<Navigate to="/company/dashboard" replace />} />
+                <Route path="/dashboard" element={<Dashboard />} />
+                {userRole === 'admin' && (
+                    <>
+                        <Route path="/account" element={<AccountManagement />} />
+                        <Route path="/company-info" element={<CompanyInfo />} />
+                    </>
                 )}
-            </Main>
-        </NotificationProvider>
+                <Route path="/projects" element={<ProjectManagement />} />
+                <Route path="/profile" element={<CompanyProfile />} />
+                <Route path="/setting" element={<Settings />} />
+                <Route path="/personal" element={<PersonalProfile />} />
+                <Route path="*" element={<NotFound homeLink={"/company/dashboard"} />} />
+            </Routes>
+        </Main>
     );
 }
 
 export default function CompanyWrapper() {
     return (
         <CompanyProvider>
-            <Company />
+            <NotificationProvider>
+                <Company />
+            </NotificationProvider>
         </CompanyProvider>
     );
 }

@@ -105,9 +105,11 @@ const AppHeader = ({ appliedProjects = [], acceptedProjects = [] }) => {
   const location = useLocation();
   const [mobileMenuVisible, setMobileMenuVisible] = useState(false);
   
-  // Lấy dữ liệu từ StudentContext
-  const { userData, logout, loading } = useStudent();
-  const isLoggedIn = !!userData;
+  const { userData, logout, loading, isAuthenticated } = useStudent();
+
+  if (loading) {
+    return null;
+  }
 
   const appliedMenu = (
     <Menu>
@@ -140,7 +142,7 @@ const AppHeader = ({ appliedProjects = [], acceptedProjects = [] }) => {
         <Title level={3} style={{ margin: 0, color: 'rgb(6, 2, 112)' }}>Internship</Title>
       </Logo>
       <NavMenu>
-        {isLoggedIn ? (
+        {isAuthenticated ? (
           <>
             <DesktopMenu>
               <Space size="middle">

@@ -7,8 +7,7 @@ import Cookies from 'js-cookie';
 import { Container, Row, Col, Card } from 'react-bootstrap';
 import * as Yup from 'yup';
 import { Formik } from 'formik';
-import { useStudent } from '../context/StudentContext';
-import { debounce } from 'lodash';
+import { setTokenNames } from '../utils/axiosInstance';
 
 const { Content } = Layout;
 const { Title } = Typography;
@@ -99,10 +98,7 @@ const Login = () => {
     const [schoolId, setSchoolId] = useState(Cookies.get('selectedSchool') || '');
     const navigate = useNavigate();
     const location = useLocation();
-    const { checkAuthStatus } = useStudent();
-    const { studentData } = useStudent();
     const [redirectPath, setRedirectPath] = useState('');
-    const [isAuthChecked, setIsAuthChecked] = useState(false);
     const [rememberMe, setRememberMe] = useState(false);
 
     useEffect(() => {
@@ -134,17 +130,8 @@ const Login = () => {
     }, [location.search, form, schoolId]);
 
     useEffect(() => {
-        const checkAuth = async () => {
-            if (!isAuthChecked) {
-                await checkAuthStatus();
-                setIsAuthChecked(true);
-            }
-            if (studentData) {
-                navigate(redirectPath || '/student/dashboard', { replace: true });
-            }
-        };
-        checkAuth();
-    }, [isAuthChecked, studentData, checkAuthStatus, navigate, redirectPath]);
+        setTokenNames('std_token', 'std_refresh');
+    }, []);
 
     const handleLogin = async (values) => {
         try {
@@ -155,16 +142,19 @@ const Login = () => {
                 password,
             });
 
-            const { accessToken, refreshToken, user } = response.data;
+            const { accessToken, refreshToken } = response.data;
 
-            Cookies.set('accessToken', accessToken, { expires: 1 / 24 });
-            Cookies.set('studentRefreshToken', refreshToken, { expires: 7 });
+            if (rememberMe) {
+                Cookies.set('std_token', accessToken, { expires: 1 / 24 });
+                Cookies.set('std_refresh', refreshToken, { expires: 7 });
+            } else {
+                Cookies.set('std_token', accessToken, { expires: 1 / 24 });
+            }
 
-            await checkAuthStatus();
             navigate(redirectPath || '/student/dashboard');
         } catch (error) {
             console.error('Lỗi đăng nhập:', error);
-            message.error(error.message || 'Đăng nhập thất bại. Vui lòng thử lại sau.');
+            message.error(error.response?.data?.message || 'Đăng nhập thất bại. Vui lòng thử lại sau.');
         }
     };
 

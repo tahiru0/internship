@@ -1,17 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useStudent } from '../../context/StudentContext';
+import { useNotification } from '../../context/NotificationContext';
 import { BellOutlined, LogoutOutlined, SearchOutlined, SettingOutlined, UserOutlined } from '@ant-design/icons';
 import { Badge, Dropdown, Input, Menu, Modal, Typography, Avatar } from 'antd';
 import NotificationMenu from '../../layout/NotificationMenu';
 import SettingsDrawer from '../../layout/SettingsDrawer';
 import { useNavigate } from 'react-router-dom';
-import { useNotification } from '../../context/NotificationContext';
 
 const { Text } = Typography;
 
 function StudentHeader({ handleSidenavColor, handleSidenavType, handleFixedNavbar }) {
     const { userData, logout } = useStudent();
-    const { unreadCount, fetchUnreadCount } = useNotification();
+    const { unreadCount, notifications, markNotificationAsRead, markAllNotificationsAsRead, deleteNotification, fetchUnreadCount } = useNotification();
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [settingsVisible, setSettingsVisible] = useState(false);
     const navigate = useNavigate();
@@ -22,7 +22,7 @@ function StudentHeader({ handleSidenavColor, handleSidenavType, handleFixedNavba
         if (userData) {
             fetchUnreadCount();
         }
-    }, [userData]);
+    }, [userData, fetchUnreadCount]);
 
     useEffect(() => {
         console.log('Current unreadCount in StudentHeader:', unreadCount);

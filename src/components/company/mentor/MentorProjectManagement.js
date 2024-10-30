@@ -39,7 +39,7 @@ const MentorProjectManagement = () => {
   const listRef = useRef(null);
   const resizeTimeout = useRef(null);
   const [size, setSize] = useState({ width: window.innerWidth, height: window.innerHeight });
-  const { axiosInstance } = useCompany();
+  const { companyData } = useCompany();
 
   const handleResize = useCallback(() => {
     if (resizeTimeout.current) {
@@ -86,6 +86,7 @@ const MentorProjectManagement = () => {
     setLoading(true);
     try {
       const response = await axiosInstance.get('/mentor/projects', {
+        ...withAuth(),
         params: {
           page: pageNum,
           limit: 10,
@@ -97,24 +98,24 @@ const MentorProjectManagement = () => {
       });
 
       const { projects, total } = response.data;
+      
+      if (projects && Array.isArray(projects)) {
+        if (append) {
+          setProjects(prev => [...prev, ...projects]);
+        } else {
+          setProjects(projects);
+        }
+        setTotal(total);
+        setHasMore(pageNum * 10 < total);
+        setPage(pageNum);
 
-      if (append) {
-        setProjects(prev => [...prev, ...projects]);
-      } else {
-        setProjects(projects);
-      }
-      setTotal(total);
-      setHasMore(pageNum * 10 < total);
-      setPage(pageNum);
-
-      // Mở dự án đầu tiên sau khi tải về
-      if (projects.length > 0 && !selectedProject) {
-        handleProjectSelect(projects[0].id);
+        if (projects.length > 0 && !selectedProject) {
+          handleProjectSelect(projects[0].id);
+        }
       }
     } catch (error) {
-      const errorMessage = error.response?.data?.message || 'Không thể lấy danh sách dự án';
       console.error('Lỗi khi lấy danh sách dự án:', error);
-      message.error(errorMessage);
+      message.error(error.response?.data?.message || 'Không thể lấy danh sách dự án');
     } finally {
       setLoading(false);
     }
@@ -218,6 +219,7 @@ const MentorProjectManagement = () => {
       }
 
       const response = await axiosInstance.post('/tasks', formData, {
+        ...withAuth(),
         headers: {
           'Content-Type': 'multipart/form-data'
         }

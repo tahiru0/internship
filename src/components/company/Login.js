@@ -116,7 +116,6 @@ const Login = () => {
     }, [location.search, form, companyId]);
 
     const handleLogin = async (values) => {
-        console.log('Đang xử lý đăng nhập với giá trị:', values);
         setIsLoading(true);
         try {
             const { email, password } = values;
@@ -128,13 +127,13 @@ const Login = () => {
 
             const { accessToken, refreshToken } = response.data;
 
-            Cookies.set('accessToken', accessToken, { expires: 1 / 24 });
             if (rememberMe) {
-                Cookies.set('refreshToken', refreshToken, { expires: 30 });
-              }
+                Cookies.set('com_token', accessToken, { expires: 1/24 });
+                Cookies.set('com_refresh', refreshToken, { expires: 7 });
+            } else {
+                Cookies.set('com_token', accessToken, { expires: 1/24 });
+            }
 
-            await checkAuthStatus();
-            setIsAuthChecked(false);
             message.success('Đăng nhập thành công!');
             navigate('/company/dashboard');
         } catch (error) {

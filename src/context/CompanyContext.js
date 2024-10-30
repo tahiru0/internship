@@ -1,10 +1,8 @@
-import React, { createContext, useContext, useEffect, useState, useCallback, useRef, useMemo } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Cookies from 'js-cookie';
-import axios from 'axios';
-import { debounce } from 'lodash';
 import { useNotification } from './NotificationContext';
-import axiosInstance, { withAuth } from '../utils/axiosInstance';
+import axiosInstance, { withAuth, setTokenNames } from '../utils/axiosInstance';
 
 const CompanyContext = createContext();
 
@@ -12,89 +10,136 @@ export const useCompany = () => {
     return useContext(CompanyContext);
 };
 
-const hasToken = () => {
-    return !!Cookies.get('accessToken');
-};
-
-export const CompanyProvider = ({ children }) => {
+// Provider không bắt buộc auth
+export const PublicCompanyProvider = ({ children }) => {
     const [companyData, setCompanyData] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [userRole, setUserRole] = useState(null);
-    const [refreshAttempts, setRefreshAttempts] = useState(0);
     const navigate = useNavigate();
-    const location = useLocation();
-    const [isAuthChecked, setIsAuthChecked] = useState(false);
-    const checkAuthStatusRef = useRef(null);
-    const [authState, setAuthState] = useState(hasToken() ? 'checking' : 'unauthenticated');
-    const [isRedirecting, setIsRedirecting] = useState(false);
-    const { resetNotifications, reloadNotifications } = useNotification() || {};
+    const { resetNotifications } = useNotification() || {};
+
+    useEffect(() => {
+        setTokenNames('com_token', 'com_refresh');
+    }, []);
 
     const logout = useCallback(() => {
-        Cookies.remove('accessToken');
-        Cookies.remove('refreshToken');
+        Cookies.remove('com_token');
+        Cookies.remove('com_refresh');
         setCompanyData(null);
-        setUserRole(null);
-        setRefreshAttempts(0);
-        setIsAuthChecked(false);
-        setAuthState('unauthenticated');
+        setLoading(false);
         if (resetNotifications) {
             resetNotifications();
         }
         navigate('/company/login');
     }, [navigate, resetNotifications]);
 
-    const checkAuthStatus = useCallback(async () => {
-        if (isAuthChecked) return;
-        setLoading(true);
-        try {
-            const response = await axiosInstance.get('/me', withAuth());
-            setCompanyData(response.data);
-            setUserRole(response.data.account.role);
-            if (reloadNotifications) {
-                reloadNotifications();
-            }
-        } catch (error) {
-            console.error('Auth error:', error.message);
-            logout();
-        } finally {
-            setIsAuthChecked(true);
+    const fetchUserData = useCallback(async () => {
+        const token = Cookies.get('com_token');
+        if (!token) {
             setLoading(false);
+            return null;
         }
-    }, [isAuthChecked, logout, reloadNotifications]);
 
-    useEffect(() => {
-        if (authState === 'checking') {
-            checkAuthStatus();
-        }
-    }, [authState, checkAuthStatus]);
-
-    const fetchAccounts = useCallback(async (params) => {
-        setLoading(true);
         try {
-            const response = await axiosInstance.get('/company/accounts', withAuth(), { params });
+            const response = await axiosInstance.get('/company/me', withAuth());
+            setCompanyData(response.data);
             return response.data;
         } catch (error) {
-            console.error('Lỗi khi lấy danh sách tài khoản:', error);
+            console.error('Lỗi khi lấy thông tin người dùng:', error.message);
+            setCompanyData(null);
             return null;
         } finally {
             setLoading(false);
         }
     }, []);
 
+    useEffect(() => {
+        fetchUserData();
+    }, [fetchUserData]);
+
     const value = {
         companyData,
         loading,
-        userRole,
         logout,
-        checkAuthStatus,
-        fetchAccounts,
-        authState,
-        axiosInstance,
-        isAuthChecked,
-        isRedirecting,
-        setIsRedirecting,
+        fetchUserData,
+        isAuthenticated: !!companyData
     };
-    
+
+    return (
+        <CompanyContext.Provider value={value}>
+            {children}
+        </CompanyContext.Provider>
+    );
+};
+
+// Provider yêu cầu xác thực
+export const CompanyProvider = ({ children }) => {
+    const [companyData, setCompanyData] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [userRole, setUserRole] = useState(null);
+    const navigate = useNavigate();
+    const location = useLocation();
+    const { resetNotifications, reloadNotifications } = useNotification() || {};
+
+    useEffect(() => {
+        setTokenNames('com_token', 'com_refresh');
+    }, []);
+
+    const logout = useCallback(() => {
+        Cookies.remove('com_token');
+        Cookies.remove('com_refresh');
+        setCompanyData(null);
+        if (resetNotifications) {
+            resetNotifications();
+        }
+        const currentPath = location.pathname;
+        if (currentPath !== '/company/login') {
+            navigate(`/company/login?redirect=${encodeURIComponent(currentPath)}`);
+        }
+    }, [navigate, location.pathname, resetNotifications]);
+
+    const fetchUserData = useCallback(async () => {
+        const token = Cookies.get('com_token');
+        if (!token) {
+            setLoading(false);
+            return null;
+        }
+
+        try {
+            const response = await axiosInstance.get('/company/me', withAuth());
+            setCompanyData(response.data);
+            setUserRole(response.data.account?.role || null);
+            if (reloadNotifications) {
+                reloadNotifications();
+            }
+            return response.data;
+        } catch (error) {
+            console.error('Lỗi khi lấy thông tin người dùng:', error.message);
+            logout();
+            return null;
+        } finally {
+            setLoading(false);
+        }
+    }, [logout, reloadNotifications]);
+
+    useEffect(() => {
+        const token = Cookies.get('com_token');
+        if (!token && location.pathname !== '/company/login') {
+            const currentPath = location.pathname;
+            navigate(`/company/login?redirect=${encodeURIComponent(currentPath)}`);
+        } else {
+            fetchUserData();
+        }
+    }, [fetchUserData, location.pathname, navigate]);
+
+    const value = {
+        companyData,
+        loading,
+        logout,
+        fetchUserData,
+        userRole,
+        isAuthenticated: !!companyData
+    };
+
     return (
         <CompanyContext.Provider value={value}>
             {children}
