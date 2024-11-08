@@ -14,10 +14,6 @@ const Dashboard = () => {
   const [startDate, setStartDate] = useState(moment().subtract(7, 'days').toDate());
   const [endDate, setEndDate] = useState(new Date());
 
-  useEffect(() => {
-    fetchDashboardData();
-  }, [startDate, endDate, timeUnit]);
-
   const fetchDashboardData = async () => {
     setLoading(true);
     try {
@@ -35,6 +31,10 @@ const Dashboard = () => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, [startDate, endDate, timeUnit]);
 
   const handleTimeUnitChange = (e) => {
     const value = e.target.value;

@@ -1,163 +1,45 @@
-import React, { useEffect, useState, Suspense, lazy } from 'react';
-import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import React from 'react';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import Main from '../layout/Main';
 import Dashboard from '../components/school/Dashboard';
-import NotFound from '../common/Notfound';
-import { FaTachometerAlt, FaUserGraduate, FaUniversity, FaUserCog } from 'react-icons/fa';
-import { Spin } from 'antd';
-import SchoolHeader from '../components/school/SchoolHeader';
-import { SchoolProvider, useSchool } from '../context/SchoolContext';
-import { NotificationProvider } from '../context/NotificationContext';
-import Cookies from 'js-cookie';
-import NProgress from 'nprogress';
-import 'nprogress/nprogress.css';
-import { debounce } from 'lodash';
-import FullScreenLoader from '../common/FullScreenLoader';
 import FacultyManagement from '../components/school/FacultyManagement';
 import AccountManagement from '../components/school/AccountManagement';
+import StudentManagement from '../components/school/StudentManagement';
+import NotFound from '../common/Notfound';
+import { RequireSchoolAuth } from './RequireSchoolAuth'; // Giả sử bạn có RequireSchoolAuth để kiểm tra xác thực
+import { SchoolProvider, useSchool } from '../context/SchoolContext';
+import FullScreenLoader from '../common/FullScreenLoader';
+import { NotificationProvider } from '../context/NotificationContext';
+import { FaTachometerAlt, FaUserGraduate, FaUniversity, FaUserCog } from 'react-icons/fa';
 
-// Import StudentManagement component cho admin
-import AdminStudentManagement from '../components/school/StudentManagement';
-// Import StudentManagement component cho trưởng khoa
-import FacultyHeadStudentManagement from '../components/school/faculty-head/StudentManagement';
-
-const delayedRequest = (func, delay = 1000) => {
-    return debounce(func, delay, { leading: true, trailing: false });
-};
-
-const getNavItems = (userRole) => {
-    const commonItems = [
-        { key: "1", to: "/school/dashboard", label: "Dashboard", icon: <FaTachometerAlt /> },
-    ];
-
-    const adminItems = [
-        { key: "2", to: "/school/students", label: "Quản lý sinh viên", icon: <FaUserGraduate /> },
-        { key: "3", to: "/school/faculties", label: "Quản lý khoa", icon: <FaUniversity /> },
-        { key: "4", to: "/school/accounts", label: "Quản lý tài khoản", icon: <FaUserCog /> },
-    ];
-
-    const facultyHeadItems = [
-        { key: "2", to: "/school/students", label: "Quản lý sinh viên", icon: <FaUserGraduate /> },
-        { key: "3", to: "/school/accounts", label: "Quản lý tài khoản", icon: <FaUserCog /> },
-    ];
-
-    if (userRole === 'admin') {
-        return [...commonItems, ...adminItems];
-    } else if (userRole === 'faculty-head') {
-        return [...commonItems, ...facultyHeadItems];
-    }
-
-    return commonItems;
-};
-
-const isAuthenticated = () => {
-    return Boolean(Cookies.get('accessToken'));
-};
-
-function PrivateRoute({ children }) {
-    const { loading, checkAuthStatus, schoolData, isAuthChecked } = useSchool();
-    const navigate = useNavigate();
-    const location = useLocation();
-
-    useEffect(() => {
-        if (!isAuthChecked && !location.pathname.includes('/login')) {
-            checkAuthStatus();
-        }
-    }, [checkAuthStatus, isAuthChecked, location]);
-
-    useEffect(() => {
-        if (isAuthChecked && !schoolData && !location.pathname.includes('/login')) {
-            navigate('/school/login', { replace: true });
-        }
-    }, [isAuthChecked, schoolData, navigate, location]);
-
-    if (loading) {
-        return <Spin size="large" />;
-    }
-
-    return children;
-}
+const navItems = [
+    { key: "1", to: "/school/dashboard", label: "Dashboard", icon: <FaTachometerAlt /> },
+    { key: "2", to: "/school/students", label: "Quản lý sinh viên", icon: <FaUserGraduate /> },
+    { key: "3", to: "/school/faculties", label: "Quản lý khoa", icon: <FaUniversity /> },
+    { key: "4", to: "/school/accounts", label: "Quản lý tài khoản", icon: <FaUserCog /> },
+];
 
 function School() {
     return (
         <SchoolProvider>
             <Routes>
-                <Route path="/*" element={<PrivateRoute><ProtectedRoutes /></PrivateRoute>} />
+                <Route path="/login" element={<Navigate to="/school/login" replace />} /> {/* Route cho trang đăng nhập */}
+                <Route path="/*" element={
+                    <RequireSchoolAuth>
+                        <Main navItems={navItems}>
+                            <Routes>
+                                <Route path="/" element={<Navigate to="/school/dashboard" replace />} />
+                                <Route path="/dashboard" element={<Dashboard />} />
+                                <Route path="/students" element={<StudentManagement />} />
+                                <Route path="/faculties" element={<FacultyManagement />} />
+                                <Route path="/accounts" element={<AccountManagement />} />
+                                <Route path="*" element={<NotFound homeLink={"/school/dashboard"} />} />
+                            </Routes>
+                        </Main>
+                    </RequireSchoolAuth>
+                } />
             </Routes>
         </SchoolProvider>
-    );
-}
-
-function ProtectedRoutes() {
-    const { schoolData, loading, userRole, logout } = useSchool();
-    const [isDataLoaded, setIsDataLoaded] = useState(false);
-
-    useEffect(() => {
-        const loadData = delayedRequest(async () => {
-            // Thực hiện các request cần thiết ở đây
-            setIsDataLoaded(true);
-        });
-
-        loadData();
-
-        return () => loadData.cancel();
-    }, []);
-
-    useEffect(() => {
-        if (loading) {
-            NProgress.start();
-        } else {
-            NProgress.done();
-        }
-    }, [loading]);
-
-    const navItems = getNavItems(userRole);
-
-    if (!isDataLoaded) {
-        return <Spin size="large" />;
-    }
-
-    return (
-        <NotificationProvider>
-            <Suspense fallback={<FullScreenLoader />}>
-                <Main navItems={navItems} RightComponent={SchoolHeader} logout={logout}>
-                    <Routes>
-                        <Route path="/" element={<Navigate to="/school/dashboard" replace />} />
-                        <Route path="/dashboard" element={
-                            <Suspense fallback={<FullScreenLoader />}>
-                                <Dashboard />
-                            </Suspense>
-                        } />
-                        {userRole === 'admin' && (
-                            <>
-                                <Route path="/students" element={<AdminStudentManagement />} />
-                                <Route path="/faculties" element={
-                                    <Suspense fallback={<FullScreenLoader />}>
-                                        <FacultyManagement />
-                                    </Suspense>
-                                } />
-                                <Route path="/accounts" element={
-                                    <Suspense fallback={<FullScreenLoader />}>
-                                        <AccountManagement />
-                                    </Suspense>
-                                } />
-                            </>
-                        )}
-                        {userRole === 'faculty-head' && (
-                            <Route path="/students" element={<FacultyHeadStudentManagement />} />
-                        )}
-                        {(userRole === 'admin' || userRole === 'faculty-head' ) && (
-                            <Route path="/accounts" element={
-                                <Suspense fallback={<FullScreenLoader />}>
-                                    <AccountManagement />
-                                </Suspense>
-                            } />
-                        )}
-                        <Route path="*" element={<NotFound homeLink={"/school/dashboard"} />} />
-                    </Routes>
-                </Main>
-            </Suspense>
-        </NotificationProvider>
     );
 }
 

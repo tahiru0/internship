@@ -83,7 +83,6 @@ const AppLayout = ({ children }) => {
         appliedProjects,
         acceptedProjects,
         updateAppliedProjects,
-        studentData ,
         onLogout: handleLogout
       });
     }

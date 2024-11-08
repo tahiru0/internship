@@ -80,12 +80,12 @@ function AppContent() {
       try {
         const response = await axiosInstance.get('/health-check', { timeout: 5000 });
         setMaintenanceMode({
-          isActive: false,
+          isActive: true,
           message: response.message || 'Hệ thống hoạt động bình thường'
         });
       } catch (error) {
         setMaintenanceMode({
-          isActive: true,
+          isActive: false,
           message: error.message || 'Hệ thống đang gặp sự cố, vui lòng thử lại sau'
         });
       } finally {

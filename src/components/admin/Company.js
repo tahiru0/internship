@@ -1,15 +1,15 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Table, Button, Modal, Input, Row, Col, Switch, Dropdown, Menu, Card, message } from 'antd';
-import { SearchOutlined, EyeOutlined, DownOutlined, EditOutlined } from '@ant-design/icons';
+import { SearchOutlined, DownOutlined, EditOutlined, EyeOutlined } from '@ant-design/icons';
 import { InputGroup } from 'react-bootstrap';
 import moment from 'moment';
-import useForm from '../../common/useForm';
 import axiosInstance from '../../utils/axiosInstance';
+import CreateCompanyForm from './form/CreateCompanyForm';
+import UpdateCompanyForm from './form/UpdateCompanyForm';
 
 const Company = () => {
   const [detailsVisible, setDetailsVisible] = useState(false);
   const [selectedDetails, setSelectedDetails] = useState(null);
-
   const [companies, setCompanies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [pagination, setPagination] = useState({
@@ -20,6 +20,9 @@ const Company = () => {
   const [searchText, setSearchText] = useState('');
   const [sortField, setSortField] = useState('createdAt');
   const [sortOrder, setSortOrder] = useState('');
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [selectedCompany, setSelectedCompany] = useState(null);
+  const [loadingCompanies, setLoadingCompanies] = useState({});
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -44,9 +47,30 @@ const Company = () => {
     }
   }, [pagination.current, pagination.pageSize, sortField, sortOrder, searchText]);
 
+  const fetchProjectCounts = useCallback(async () => {
+    try {
+      const response = await axiosInstance.get('/admin/companies/project-count');
+      const projectCounts = response.data.data;
+
+      // Cập nhật số lượng dự án cho từng công ty
+      setCompanies(prevCompanies => 
+        prevCompanies.map(company => {
+          const projectCount = projectCounts.find(pc => pc.id === company.id);
+          return {
+            ...company,
+            projectCount: projectCount ? projectCount.projectCount : 0,
+          };
+        })
+      );
+    } catch (error) {
+      message.error(error.message || 'Không thể tải số lượng dự án');
+    }
+  }, []);
+
   useEffect(() => {
     fetchData();
-  }, [fetchData]);
+    fetchProjectCounts(); // Gọi API để lấy số lượng dự án
+  }, [fetchData, fetchProjectCounts]);
 
   const handleTableChange = (newPagination, filters, sorter) => {
     setPagination({
@@ -59,14 +83,61 @@ const Company = () => {
   };
 
   const toggleActiveStatus = async (record) => {
+    setLoadingCompanies(prev => ({ ...prev, [record.id]: true }));
     try {
-      // Optimistically update the UI
-      await axiosInstance.put(`/admin/companies/${record._id}`, { isActive: !record.isActive });
-      message.success(`Trạng thái tài khoản đã được cập nhật thành ${!record.isActive ? 'Hoạt động' : 'Không hoạt động'}`);
-      // Refresh the data to reflect the changes
-      fetchData();
+      const response = await axiosInstance.put(`/admin/companies/${record.id}`, { 
+        isActive: !record.isActive 
+      });
+
+      if (response.status === 200) {
+        setCompanies(prevCompanies => prevCompanies.map(company => 
+          company.id === record.id ? { ...company, isActive: !record.isActive } : company
+        ));
+        
+        message.success(response.data.message || 'Cập nhật trạng thái tài khoản thành công');
+      } else {
+        throw new Error('Phản hồi không hợp lệ từ server');
+      }
     } catch (error) {
-      message.error('Không thể cập nhật trạng thái tài khoản');
+      message.error(error.response?.data?.message || 'Không thể cập nhật trạng thái tài khoản');
+      setCompanies(prevCompanies => prevCompanies.map(company => 
+        company.id === record.id ? { ...company, isActive: record.isActive } : company
+      ));
+    } finally {
+      setLoadingCompanies(prev => ({ ...prev, [record.id]: false }));
+    }
+  };
+
+  const handleCreate = async (formData) => {
+    try {
+      const response = await axiosInstance.post('/admin/companies', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      message.success('Tạo công ty thành công');
+      setCompanies(prevCompanies => [
+        ...prevCompanies,
+        { ...response.data.data, id: response.data.data.id }
+      ]);
+      setIsModalVisible(false);
+    } catch (error) {
+      message.error(error.response?.data?.message || 'Không thể tạo công ty');
+    }
+  };
+
+  const handleUpdate = async (id, values) => {
+    try {
+      await axiosInstance.put(`/admin/companies/${id}`, values);
+      message.success('Cập nhật công ty thành công');
+
+      setCompanies(prevCompanies => 
+        prevCompanies.map(company => 
+          company.id === id ? { ...company, ...values } : company
+        )
+      );
+
+      setIsModalVisible(false);
+    } catch (error) {
+      message.error(error.response?.data?.message || 'Không thể cập nhật công ty');
     }
   };
 
@@ -88,13 +159,11 @@ const Company = () => {
       title: 'Email',
       dataIndex: 'email',
       key: 'email',
-      sorter: true,
     },
     {
       title: 'SL dự án',
-      dataIndex: 'projectCount',
+      dataIndex: 'projectCount', // Cột mới cho số lượng dự án
       key: 'projectCount',
-      sorter: true,
     },
     {
       title: 'Active',
@@ -104,22 +173,27 @@ const Company = () => {
           checked={record.isActive} 
           onChange={() => toggleActiveStatus(record)} 
           checkedChildren="Active" 
-          unCheckedChildren="Inactive" 
+          unCheckedChildren="Disable" 
+          loading={loadingCompanies[record.id]}
+          disabled={loadingCompanies[record.id]}
         />
       ),
     },
+    // {
+    //   title: 'Ngày tạo',
+    //   dataIndex: 'createdAt',
+    //   key: 'createdAt',
+    //   render: (text) => moment(text).format('DD/MM/YYYY'),
+    // },
     {
-      title: 'Created At',
-      dataIndex: 'createdAt',
-      key: 'createdAt',
-      render: (text) => moment(text).format('DD/MM/YYYY HH:mm:ss'),
-      sorter: true,
-    },
-    {
-      title: '',
+      title: 'Hành động',
       key: 'action',
       render: (_, record) => (
         <>
+          <Button 
+            onClick={() => { setSelectedCompany(record); setIsModalVisible(true); }} 
+            icon={<EditOutlined />} 
+          />
           <Button 
             onClick={() => { setSelectedDetails(record); setDetailsVisible(true); }} 
             icon={<EyeOutlined />} 
@@ -128,41 +202,19 @@ const Company = () => {
         </>
       ),
       width: 120,
-      fixed: 'right',
     },
   ];
-
-  const menu = (
-    <Menu>
-      <Menu.Item key="1" onClick={() => handleExport('csv')}>
-        Xuất CSV
-      </Menu.Item>
-      <Menu.Item key="2" onClick={() => handleExport('excel')}>
-        Xuất Excel
-      </Menu.Item>
-    </Menu>
-  );
-
-  const handleExport = (type) => {
-    // Xử lý xuất dữ liệu
-    message.info(`Đang xuất dữ liệu dạng ${type}. Tính năng này chưa được triển khai.`);
-  };
 
   return (
     <div className='container'>
       <div style={{ marginBottom: 16, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px' }}>
         <div className="col-auto">
-          <Button type="primary" size="small" onClick={() => { setSelectedDetails(null); setDetailsVisible(true); }}>
+          <Button type="primary" size="small" onClick={() => { setSelectedCompany(null); setIsModalVisible(true); }}>
             Tạo công ty
           </Button>
         </div>
         <div className="col-auto ms-auto">
           <InputGroup>
-            <Dropdown overlay={menu} trigger={['click']}>
-              <Button>
-                Tùy chọn <DownOutlined />
-              </Button>
-            </Dropdown>
             <Input
               placeholder="Search"
               prefix={<SearchOutlined />}
@@ -192,14 +244,27 @@ const Company = () => {
       </Card>
 
       <Modal
-        title="Company Details"
+        title={selectedCompany ? 'Chỉnh sửa công ty' : 'Tạo công ty'}
+        visible={isModalVisible}
+        onCancel={() => setIsModalVisible(false)}
+        footer={null}
+        width={600}
+      >
+        {selectedCompany ? (
+          <UpdateCompanyForm 
+            initialValues={selectedCompany} 
+            onSubmit={(values) => handleUpdate(selectedCompany.id, values)} 
+          />
+        ) : (
+          <CreateCompanyForm onSubmit={handleCreate} />
+        )}
+      </Modal>
+
+      <Modal
+        title="Chi tiết công ty"
         visible={detailsVisible}
         onCancel={() => setDetailsVisible(false)}
-        footer={[
-          <Button key="back" onClick={() => setDetailsVisible(false)}>
-            Close
-          </Button>
-        ]}
+        footer={[<Button key="back" onClick={() => setDetailsVisible(false)}>Đóng</Button>]}
         width={600}
       >
         {selectedDetails && (
@@ -211,11 +276,10 @@ const Company = () => {
               <Col span={16}>
                 <h2>{selectedDetails.name}</h2>
                 <p><strong>Email:</strong> {selectedDetails.email}</p>
-                <p><strong>Description:</strong></p>
-                <div dangerouslySetInnerHTML={{ __html: selectedDetails.description }} />
+                <p><strong>SL dự án:</strong> {selectedDetails.projectCount}</p>
+                <p><strong>Địa chỉ:</strong> {selectedDetails.address}</p>
                 <p><strong>Website:</strong> <a href={selectedDetails.website} target="_blank" rel="noopener noreferrer">{selectedDetails.website}</a></p>
-                <p><strong>Phone:</strong> {selectedDetails.accounts[0].phone}</p>
-                <p><strong>Created At:</strong> {moment(selectedDetails.createdAt).format('DD/MM/YYYY HH:mm:ss')}</p>
+                <p><strong>Ngày tạo:</strong> {moment(selectedDetails.createdAt).format('DD/MM/YYYY HH:mm:ss')}</p>
               </Col>
             </Row>
           </div>
@@ -223,37 +287,6 @@ const Company = () => {
       </Modal>
     </div>
   );
-};
-
-const CreateCompanyForm = ({ onSubmit }) => {
-  const formFields = [
-    { name: ['user', 'username'], label: 'Username', type: 'text', rules: [{ required: true, message: 'Please input the username' }] },
-    { name: ['user', 'password'], label: 'Password', type: 'password', rules: [{ required: true, message: 'Please input the password' }] },
-    { name: 'email', label: 'Email', type: 'text', rules: [{ required: true, message: 'Please input the email' }, { type: 'email', message: 'Please enter a valid email' }] },
-    { name: 'name', label: 'Name', type: 'text', rules: [{ required: true, message: 'Please input the name' }] },
-    { name: 'description', label: 'Description', type: 'wysiwyg', colSpan: 24 },
-    { name: 'website', label: 'Website', type: 'link' },
-    { name: ['user', 'phone'], label: 'Phone', type: 'text', rules: [{ required: true, message: 'Please input the phone number' }] },
-    { name: 'logo', label: 'Logo', type: 'upload', accept: 'image/*', colSpan: 24 },
-  ];
-
-  const { form, renderForm } = useForm({ fields: formFields, onSubmit });
-  return renderForm();
-};
-
-const EditCompanyForm = ({ initialValues, onSubmit }) => {
-  const formFields = [
-    { name: 'email', label: 'Email', type: 'text', rules: [{ type: 'email', message: 'Please enter a valid email' }] },
-    { name: 'name', label: 'Name', type: 'text' },
-    { name: 'description', label: 'Description', type: 'wysiwyg', colSpan: 24 },
-    { name: 'website', label: 'Website', type: 'link' },
-    { name: ['user', 'phone'], label: 'Phone', type: 'text' },
-    { name: 'isActive', label: 'Active', type: 'checkbox' },
-    { name: 'logo', label: 'Logo', type: 'upload', accept: 'image/*', colSpan: 24 },
-  ];
-
-  const { form, renderForm } = useForm({ fields: formFields, onSubmit, initialValues });
-  return renderForm();
 };
 
 export default Company;

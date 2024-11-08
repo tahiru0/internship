@@ -2,78 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { Form, Button, Layout, Typography, message, Input, Checkbox, Select, Avatar } from 'antd';
 import { MailOutlined, LockOutlined } from '@ant-design/icons';
-import axiosInstance, { withAuth } from '../../utils/axiosInstance';
+import axiosInstance, { withAuth, setTokenNames } from '../../utils/axiosInstance';
 import Cookies from 'js-cookie';
 import { Container, Row, Col, Card } from 'react-bootstrap';
 import * as Yup from 'yup';
 import { Formik } from 'formik';
 import { useSchool } from '../../context/SchoolContext';
-import { jwtDecode } from 'jwt-decode';
+// import { jwtDecode } from 'jwt-decode';
+import SchoolSelectDropDown  from '../SchoolSelectDropDown';
 
 const { Content } = Layout;
 const { Title } = Typography;
 const { Option } = Select;
-
-const SchoolSelect = ({ onSelect, initialValue }) => {
-    const [schools, setSchools] = useState([]);
-    const [searchValue, setSearchValue] = useState('');
-    const [selectedSchool, setSelectedSchool] = useState(null);
-
-    useEffect(() => {
-        if (initialValue) {
-            handleSearch(initialValue);
-        }
-    }, [initialValue]);
-
-    const handleSearch = async (value) => {
-        setSearchValue(value);
-        if (value.length >= 2) {
-            try {
-                const response = await axiosInstance.get(`/auth/schools?query=${value}`);
-                setSchools(response.data);
-                if (response.data.length === 1 && response.data[0].id === value) {
-                    setSelectedSchool(response.data[0]);
-                }
-            } catch (error) {
-                console.error('Lỗi khi tìm kiếm trường học:', error);
-                if (error.response && error.response.data && error.response.data.message) {
-                    message.error(error.response.data.message);
-                } else {
-                    message.error('Không thể tìm kiếm trường học');
-                }
-            }
-        } else {
-            setSchools([]);
-        }
-    };
-
-    const handleChange = (value, option) => {
-        setSelectedSchool(option.school);
-        onSelect(value);
-    };
-
-    return (
-        <Select
-            showSearch
-            placeholder="Chọn trường học"
-            filterOption={false}
-            onSearch={handleSearch}
-            onChange={handleChange}
-            notFoundContent={null}
-            style={{ width: '100%' }}
-            value={selectedSchool ? selectedSchool.id : undefined}
-            size="large"
-            dropdownStyle={{ maxHeight: 400, overflow: 'auto' }}
-        >
-            {schools.map((school) => (
-                <Option key={school.id} value={school.id} school={school}>
-                    <Avatar src={school.logo} size="default" style={{ marginRight: 8 }} />
-                    {school.name}
-                </Option>
-            ))}
-        </Select>
-    );
-};
 
 const Login = () => {
     const [form] = Form.useForm();
@@ -107,25 +47,34 @@ const Login = () => {
     }, [location.search, form, schoolId]);
 
     const handleLogin = async (values) => {
-        console.log('Đang xử lý đăng nhập với giá trị:', values);
+        // console.log('Đang xử lý đăng nhập với giá trị:', values);
         try {
-            const { email, password } = values;
-            const response = await axiosInstance.post('/auth/login/school', {
+            const response = await axiosInstance.post('/auth/school/login', {
                 schoolId: values.schoolId,
-                email,
-                password,
+                email: values.email,
+                password: values.password,
             });
-
-            const { accessToken, refreshToken } = response.data;
-
+    
+            const accessToken = response.data.data.token;
+            const refreshToken = response.data.data.refreshToken;
+            const user = response.data.data.user;
+    
+            setTokenNames('accessToken', 'schoolRefreshToken');
+    
             Cookies.set('accessToken', accessToken, { expires: 1 / 24 });
-            if (rememberMe) {
-                Cookies.set('schoolRefreshToken', refreshToken, { expires: 30 });
-              }
-            
-            await checkAuthStatus();
-            message.success('Đăng nhập thành công!');
-            navigate('/school/dashboard');
+            Cookies.set('refreshToken', refreshToken, { expires: 7 });
+            Cookies.set('User', JSON.stringify(user), { expires: 7 });
+    
+            axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
+    
+            // Gọi checkAuthStatus sau khi đăng nhập thành công
+            // await checkAuthStatus();
+            if(user.isActive){
+                message.success('Đăng nhập thành công!');
+                navigate('/school/dashboard');
+            }else{
+                message.error('Tài khoản của bạn đã bị vô hiệu hóa! Liên hệ admin để biết thêm chi tiết.');
+            }
         } catch (error) {
             console.error('Lỗi đăng nhập:', error);
             if (error.response && error.response.data && error.response.data.message) {
@@ -199,16 +148,16 @@ const Login = () => {
                                         onFinish={handleSubmit}
                                         autoComplete="off"
                                         layout="vertical"
-                                        initialValues={{ schoolId: '' }}
+                                        initialValues={{ schoolId: values.schoolId }}
                                     >
                                         <Form.Item
                                             name="schoolId"
                                             rules={[{ required: true, message: 'Vui lòng chọn trường học!' }]}
                                         >
-                                            <SchoolSelect
-                                                onSelect={(value) => {
-                                                    handleSchoolSelect(value);
-                                                    setFieldValue('schoolId', value);
+                                            <SchoolSelectDropDown
+                                                onSelect={(values) => {
+                                                    handleSchoolSelect(values);
+                                                    setFieldValue('schoolId', values);
                                                 }}
                                                 initialValue={schoolId}
                                             />

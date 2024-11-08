@@ -9,7 +9,8 @@ import Contact from '../components/admin/Contact';
 import NotificationManager from '../components/admin/NotificationManager';
 import NotFound from '../common/Notfound';
 import Email from '../components/admin/Email';
-import { FaTachometerAlt, FaBuilding, FaUniversity, FaBell, FaEnvelope, FaCog } from 'react-icons/fa';
+import Users from '../components/admin/User';
+import { FaTachometerAlt, FaBuilding, FaUniversity, FaBell, FaEnvelope, FaUser } from 'react-icons/fa';
 import { RiBuilding2Fill } from 'react-icons/ri';
 import { Routes, Route, Navigate } from 'react-router-dom'; 
 import FullScreenLoader from '../common/FullScreenLoader';
@@ -23,6 +24,7 @@ const navItems = [
   { key: "1", to: "/admin/dashboard", label: "Dashboard", icon: <FaTachometerAlt /> },
   { key: "2", to: "/admin/company", label: "Công ty", icon: <RiBuilding2Fill /> },
   { key: "3", to: "/admin/school", label: "Trường đại học", icon: <FaUniversity /> },
+  { key: "4", to: "/admin/users", label: "Người dùng", icon: <FaUser /> },
   { key: "6", to: "/admin/email", label: "Email", icon: <FaEnvelope /> },
   { key: "8", to: "/admin/data-upload", label: "Tải lên dữ liệu", icon: <UploadOutlined /> },
   { key: "10", to: "/admin/backup", label: "Sao lưu", icon: <FaDatabase /> },
@@ -38,6 +40,7 @@ function Admin() {
             <Main navItems={navItems} RightComponent={AdminHeader}>
               <Routes>
                 <Route path="/" element={<Navigate to="/admin/dashboard" replace />} />
+                <Route path="/users" element={<Users />} />
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/company" element={<Company />} /> 
                 <Route path="/school" element={<School />} />

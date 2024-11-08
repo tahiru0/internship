@@ -4,7 +4,7 @@ import { UserOutlined, CheckCircleOutlined, FileDoneOutlined, FileSearchOutlined
 import { useSchool } from '../../context/SchoolContext';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import axiosInstance, { withAuth } from '../../utils/axiosInstance';
-
+import Cookies from 'js-cookie';
 const { Title, Text } = Typography;
 
 const getGreeting = () => {

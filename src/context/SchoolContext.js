@@ -41,13 +41,10 @@ export const SchoolProvider = ({ children }) => {
         setLoading(true);
         
         try {
-            const accessToken = Cookies.get('accessToken');
-            if (!accessToken) {
-                throw new Error('No access token');
-            }
 
-            const response = await axiosInstance.get('/school/me', withAuth());
-            setSchoolData(response.data);
+            const response = await axiosInstance.get('/school/dashboard', withAuth());
+            setSchoolData(response.data.data);
+            console.log(response.data.data);
             setUserRole(response.data.account.role);
             setRefreshAttempts(0);
             if (reloadNotifications) {

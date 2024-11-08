@@ -16,9 +16,10 @@ const AdminLoginPage = () => {
 
   const handleLogin = async (values) => {
     try {
-      const response = await axiosInstance.post('/auth/login/admin', values);
-      const { accessToken, refreshToken, user } = response.data;
-
+      const response = await axiosInstance.post('/auth/login', values);
+      const accessToken = response.data.data.token;
+      const refreshToken = response.data.data.refreshToken;
+      const user = response.data.data.user;
       // Set token names cho admin
       setTokenNames('adminAccessToken', 'adminRefreshToken');
       
@@ -52,7 +53,7 @@ const AdminLoginPage = () => {
             layout="vertical"
           >
             <Form.Item
-              name="username"
+              name="email"
               rules={[{ required: true, message: 'Vui lòng nhập tên đăng nhập!' }]}
               style={{paddingBottom:14}}
             >
